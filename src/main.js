@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { PixelPipeline, LAYER_FX, LAYER_SH_ORB, LAYER_SH_MOON } from './post.js';
 import { billboard, tex, disposeGroup, makeEnv, SHAFT_T } from './common.js';
 import { makeOrbStar } from './orbstar.js';
-import { SpriteChar, spriteRig } from './sprchar.js';
+import { VoxChar } from './voxchar.js';
 import { createAudio } from './audio.js';
 import { FX } from './fx.js';
 import { buildStar } from './level1.js';
@@ -72,11 +72,12 @@ function snapMoon(c) {
 }
 
 /* ================= 角色 ================= */
-// 主角是平面像素小人：八个朝向的程序化像素画 + 每帧法线图（光照到身上有体积）
-const pc = new SpriteChar();
-const player = new THREE.Group(); scene.add(player);
-const rig = spriteRig(THREE, pc, { fx: LAYER_FX, shOrb: LAYER_SH_ORB, shMoon: LAYER_SH_MOON }); player.add(rig.group);
-pipe.normalExtra = (r, c) => rig.renderNormals(r, c);
+// 主角是真正立体的体素小人：正面、侧面、背面都是同一个身体，直接投出和身形一致的影子
+const pc = new VoxChar();
+const player = new THREE.Group(); scene.add(player); player.add(pc.group);
+pipe.normalExtra = (r, c) => { if (pc.group.parent && player.visible) pc.renderNormals(r, c); };
+// 角色不参与法线描边，但两种光都能用它投影
+pc.group.traverse(o => { if (o.isMesh) { o.layers.set(LAYER_FX); o.layers.enable(LAYER_SH_ORB); o.layers.enable(LAYER_SH_MOON); } });
 const P = { x: 2.5, z: 7.5, dir: 'down', vx: 0, vz: 0, run: 0, moving: false, falling: false, fallT: 0, y: 0, safe: [2.5, 7.5], crouch: 0, lie: false, act: null, actT: 0 };
 
 /* ================= 光点（鼠标即光源） ================= */
@@ -436,7 +437,7 @@ function update(dt) {
 
   // 角色帧
   pc.update({ dir: P.dir, moving: P.moving && !P.falling, run: P.run, vx: P.falling ? 0 : P.vx, vz: P.falling ? 0 : P.vz, dt, lie: P.lie, crouch: P.crouch, act: P.act, actT: P.actT });
-  player.position.set(P.x, P.y, P.z);
+  player.position.set(Math.round(P.x * 32) / 32, P.y, Math.round(P.z * 32) / 32); pc.U.foot.value.copy(player.position);
 
   LV.update(dt, T);
   updateDream(dt);
@@ -465,7 +466,6 @@ function update(dt) {
   if (S.shakeT > 0) { S.shakeT -= dt; const a = S.shakeA * Math.max(0, S.shakeT / S.shakeD); focusPt.x += (Math.random() - .5) * a; focusPt.z += (Math.random() - .5) * a; }
   pipe.snap(cam, focusPt, dir, CAM_DIST);
   orbStar.update(dt, T, cam, Math.max(.35, orb.k), orbGlow);
-  rig.update(player.position, S.elev, pipe.colorRT.width, pipe.colorRT.height, orb, tmpM.subVectors(moon.position, moon.target.position));
   snapMoon(camFocus);
   if (LV.voidMat) LV.voidMat.uniforms.cam.value.set(camFocus.x, camFocus.z);
   // 景深焦点：开场时对准主角，其余时候在画面中央
