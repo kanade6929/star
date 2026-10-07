@@ -52,7 +52,7 @@ export function starVoid() {
         vec2 p1 = p + cam * .35, p2 = p + cam * .6;
         float neb = n(p1 * .12) * .6 + n(p1 * .3 + 5.) * .4;
         vec3 base = mix(vec3(.003, .003, .011), vec3(.008, .005, .02), smoothstep(.3, .9, neb));
-        base += vec3(.026, .01, .04) * smoothstep(.62, .95, n(p1 * .08 + 9.));
+        base += vec3(.017, .007, .028) * smoothstep(.62, .95, n(p1 * .08 + 9.));
         base += vec3(.006, .016, .03) * smoothstep(.65, .95, n(p1 * .1 - 3.));
         // 星星本身也会跟着天极转起来
         vec2 pl = pole + cam * .35;
@@ -108,8 +108,8 @@ export function lakeMat() {
         float fog = smoothstep(.45, .9, n(p * .18 + vec2(time * .05, time * .02)));
         vec3 col = base + stars * .9 * (1. - trail * .7) + min(tr * trail, vec3(.75)) + mcol + refl * (1. - glow * .25) + ocol;
         col = min(col, vec3(1.05, 1.03, 1.1));
-        col = mix(col, vec3(.07, .065, .13), fog * .35);
-        col += vec3(.02, .02, .05) * (rip + .5) * .5;
+        col = mix(col, vec3(.04, .04, .085), fog * .3);
+        col += vec3(.012, .012, .03) * (rip + .5) * .5;
         gl_FragColor = vec4(col, 1.);
       }`
   });

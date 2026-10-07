@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import * as TX from './textures.js';
 import { mk } from './sprites.js';
 import { LAYER_FX } from './post.js';
-import { tex, ntex, toon, reflective, billboard, quadGeo, cliffMesh, wallGeo, instWalls, hashv, shadowAll } from './common.js';
+import { tex, ntex, toon, reflective, billboard, quadGeo, cliffMesh, wallGeo, instWalls, hashv, shadowAll, lightShaft } from './common.js';
 import { lakeMat } from './abyss.js';
 import { haloCanvas } from './sprites.js';
 
@@ -13,7 +13,9 @@ const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const easeBack = t => { const c = 1.4; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
 const LIT_R = 9.6;   // 星光能照到的距离
-const HUB = [41.5, 7.5], ARM_R = 1.4, ARM_W = .7, ARM_PERIOD = 20;
+// 月轮：湖心一根高大的月柱，顶上的转臂吊着一只「月钩」绕柱转圈。
+// 光点挂上月钩，就像月亮绕着湖心走；月柱的影子永远落在光的对面，跟着一起转
+const HUB = [41.5, 7.5], HOOK_R = 1.3, PILLAR_R = .5, ARM_PERIOD = 20;
 const LAKE_Y = -.3;
 
 /* ---------- 地图 ----------
@@ -102,7 +104,7 @@ export function buildMoon(ctx) {
   const matMoss = toon({ map: tex(cMoss), normalMap: ntex(cMoss, 3.5), roughness: .9 });
   const matSand = toon({ map: tex(cSand), normalMap: ntex(cSand, 4), roughness: .7 });
   const ruinS = toon({ map: tex(cRuin), normalMap: ntex(cRuin, 6), normalScale: new THREE.Vector2(1.5, 1.5), roughness: .65 });
-  const ruinT = toon({ map: tex(cRuinT), normalMap: ntex(cRuinT, 3), roughness: .6 });
+  const ruinT = toon({ map: tex(cRuinT), normalMap: ntex(cRuinT, 3), roughness: .6, color: 0xa4a4c4 });
   const silverM = toon({ color: 0xc9cde6, roughness: .22, metalness: .85 });
   const paleM = toon({ color: 0x9ea3c8, roughness: .4 });
   const darkM = toon({ color: 0x2a2c4a, roughness: .5, metalness: .3 });
@@ -175,7 +177,9 @@ export function buildMoon(ctx) {
     const winM = new THREE.MeshStandardMaterial({ color: 0x221a10, emissive: 0xffc98a, emissiveIntensity: .9 });
     for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2 + .4; const w = new THREE.Mesh(new THREE.BoxGeometry(.18, .4, .05), winM); w.position.set(Math.cos(a) * 1.24, 2.6 + (i % 2) * .9, Math.sin(a) * 1.24); w.lookAt(Math.cos(a) * 5, w.position.y, Math.sin(a) * 5); g0.add(w); }
     shadowAll(g0); root.add(g0);
-    L.towers.push({ x: cx, z: cz, r: 1.3, top, winM });
+    // 塔窗透出的暖光：冷色夜里的一点暖色点缀
+    const warm = new THREE.PointLight(0xffb070, 2.2, 5, 1.6); warm.position.set(cx - 1.6, 2.4, cz + (cz < 7.5 ? 1 : -1)); root.add(warm);
+    L.towers.push({ x: cx, z: cz, r: 1.3, top, winM, warm });
   };
 
   /* ================= 犬与狼 ================= */
@@ -305,21 +309,31 @@ export function buildMoon(ctx) {
   /* ================= 月轮：湖心轴心 + 旋转的蚀屏（会动的影子） ================= */
   const hubG = new THREE.Group(); hubG.position.set(HUB[0], 0, HUB[1]); root.add(hubG);
   {
-    const ped = new THREE.Mesh(new THREE.CylinderGeometry(.42, .55, 1.3, 10), paleM); ped.position.y = .65; hubG.add(ped);
-    const cup = new THREE.Mesh(new THREE.TorusGeometry(.3, .05, 5, 20), silverM); cup.rotation.x = Math.PI / 2; cup.position.y = 1.32; hubG.add(cup);
+    // 月柱：高过光点，影子能一直拖到湖心外圈的影石路上
+    const pil = new THREE.Mesh(new THREE.CylinderGeometry(PILLAR_R * .86, PILLAR_R, 3.4, 12), toon({ map: tex(cTower), normalMap: ntex(cTower, 5), normalScale: new THREE.Vector2(1.4, 1.4), color: 0xb8bcd8, roughness: .35 })); pil.position.y = 1.7; hubG.add(pil);
+    [.35, 1.8, 3.35].forEach(y => { const b = new THREE.Mesh(new THREE.TorusGeometry(PILLAR_R * .9, .05, 5, 20), silverM); b.rotation.x = Math.PI / 2; b.position.y = y; hubG.add(b); });
+    const capM = new THREE.MeshStandardMaterial({ color: 0xe8e6ff, roughness: .2, metalness: .6, emissive: 0xc8c4ff, emissiveIntensity: .3 });
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(.3, 12, 8), capM); cap.position.y = 3.6; hubG.add(cap);
     const base = new THREE.Mesh(new THREE.CylinderGeometry(.7, .8, .3, 12), darkM); base.position.y = -.1; hubG.add(base);
     shadowAll(hubG);
   }
   const arm = new THREE.Group(); arm.position.set(HUB[0], 0, HUB[1]); root.add(arm);
+  const hook = { g: new THREE.Group(), glow: null, ringM: null };
   {
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(ARM_R + .5, .14, .2), silverM); beam.position.set((ARM_R) / 2, 3.15, 0); arm.add(beam);
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(.08, .08, 1.9, 6), silverM); mast.position.y = 2.2 + .1; arm.add(mast);
-    const screenM = toon({ map: tex(cTower), normalMap: ntex(cTower, 5), color: 0x8a8fb8, roughness: .35, metalness: .3 });
-    const screen = new THREE.Mesh(new THREE.BoxGeometry(.18, 2.9, ARM_W * 2), screenM); screen.position.set(ARM_R, 1.55, 0); arm.add(screen);
-    const edge = new THREE.Mesh(new THREE.BoxGeometry(.22, .08, ARM_W * 2 + .06), silverM); edge.position.set(ARM_R, 3.02, 0); arm.add(edge);
-    const cw = new THREE.Mesh(new THREE.SphereGeometry(.24, 10, 8), silverM); cw.position.set(-.7, 3.15, 0); arm.add(cw);
-    shadowAll(arm);
+    // 转臂：从月柱顶端伸出去，比光点高得多，不会在地上投影
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(HOOK_R + .9, .14, .18), silverM); beam.position.set((HOOK_R - .9) / 2 + .45, 3.55, 0); arm.add(beam);
+    const cw = new THREE.Mesh(new THREE.SphereGeometry(.22, 10, 8), silverM); cw.position.set(-.55, 3.55, 0); arm.add(cw);
+    const chain = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, 1.45, 4), silverM); chain.position.set(HOOK_R, 2.85, 0); arm.add(chain);
+    // 月钩：一弯新月形的托架，光点挂在它的怀里
+    hook.g.position.set(HOOK_R, 1.6, 0); arm.add(hook.g);
+    hook.ringM = new THREE.MeshStandardMaterial({ color: 0xd8dcf0, roughness: .2, metalness: .7, emissive: 0x8ff0e0, emissiveIntensity: .25 });
+    const cres = new THREE.Mesh(new THREE.TorusGeometry(.38, .045, 5, 22, Math.PI * 1.25), hook.ringM); cres.rotation.set(0, Math.PI / 2, Math.PI * 1.37); hook.g.add(cres);
+    hook.glow = billboard(tex(haloCanvas(32)), 1.1, 1.1, true, camQuat); hook.glow.material.color.set(0x8ff0e0); hook.glow.material.opacity = .3; hook.g.add(hook.glow);
+    shadowAll(arm, true, false); cres.castShadow = chain.castShadow = false;
   }
+  // 月钩走过的轨道：一圈很淡的光环，告诉玩家「把光放在这条线上」
+  const trackM = new THREE.MeshBasicMaterial({ color: 0x8ff0e0, transparent: true, opacity: .2, blending: THREE.AdditiveBlending, depthWrite: false });
+  const track = new THREE.Mesh(new THREE.TorusGeometry(HOOK_R, .02, 4, 72), trackM); track.rotation.x = Math.PI / 2; track.position.set(HUB[0], 1.6, HUB[1]); track.layers.set(LAYER_FX); root.add(track);
   // 湖面上的巨大月轮（随蚀屏一起转动的舞台装置）
   const wheel = new THREE.Group(); wheel.position.set(HUB[0], LAKE_Y + .04, HUB[1]); root.add(wheel);
   {
@@ -377,6 +391,9 @@ export function buildMoon(ctx) {
   const cray = new THREE.Mesh(new THREE.PlaneGeometry(.75, .5), toon({ map: crayT, alphaTest: .5, side: THREE.DoubleSide, roughness: .4 }));
   cray.geometry.translate(0, .25, 0); cray.quaternion.copy(camQuat); cray.layers.set(LAYER_FX); root.add(cray);
 
+  /* ================= 月光从云缝里落下的光柱 ================= */
+  [[4.6, 7.4, 1.7], [22.4, 8.6, 1.5], [46.5, 7.4, 1.3], [54.6, 7.5, 1.5]].forEach(([x, z, r]) => lightShaft(root, x, z, { color: 0xd8e0ff, r, I: 11, k: .4, lean: [.3, -.42] }));
+
   /* ================= 遍历摆放 ================= */
   const beasts = {};
   for (let z = 0; z < MH; z++) for (let x = 0; x < MW; x++) {
@@ -397,14 +414,16 @@ export function buildMoon(ctx) {
 
   /* ================= 遮挡与光照判定 ================= */
   let armA = Math.PI;
-  const armSeg = () => {
-    const cx = HUB[0] + Math.cos(armA) * ARM_R, cz = HUB[1] + Math.sin(armA) * ARM_R, tx = -Math.sin(armA) * ARM_W, tz = Math.cos(armA) * ARM_W;
-    return [[cx - tx, cz - tz], [cx + tx, cz + tz]];
-  };
+  // armA 是月柱影子所指的方向；月钩（光）在它的正对面
+  const hookX = () => HUB[0] - Math.cos(armA) * HOOK_R, hookZ = () => HUB[1] - Math.sin(armA) * HOOK_R;
+  // 会动的「插槽」：光点停在月钩经过的地方，月钩转到时把它挂走
+  const sockets = [{ get x() { return hookX(); }, get z() { return hookZ(); }, r: .55, active: () => !S.done,
+    onLock() { S.hubUsed = true; AU.lamp(0); const x = hookX(), z = hookZ(); fx.ring(x, 1.6, z, 0x8ff0e0, 1.6, .9); fx.ring(HUB[0], .05, HUB[1], 0x8ff0e0, 3.2, 1.2); fx.sigil(HUB[0], .06, HUB[1], 0x8ff0e0, 'moon', 3, 1.8); flash(.15); shake(.04, .3);
+      if (!S.hints.lock) { S.hints.lock = 1; toast('月钩挂上了星光。月柱的影子跟着转，踩着影子走', 4.6); } } }];
   function occluded(ax, az, bx, bz) {
     for (const m of L.monos) { if (Math.abs(ax - m.x) < .45 && Math.abs(az - m.z) < .45) continue; if (segAABB(ax, az, bx, bz, m.x, m.z, .4)) return true; }
     for (const t of L.towers) { if (Math.hypot(ax - t.x, az - t.z) < t.r) continue; if (segCircle(ax, az, bx, bz, t.x, t.z, t.r)) return true; }
-    const [a, b] = armSeg(); if (segSeg([ax, az], [bx, bz], a, b)) return true;
+    if (Math.hypot(ax - HUB[0], az - HUB[1]) > PILLAR_R && segCircle(ax, az, bx, bz, HUB[0], HUB[1], PILLAR_R)) return true;
     return false;
   }
   const inRange = (x, z) => Math.hypot(x - orb.x, z - orb.z) < LIT_R;
@@ -417,7 +436,7 @@ export function buildMoon(ctx) {
     qA: fx.beacon(qA.x, 1.0, qA.z, 0xc8b8ff, 1.2), qC: fx.beacon(qC.x, 1.0, qC.z, 0xc8b8ff, 1.2),
     dog: fx.beacon(dog.x, 1.3, dog.z, 0xffcf7a, .9), wolf: fx.beacon(wolf.x, 1.3, wolf.z, 0xff8aa0, .9),
     m1: fx.beacon(11.5, 3.3, 7.5, 0x9fe0ff, .8), m3: fx.beacon(25.5, 3.3, 7.5, 0x9fe0ff, .8),
-    hub: fx.beacon(HUB[0], 1.45, HUB[1], 0x8ff0e0, 1.3),
+    hub: fx.beacon(HUB[0], 1.6, HUB[1], 0x8ff0e0, 1.3),
     card: fx.beacon(card.x, .5, card.z, 0x9fb4ff, 1),
     altar: fx.beacon(altar.x, 1.0, altar.z, 0xd8dcff, 1.6)
   };
@@ -470,11 +489,16 @@ export function buildMoon(ctx) {
   function update(dt, T) {
     // 月轮转动
     armA += dt * Math.PI * 2 / ARM_PERIOD;
-    arm.rotation.y = -armA; wheel.rotation.y = -armA * .5;
+    arm.rotation.y = -(armA + Math.PI); wheel.rotation.y = -armA * .5;
+    const held = orb.lock === sockets[0];
+    hook.ringM.emissiveIntensity = held ? 1.2 : .25 + .15 * Math.sin(T * 2.4);
+    hook.glow.material.opacity = held ? 0 : .3 + .12 * Math.sin(T * 2.4);
+    trackM.opacity = held || S.done ? Math.max(0, trackM.opacity - dt * .5) : .2 + .06 * Math.sin(T * 1.6);
     // 影石：在影子里（或星光照不到的地方）是实的；被星光照到就成了幻影
     L.mist.forEach(m => {
+      // 只有星光投下的影子才是真的：光点离得太远，整片湖面都在月光下，影石也只是幻影
       // 取格子中心和四个角附近的点：只要有一处在影子里，这块月石就成形（对玩家宽容一点）
-      const solid = !litAt(m.cx, m.cz) || !litAt(m.cx - .3, m.cz - .3) || !litAt(m.cx + .3, m.cz - .3) || !litAt(m.cx - .3, m.cz + .3) || !litAt(m.cx + .3, m.cz + .3);
+      const solid = shadowedAt(m.cx, m.cz) || shadowedAt(m.cx - .3, m.cz - .3) || shadowedAt(m.cx + .3, m.cz - .3) || shadowedAt(m.cx - .3, m.cz + .3) || shadowedAt(m.cx + .3, m.cz + .3);
       if (solid) m.last = T;
       if (solid && !m.solid && m.k < .3 && Math.hypot(P.x - m.cx, P.z - m.cz) < 6) { if (Math.random() < .5) AU.ghost(); fx.emit(m.cx, .05, m.cz, { vy: .3, life: .7, c: LILAC, tw: 6, a: .8 }); }
       m.solid = solid;
@@ -531,7 +555,7 @@ export function buildMoon(ctx) {
     B.qA.on = !qA.on; B.qC.on = !qC.on;
     B.dog.on = B.wolf.on = B.m3.on = !S.solvedB;
     B.m1.on = P.x < 18.5 && qA.on;
-    B.hub.on = !orb.lock && P.x > 33 && P.x < 48;
+    B.hub.on = !orb.lock && P.x > 33 && P.x < 48; B.hub.x = hookX(); B.hub.z = hookZ(); B.hub.m.position.set(B.hub.x, B.hub.y, B.hub.z);
     B.card.on = !card.taken && card.vis < .5;
     B.altar.on = !S.done;
   }
@@ -544,7 +568,7 @@ export function buildMoon(ctx) {
     if (!h.court && P.x > 20) { h.court = 1; toast('犬望着光，狼藏于影', 4); }
     if (!h.beast && P.x > 22 && !S.solvedB && Math.hypot(P.x - 25.5, P.z - 7.5) < 4) { h.beast = 1; toast('犬要看见星光，狼要躲进影子里。两件事，要同时成立', 4.8); }
     // 光点第一次放进轴心之前，这条提示一直留在画面上
-    if (!S.hubUsed && P.x > 34.5 && P.x < 49) ctx.holdToast('湖心的月轮会托住星光。把光点放到中间的石台上');
+    if (!S.hubUsed && P.x > 34.5 && P.x < 49) ctx.holdToast('湖心的月钩绕着月柱转。把光点停在那圈淡淡的光环上，等月钩来接它');
     if (!h.e && P.x > 49) { h.e = 1; toast('月池。三相与牌，缺一不可', 3.8); }
     // 犬与狼：同时成立并保持一会儿
     if (!S.solvedB) {
@@ -606,7 +630,7 @@ export function buildMoon(ctx) {
     lake.uniforms.spin.value += dt * (.04 + S.trail * .5);
     lake.uniforms.pole.value.set(altar.x, altar.z - 6);
     const dawn = smooth(5, 10, e);
-    ctx.hemi.color.lerpColors(new THREE.Color(0x8a90d0), new THREE.Color(0xd8d8ff), dawn); ctx.hemi.intensity = .5 + dawn * .3;
+    ctx.hemi.color.lerpColors(new THREE.Color(0x8a90d0), new THREE.Color(0xd8d8ff), dawn); ctx.hemi.intensity = .17 + dawn * .4;
     return e > 11.5;
   }
 
@@ -614,7 +638,7 @@ export function buildMoon(ctx) {
     if (!qA.on) return ['月相石只在影子里醒来', '把光点移到石碑的另一边，让石碑挡住光，再站到月相石旁按 E'];
     if (P.x < 18) return ['湖上那条路，只在影子里才是真的', '站到湖边石碑的背后，把光点放在石碑西侧：影子会沿着湖面铺出一条路'];
     if (!S.solvedB) return ['犬要看见光，狼要藏进影子', '把光点放到中间石碑的左上方：狼落进石碑的影子，犬正好被照亮'];
-    if (!orb.lock && !qC.on && P.x < 40) return ['湖心的月轮有一个轴心，能托住星光', '把光点移到湖心的石台上，它会被托住；之后晃动鼠标就能取下'];
+    if (!S.hubUsed && !qC.on && P.x < 40) return ['月钩会带着星光绕月柱转圈，月柱的影子就跟着转', '把光点停在月柱周围那圈淡光环上，月钩转过来会挂上它；之后晃动鼠标就能取下'];
     if (!qC.on || !card.taken) return ['影子绕着湖心转。踩着影子走，别急', '在岸边等影子扫过来再踏上去，跟着它转。北边小岛有月相石，南边小岛的水里有牌'];
     return ['三相与牌都齐了，去最东边的月池', '从东岸一路往东，在月池前按 E'];
   }
@@ -624,15 +648,16 @@ export function buildMoon(ctx) {
     spawn: [3.5, 7.5], menuP: [3.5, 7.5], menuOrb: [6, 6.5], menuCam: [6.5, 7.6],
     leash: 7.5, mirrorY: -.12, hideInReflection: L.hide, voidMat: lake,
     palette: ['#0a0a1c', '#15152e', '#22224a', '#33356a', '#4b4f8c', '#6a6fae', '#9a9fcc', '#cfd3ea', '#f2f0ff', '#1b3150', '#2f5684', '#6f9ad0', '#3a5a64', '#e88a9a', '#f6b8bc', '#e6d6a8'],
-    tintLo: [.93, .95, 1.12], tintHi: [1.02, 1.0, 1.05],
-    light: { sky: 0x8a90d0, ground: 0x141830, hemi: .5, moon: 0xb8c4ff, moonK: 1.15, moonDir: [6, -5], orb: 0xffe6c8, halo: 0xffd9a8, mote: [1, .9, .75],
+    tintLo: [.96, .97, 1.05], tintHi: [1.02, 1.0, 1.05],
+    light: { sky: 0x8a90d0, ground: 0x141830, hemi: .17, moon: 0xb8c4ff, moonK: 1.5, moonDir: [6, -5], orb: 0xffe6c8, halo: 0xffd9a8, mote: [1, .9, .75],
       env: [0x3a4070, 0x080a18, [[6, 6, -3, 0xdfe6ff, 1.8], [-4, 3, 4, 0xe88a9a, .5], [0, 8, 0, 0x8a90d0, 2]]] },
     endCard: { title: '满月照影', line: '第二幕　月　完<br>下一幕　太阳　尚在远方' },
-    sockets: [{ x: HUB[0], z: HUB[1], active: () => true, onLock() { S.hubUsed = true; AU.lamp(0); fx.ring(HUB[0], .05, HUB[1], 0x8ff0e0, 3.2, 1.2); fx.sigil(HUB[0], .06, HUB[1], 0x8ff0e0, 'moon', 3, 1.8); flash(.15); if (!S.hints.lock) { S.hints.lock = 1; toast('星光被月轮托住了。影子在湖面上转动，跟着它走', 4.6); } } }],
+    sockets,
     constrainOrb(o) {
       // 光点不能钻进石碑和塔里
       L.monos.forEach(m => { const dx = o.tx - m.x, dz = o.tz - m.z; if (Math.abs(dx) < .55 && Math.abs(dz) < .55) { if (Math.abs(dx) > Math.abs(dz)) o.tx = m.x + Math.sign(dx || 1) * .55; else o.tz = m.z + Math.sign(dz || 1) * .55; } });
       L.towers.forEach(t => { const dx = o.tx - t.x, dz = o.tz - t.z, d = Math.hypot(dx, dz); if (d < t.r + .15) { o.tx = t.x + dx / (d || 1) * (t.r + .15); o.tz = t.z + dz / (d || 1) * (t.r + .15); } });
+      { const dx = o.tx - HUB[0], dz = o.tz - HUB[1], d = Math.hypot(dx, dz); if (d < PILLAR_R + .2) { o.tx = HUB[0] + dx / (d || 1) * (PILLAR_R + .2); o.tz = HUB[1] + dz / (d || 1) * (PILLAR_R + .2); } }
     },
     cell,
     solid(x, z) { const c = cell(Math.floor(x), Math.floor(z)); if (c === 'G') return gate.open < .85; return SOLID.has(c); },
@@ -650,7 +675,7 @@ export function buildMoon(ctx) {
       if (c === '~') { if (Math.random() < dt * (4 + P.run * 6)) { fx.ring(P.x, -.03, P.z + .1, 0x9fb0e0, .9, .8, { a: .5 }); fx.emit(P.x, 0, P.z + .1, { vy: .8, vx: (Math.random() - .5) * .6, g: -5, life: .4, c: [.7, .8, 1], a: .7 }); } }
       else if (P.run > .6 && Math.random() < dt * 12) fx.emit(P.x + (Math.random() - .5) * .3, .05, P.z + .1, { vy: .4, vx: -P.vx * .1, vz: -P.vz * .1, life: .5, c: [.6, .6, .8], a: .5, drag: 2 });
     },
-    ambient(P) { return .5; },
+    ambient(P) { return .17; },
     reset, update, logic, nearest, interact, finaleStart, finale, idle,
     finaleCam: () => [altar.x - .5, altar.z - 1.8],
     finaleOrb: () => [altar.x - 1.6, altar.z + 1.2],

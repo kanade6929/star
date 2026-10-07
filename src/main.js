@@ -1,7 +1,7 @@
 // 辰星夜 · 3D 像素光影 demo —— 第一幕「XVII 星」、第二幕「XVIII 月」
 import * as THREE from 'three';
 import { PixelPipeline, LAYER_FX, LAYER_SH_ORB, LAYER_SH_MOON } from './post.js';
-import { billboard, tex, disposeGroup, makeEnv } from './common.js';
+import { billboard, tex, disposeGroup, makeEnv, SHAFT_T } from './common.js';
 import { orbCanvas, haloCanvas } from './sprites.js';
 import { PixelChar, CW, CH } from './character.js';
 import { createAudio } from './audio.js';
@@ -22,7 +22,7 @@ catch (e) { $('nogl').hidden = false; throw e; }
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.shadowMap.autoUpdate = false;
 const pipe = new PixelPipeline(renderer);
 const scene = new THREE.Scene();
-scene.environmentIntensity = .4;
+scene.environmentIntensity = .16; // 环境反射只留一点：暗处靠局部的强光来照亮
 const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 90);
 const ELEV0 = 58 * Math.PI / 180;
 const camDir = e => new THREE.Vector3(0, -Math.sin(e), -Math.cos(e));
@@ -103,7 +103,7 @@ const P = { x: 2.5, z: 7.5, dir: 'down', vx: 0, vz: 0, run: 0, moving: false, fa
 /* ================= 光点（鼠标即光源） ================= */
 const ORB_Y = 1.6;
 const orb = { x: 6, z: 6, tx: 6, tz: 6, y: ORB_Y, g: new THREE.Group(), lift: 0, lock: null, k: 1, held: 0, px: 6, pz: 6 };
-const orbLight = new THREE.PointLight(0xd6e6ff, 7, 11, 1.7);
+const orbLight = new THREE.PointLight(0xd6e6ff, 7, 12, 1.6);
 orbLight.castShadow = true; orbLight.shadow.mapSize.set(512, 512); orbLight.shadow.bias = -.0006; orbLight.shadow.normalBias = .025;
 orbLight.shadow.camera.near = .05; orbLight.shadow.camera.far = 11;
 orbLight.shadow.camera.layers.set(0); orbLight.shadow.camera.layers.enable(LAYER_SH_ORB);
@@ -388,7 +388,7 @@ let camFocus = new THREE.Vector3(6, 0, 7);
 const focusUV = new THREE.Vector2(.5, .47);
 let dofK = 1, vig = .55;
 function update(dt) {
-  T += dt; S.t += dt;
+  T += dt; S.t += dt; SHAFT_T.value = T;
   const play = S.mode === 'play';
   const intro = S.mode === 'intro';
   if (intro) updateIntro(dt);
@@ -407,7 +407,6 @@ function update(dt) {
   } else if ((play || S.mode === 'cut') && (mouse.seen || joyR.id !== null)) {
     const h = mouse.seen ? mouseWorld() : null, rm = Math.hypot(joyR.dx, joyR.dz);
     if (orb.lock) {
-      orb.tx = orb.lock.x; orb.tz = orb.lock.z;
       // 鼠标移开，或右摇杆推到底一会儿，光点离开轴心
       joyR.t = joyR.id !== null && rm > .8 ? joyR.t + dt : 0;
       if ((mouse.seen && mouse.fresh && Math.hypot(mouse.nx - orb.lockM[0], mouse.ny - orb.lockM[1]) > .2) || joyR.t > .35) { orb.lock = null; orb.unlockT = .6; AU.ghost(); }
@@ -419,12 +418,15 @@ function update(dt) {
       else if (mouse.fresh && h) { orb.tx = h.x; orb.tz = h.z; orb.held = 1; }
       else orb.held = Math.max(0, orb.held - dt * 1.5);
       keepOrbInView();
-      // 轴心：光点靠近就被吸住，直到鼠标再移开
       if (LV.constrainOrb) LV.constrainOrb(orb);
-      if (!orb.unlockT) (LV.sockets || []).forEach(s => { if (!orb.lock && Math.hypot(orb.x - s.x, orb.z - s.z) < .5 && s.active()) { orb.lock = s; orb.lockM = [mouse.nx, mouse.ny]; s.onLock && s.onLock(); } });
     }
   }
   mouse.fresh = false;
+  // 机关插槽（可以是会动的）：光点停在附近就被挂走，之后跟着插槽走，直到鼠标/右摇杆把它取下
+  if (play || S.mode === 'cut') {
+    if (orb.lock) { orb.tx = orb.lock.x; orb.tz = orb.lock.z; }
+    else if (!orb.unlockT) (LV.sockets || []).forEach(s => { if (!orb.lock && Math.hypot(orb.x - s.x, orb.z - s.z) < (s.r || .5) && s.active()) { orb.lock = s; orb.lockM = [mouse ? mouse.nx : 0, mouse ? mouse.ny : 0]; s.onLock && s.onLock(); } });
+  }
   if (S.mode === 'cut' && LV.finaleOrb) { const f = LV.finaleOrb(S.ev); orb.tx = lerp(orb.tx, f[0], .03); orb.tz = lerp(orb.tz, f[1], .03); }
   const k = 1 - Math.exp(-dt * 11);
   orb.x += (orb.tx - orb.x) * k; orb.z += (orb.tz - orb.z) * k;

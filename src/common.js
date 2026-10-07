@@ -122,3 +122,59 @@ export function disposeGroup(g) {
   });
   g.removeFromParent();
 }
+
+/* ---------- 体积光柱：天上斜照下来的一束光 + 地上柔边光池 + 光里飘的灰尘 ---------- */
+// 所有光柱共用一个时间 uniform（主循环每帧更新）
+export const SHAFT_T = { value: 0 };
+// x,z：光池中心；opts: color, r（光池半径）, h（光柱可见高度）, lean（向相机方向倾斜的 [dx,dz]/米）, I（灯光强度）, k（光柱浓度）
+export function lightShaft(root, x, z, opts = {}) {
+  const o = { color: 0xdfe6ff, r: 1.6, h: 7, lean: [-.25, -.45], I: 4, k: .5, dust: 26, ...opts }; o.k *= .55;
+  const g = new THREE.Group(); g.position.set(x, 0, z); root.add(g);
+  const col = new THREE.Color(o.color);
+  // 光柱：上细下粗的开口圆台，沿 lean 方向倾斜；朝向相机的中段最浓，两侧边缘柔和淡出
+  const top = [o.lean[0] * o.h, o.h, o.lean[1] * o.h];
+  const geo = new THREE.CylinderGeometry(o.r * .6, o.r * 1.05, o.h, 32, 6, true);
+  geo.translate(0, o.h / 2, 0);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) { const y = pos.getY(i) / o.h; pos.setX(i, pos.getX(i) + top[0] * y); pos.setZ(i, pos.getZ(i) + top[2] * y); }
+  geo.computeVertexNormals();
+  const k = { value: 0 };
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { col: { value: col }, k, time: SHAFT_T, seed: { value: Math.random() * 10 } },
+    transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+    vertexShader: `varying float vY; varying float vF; varying float vA;
+      void main(){ vY = uv.y; vA = uv.x;
+        vec3 n = normalize(normalMatrix * normal); vF = abs(n.z);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+    fragmentShader: `uniform vec3 col; uniform float k, time, seed; varying float vY; varying float vF; varying float vA;
+      void main(){
+        float edge = pow(vF, 4.);
+        float along = smoothstep(0., .18, vY) * (1. - smoothstep(.55, 1., vY)) * (.55 + .45 * (1. - vY));
+        float streak = .55 + .45 * sin(vA * 37. + seed + time * .35) * sin(vA * 13. - time * .21 + seed * 2.);
+        float a = edge * along * streak * k;
+        gl_FragColor = vec4(col * a, 1.);
+      }`
+  });
+  const shaft = new THREE.Mesh(geo, mat); shaft.layers.set(LAYER_FX); shaft.renderOrder = 5; g.add(shaft);
+  // 光里的灰尘：在光柱内部缓慢上下漂，一闪一闪
+  const N = o.dust, dp = new Float32Array(N * 3), dr = new Float32Array(N);
+  for (let i = 0; i < N; i++) { const a = Math.random() * 6.283, rr = Math.sqrt(Math.random()) * o.r * .7; dp[i * 3] = Math.cos(a) * rr; dp[i * 3 + 1] = Math.random(); dp[i * 3 + 2] = Math.sin(a) * rr; dr[i] = Math.random(); }
+  const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(dp, 3)); dg.setAttribute('rnd', new THREE.BufferAttribute(dr, 1));
+  const dm = new THREE.ShaderMaterial({
+    uniforms: { col: { value: col }, k, time: SHAFT_T, H: { value: o.h * .55 }, lean: { value: new THREE.Vector2(...o.lean) } },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `attribute float rnd; uniform float time, H; uniform vec2 lean; varying float vA;
+      void main(){ float y = fract(position.y + time * (.012 + rnd * .02) * (rnd > .5 ? 1. : -1.)) * H + .15;
+        vec3 p = vec3(position.x + lean.x * y + sin(time * .4 + rnd * 20.) * .12, y, position.z + lean.y * y + cos(time * .3 + rnd * 9.) * .12);
+        vA = (.35 + .65 * (.5 + .5 * sin(time * (1.2 + rnd * 2.) + rnd * 40.))) * smoothstep(0., .3, y / H) * (1. - smoothstep(.7, 1., y / H));
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.); gl_PointSize = rnd > .8 ? 2. : 1.; }`,
+    fragmentShader: `uniform vec3 col; uniform float k; varying float vA; void main(){ gl_FragColor = vec4(col * vA * k * 1.6, 1.); }`
+  });
+  const dust = new THREE.Points(dg, dm); dust.layers.set(LAYER_FX); dust.frustumCulled = false; g.add(dust);
+  // 地上的光池：带柔边的聚光灯，从光柱顶上照下来
+  const light = new THREE.SpotLight(col, 0, 0, Math.atan(o.r * 1.15 / o.h), .85, 1.2);
+  light.position.set(top[0], o.h, top[2]); light.target.position.set(0, 0, 0); g.add(light, light.target);
+  const S = { g, light, shaft, k: 0, set(v) { this.k = v; k.value = v * o.k; light.intensity = v * o.I; shaft.visible = dust.visible = v > .005; } };
+  S.set(opts.on === false ? 0 : 1);
+  return S;
+}

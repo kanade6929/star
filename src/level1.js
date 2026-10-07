@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import * as TX from './textures.js';
 import { flowerCanvas, starCardCanvas, cardBackCanvas, haloCanvas, mk } from './sprites.js';
 import { LAYER_FX } from './post.js';
-import { tex, ntex, toon, reflective, billboard, quadGeo, cliffMesh, wallGeo, instWalls, hashv, shadowAll } from './common.js';
+import { tex, ntex, toon, reflective, billboard, quadGeo, cliffMesh, wallGeo, instWalls, hashv, shadowAll, lightShaft } from './common.js';
 import { starVoid } from './abyss.js';
 
 export const MW = 61, MH = 15;
@@ -71,7 +71,7 @@ export function buildStar(ctx) {
   const matStone = reflective(toon({ map: tex(cFloor), normalMap: ntex(cFloor, 6), normalScale: new THREE.Vector2(1.5, 1.5), roughness: .3 }), .42);
   const matGrass = toon({ map: tex(cGrass), normalMap: ntex(cGrass, 3.4), roughness: .95 });
   const ws = toon({ map: tex(cWallS), normalMap: ntex(cWallS, 5.5), normalScale: new THREE.Vector2(1.4, 1.4), roughness: .7 });
-  const wt = toon({ map: tex(cWallT), normalMap: ntex(cWallT, 3), roughness: .45 });
+  const wt = toon({ map: tex(cWallT), normalMap: ntex(cWallT, 3), roughness: .45, color: 0x9896b8 });
   const stoneM = toon({ color: 0x9c96bf, roughness: .42, metalness: .05 });
   const goldM = toon({ color: 0xd1b072, roughness: .28, metalness: .85 });
 
@@ -156,7 +156,9 @@ export function buildStar(ctx) {
     const halo = billboard(haloT, 2.4, 2.4, true, camQuat); halo.position.set(0, 1.28, 0); halo.material.color.set(0xffd89a); halo.material.opacity = 0; g0.add(halo);
     const light = new THREE.PointLight(0xffd29a, 0, 9, 1.4); light.position.y = 1.3; g0.add(light);
     root.add(g0);
-    L.lamps.push({ x: x + .5, z: z + .5, lit: false, t: 0, crystal, cm, halo, light, g: g0 });
+    // 点亮后天上落下一束暖金色的星光
+    const shaft = lightShaft(root, x + .5, z + .5, { color: 0xffd89a, r: 1.5, h: 6.5, I: 14, k: .55, on: false });
+    L.lamps.push({ x: x + .5, z: z + .5, lit: false, t: 0, crystal, cm, halo, light, shaft, g: g0 });
   };
 
   /* ================= 石碑（日晷）与星纹 ================= */
@@ -322,6 +324,9 @@ export function buildStar(ctx) {
     m.layers.set(LAYER_FX); root.add(m); return m;
   });
 
+  /* ================= 天光：从星空斜落下来的几束光（体积光柱 + 柔边光池） ================= */
+  [[3.4, 7.3, 0xc8d4ff, 1.7], [29, 10.6, 0xb8c4ff, 1.5], [51.6, 7.5, 0xbfe8e8, 1.4]].forEach(([x, z, c, r]) => lightShaft(root, x, z, { color: c, r, I: 12, k: .42 }));
+
   /* ================= 引导微光 ================= */
   const GOLD = [1, .8, .48], TEAL = [.5, .95, .85], BLUE = [.65, .72, 1];
   const B = {
@@ -402,7 +407,7 @@ export function buildStar(ctx) {
       if (l.lit) l.t = Math.min(1, l.t + dt * .7);
       const kk = smooth(0, 1, l.t), near = Math.hypot(orb.x - l.x, orb.z - l.z) < 1.7 ? 1 : 0;
       l.cm.emissiveIntensity = kk * 2.2 + near * .5 + .15;
-      l.light.intensity = kk * (8 + Math.sin(T * 3 + i) * .4);
+      l.light.intensity = kk * (8 + Math.sin(T * 3 + i) * .4); l.shaft.set(kk);
       l.halo.material.opacity = kk * .55 + near * .12;
       l.crystal.rotation.y += dt * (.6 + kk * 2.5 * (1 - kk * .6));
       l.crystal.position.y = 1.28 + Math.sin(T * 1.6 + i) * .05;
@@ -527,7 +532,7 @@ export function buildStar(ctx) {
     voidMat.uniforms.pole.value.set(altar.x, altar.z - 4);
     // 天色渐亮：从夜的蓝紫过渡到黎明的淡金
     const dawn = smooth(5, 10, e);
-    ctx.hemi.color.lerpColors(new THREE.Color(0x7470b0), new THREE.Color(0xffd9b8), dawn); ctx.hemi.intensity = .32 + dawn * .5;
+    ctx.hemi.color.lerpColors(new THREE.Color(0x7470b0), new THREE.Color(0xffd9b8), dawn); ctx.hemi.intensity = .13 + dawn * .4;
     return e > 11.5;
   }
 
@@ -547,8 +552,8 @@ export function buildStar(ctx) {
     spawn: [2.5, 7.5], menuP: [3.6, 7.6], menuOrb: [6.2, 6.5], menuCam: [6.5, 7.6],
     leash: 7.5, mirrorY: 0, hideInReflection: L.hide, voidMat,
     palette: ['#0b0a1f', '#1a1838', '#2a2a5a', '#3d3f7a', '#5a5f9e', '#8a8fc4', '#c3c4e6', '#eef0ff', '#143a44', '#23626a', '#4a9a92', '#4a3a6e', '#7a5f98', '#e3c2b4', '#e8c98e', '#fff1c4'],
-    tintLo: [.95, .93, 1.08], tintHi: [1.06, 1.02, .94],
-    light: { sky: 0x7470b0, ground: 0x1a1028, hemi: .36, moon: 0x8f9cff, moonK: 1.25, moonDir: [-7, 5], orb: 0xd6e6ff, halo: 0x8fb0ff, mote: [.75, .85, 1],
+    tintLo: [.97, .96, 1.04], tintHi: [1.06, 1.02, .94],
+    light: { sky: 0x7470b0, ground: 0x1a1028, hemi: .13, moon: 0x8f9cff, moonK: 1.5, moonDir: [-7, 5], orb: 0xd6e6ff, halo: 0x8fb0ff, mote: [.75, .85, 1],
       env: [0x2a2650, 0x06051a, [[4, 5, 2, 0xffd9a0, .9], [-5, 4, -3, 0x9fb4ff, 1.1], [0, 8, 0, 0x8080c0, 2]]] },
     endCard: { title: '星光归位', line: '第一幕　星　完<br>下一幕　月　已在水边等你' },
     cell,
@@ -556,7 +561,7 @@ export function buildStar(ctx) {
     hole(x, z) { const c = cell(Math.floor(x), Math.floor(z)); if (c === ' ') return true; if (c === '*') { const b = bridges.find(b => b.x === Math.floor(x) && b.z === Math.floor(z)); return !b || b.lit < .22; } return false; },
     ground(x, z) { return !'* '.includes(cell(Math.floor(x), Math.floor(z))); },
     onFall() { if (!S.hints.fall) { S.hints.fall = 1; setTimeout(() => toast('星光散了，脚下的路也就没了', 3.4), 900); } },
-    ambient(P) { return (P.x > 36.6 && P.x < 49.2) ? .12 : .36; },
+    ambient(P) { return (P.x > 36.6 && P.x < 49.2) ? .05 : .13; },
     reset, update, logic, nearest, interact, finaleStart, finale, idle,
     finaleCam: () => [altar.x - 1, altar.z],
     finaleOrb: () => [altar.x - 1.2, altar.z + 1],
