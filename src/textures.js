@@ -337,18 +337,18 @@ function tileShade(bx, by, N, id, salt) {
   if (bx < 1 || by < 1) v += .16; else if (bx > N - 2 || by > N - 2) v -= .14;
   return v;
 }
-// 星之章大理石板：64×64 = 2×2 块，部分石板中心嵌一枚金色四芒星
+// 星之章大理石板：128×128 = 4×4 块，只有零星两块中心嵌一枚金色四芒星
 export function floorTexHD() {
-  const N = 64, T = 32, p = painter(N, N);
+  const N = 128, T = 32, p = painter(N, N);
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const bx = x % T, by = y % T, id = (x >> 5) + (y >> 5) * 2;
+    const bx = x % T, by = y % T, id = (x >> 5) + (y >> 5) * 4;
     let v = tileShade(bx, by, T, id, 7) + (fbm(x * .07, y * .07, 9) - .5) * .14;
     const vein = Math.abs(Math.sin((x + y * .55) * .16 + fbm(x * .08, y * .08, 9) * 5 + id));
     if (vein < .045) v -= .1; else if (vein < .09) v -= .04;
     if (hash(x * 3 + id, y * 5) > .992) v -= .2;
     p.ramp(x, y, STONE, v);
-    // 四芒星嵌金（只在对角两块上）
-    if (id === 0 || id === 3) {
+    // 四芒星嵌金（16 块里只有 2 块）
+    if (id === 1 || id === 11) {
       const dx = Math.abs(bx - 15.5), dy = Math.abs(by - 15.5);
       const star = dx * dy < 2.2 && dx + dy < 6.5;
       if (star) p.ramp(x, y, GOLD, .9 - (dx + dy) / 8 + (bx < 16 && by < 16 ? .1 : 0));
@@ -358,13 +358,13 @@ export function floorTexHD() {
 }
 // 月之章月石：圆角大石板，局部湿润发亮，有的刻着新月
 export function moonStoneTexHD() {
-  const N = 64, T = 32, p = painter(N, N);
+  const N = 128, T = 32, p = painter(N, N);
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const bx = x % T, by = y % T, id = (x >> 5) + (y >> 5) * 2;
+    const bx = x % T, by = y % T, id = (x >> 5) + (y >> 5) * 4;
     let v = tileShade(bx, by, T, id, 3) - .04 + (fbm(x * .09, y * .09, 11) - .5) * .16;
     if (fbm(x * .05 + 4, y * .05, 6) > .6) v += .07; // 湿的地方
     if (hash(x * 7 + id, y * 3) > .99) v -= .22;
-    if (id === 1 || id === 2) { const a = Math.hypot(bx - 15.5, by - 15.5), b = Math.hypot(bx - 18.5, by - 13); if (a < 8.4 && a > 6.4 && b > 6.8) v = .14 + (a < 7 ? .08 : 0); }
+    if (id === 6 || id === 12) { const a = Math.hypot(bx - 15.5, by - 15.5), b = Math.hypot(bx - 18.5, by - 13); if (a < 8.4 && a > 6.4 && b > 6.8) v = .14 + (a < 7 ? .08 : 0); }
     p.ramp(x, y, MSTONE, v);
   }
   return p.done();

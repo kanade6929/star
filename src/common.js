@@ -171,6 +171,7 @@ export function lightShaft(root, x, z, opts = {}) {
     fragmentShader: `uniform vec3 col; uniform float k; varying float vA; void main(){ gl_FragColor = vec4(col * vA * k * 1.6, 1.); }`
   });
   const dust = new THREE.Points(dg, dm); dust.layers.set(LAYER_FX); dust.frustumCulled = false; g.add(dust);
+  if (o.hide) o.hide.push(shaft, dust); // 光柱不进水面倒影
   // 地上的光池：带柔边的聚光灯，从光柱顶上照下来
   const light = new THREE.SpotLight(col, 0, 0, Math.atan(o.r * 1.15 / o.h), .85, 1.2);
   light.position.set(top[0], o.h, top[2]); light.target.position.set(0, 0, 0); g.add(light, light.target);

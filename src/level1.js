@@ -80,7 +80,8 @@ export function buildStar(ctx) {
   /* ================= 材质 ================= */
   const cFloor = TX.floorTexHD(), cGrass = TX.grassTex(), cWallS = TX.wallSideTex(), cWallT = TX.wallTopTex(), cCliff = TX.cliffTex();
   // 抛光大理石：缝隙凹陷明显，能倒映灯光和人
-  const matStone = reflective(toon({ map: tex(cFloor), normalMap: ntex(cFloor, 6), normalScale: new THREE.Vector2(1.5, 1.5), roughness: .3 }), .42);
+  // 石板不做镜面倒影（倒影跟着光点晃会闪），凹凸也收弱一些
+  const matStone = toon({ map: tex(cFloor), normalMap: ntex(cFloor, 3.5), normalScale: new THREE.Vector2(.85, .85), roughness: .5 });
   const matGrass = toon({ map: tex(cGrass), normalMap: ntex(cGrass, 3.4), roughness: .95 });
   const ws = toon({ map: tex(cWallS), normalMap: ntex(cWallS, 5.5), normalScale: new THREE.Vector2(1.4, 1.4), roughness: .7 });
   const wt = toon({ map: tex(cWallT), normalMap: ntex(cWallT, 3), roughness: .45, color: 0x9896b8 });
@@ -96,7 +97,7 @@ export function buildStar(ctx) {
     [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dx, dz]) => { if (isVoid(cell(x + dx, z + dz))) cliffs.push([x, z, dx, dz]); });
   }
   // 大理石地面：一格一块有厚度、倒角的石板，缝里是暗的
-  root.add(slabFloor(floors['.'], matStone, { seed: 1 }));
+  root.add(slabFloor(floors['.'], matStone, { seed: 1, tile: 4 }));
   const fg = new THREE.Mesh(quadGeo(floors[',']), matGrass); fg.receiveShadow = true; root.add(fg);
   root.add(cliffMesh(cliffs, toon({ map: tex(cCliff), normalMap: ntex(cCliff, 4), side: THREE.DoubleSide })));
   const tall = [], low = [];
@@ -119,7 +120,7 @@ export function buildStar(ctx) {
   const bridgeT = tex(TX.bridgeTex());
   const bGeo = tileBevel(.94, .12); bGeo.translate(0, -.12, 0);
   for (let z = 0; z < MH; z++) for (let x = 0; x < MW; x++) if (grid[z][x] === '*') {
-    const mat = reflective(toon({ map: bridgeT, emissive: 0x6f8fe0, emissiveIntensity: 0, transparent: true, opacity: .1, depthWrite: false, roughness: .12 }), .4);
+    const mat = reflective(toon({ map: bridgeT, emissive: 0x6f8fe0, emissiveIntensity: 0, transparent: true, opacity: .1, depthWrite: false, roughness: .12 }), .25);
     const m = new THREE.Mesh(bGeo, mat); m.position.set(x + .5, 0, z + .5); m.receiveShadow = true; root.add(m);
     L.bridges.push({ x, z, lit: 0, mesh: m, mat });
   }
@@ -170,7 +171,7 @@ export function buildStar(ctx) {
     const light = new THREE.PointLight(0xffd29a, 0, 9, 1.4); light.position.y = 1.3; g0.add(light);
     root.add(g0);
     // 点亮后天上落下一束暖金色的星光
-    const shaft = lightShaft(root, x + .5, z + .5, { color: 0xffd89a, r: 1.5, h: 6.5, I: 14, k: .55, on: false });
+    const shaft = lightShaft(root, x + .5, z + .5, { color: 0xffd89a, r: 1.5, h: 6.5, I: 14, k: .55, on: false, hide: L.hide });
     L.lamps.push({ x: x + .5, z: z + .5, lit: false, t: 0, crystal, cm, halo, light, shaft, g: g0 });
   };
 
@@ -258,7 +259,7 @@ export function buildStar(ctx) {
   {
     const cells = []; for (let z = 0; z < MH; z++) for (let x = 0; x < MW; x++) if (grid[z][x] === 'W') cells.push([x, z]);
     const cW = TX.waterTex(), wtx = tex(cW), wn = ntex(cW, 2.2);
-    const wm = reflective(toon({ map: wtx, normalMap: wn, transparent: true, opacity: .92, emissive: 0x1a2a66, emissiveIntensity: .3, roughness: .17, metalness: .1 }), .75, 1.6);
+    const wm = reflective(toon({ map: wtx, normalMap: wn, transparent: true, opacity: .92, emissive: 0x1a2a66, emissiveIntensity: .3, roughness: .26, metalness: .1 }), .45, .5);
     const m = new THREE.Mesh(quadGeo(cells, -.14, 2), wm); m.receiveShadow = true; root.add(m);
     const rim = new THREE.Mesh(quadGeo(cells, -.5, 2), toon({ color: 0x141a3a })); root.add(rim);
     L.water = { tex: wtx, ntex: wn, mat: wm };
@@ -342,7 +343,7 @@ export function buildStar(ctx) {
   });
 
   /* ================= 天光：从星空斜落下来的几束光（体积光柱 + 柔边光池） ================= */
-  [[3.4, 7.3, 0xc8d4ff, 1.7], [29, 10.6, 0xb8c4ff, 1.5], [51.6, 7.5, 0xbfe8e8, 1.4]].forEach(([x, z, c, r]) => lightShaft(root, x, z, { color: c, r, I: 12, k: .42 }));
+  [[3.4, 7.3, 0xc8d4ff, 1.7], [29, 10.6, 0xb8c4ff, 1.5], [51.6, 7.5, 0xbfe8e8, 1.4]].forEach(([x, z, c, r]) => lightShaft(root, x, z, { color: c, r, I: 12, k: .42, hide: L.hide }));
 
   /* ================= 引导微光 ================= */
   const GOLD = [1, .8, .48], TEAL = [.5, .95, .85], BLUE = [.65, .72, 1];
@@ -549,7 +550,7 @@ export function buildStar(ctx) {
     voidMat.uniforms.pole.value.set(altar.x, altar.z - 4);
     // 天色渐亮：从夜的蓝紫过渡到黎明的淡金
     const dawn = smooth(5, 10, e);
-    ctx.hemi.color.lerpColors(new THREE.Color(0x7470b0), new THREE.Color(0xffd9b8), dawn); ctx.hemi.intensity = .13 + dawn * .4;
+    ctx.hemi.color.lerpColors(new THREE.Color(0x7470b0), new THREE.Color(0xffd9b8), dawn); ctx.hemi.intensity = .24 + dawn * .35;
     return e > 11.5;
   }
 
@@ -567,10 +568,10 @@ export function buildStar(ctx) {
   return {
     id: 1, roman: 'XVII', name: '星', motto: '在无光之处，星辰等待被唤醒', mood: 1,
     spawn: [2.5, 7.5], menuP: [3.6, 7.6], menuOrb: [6.2, 6.5], menuCam: [6.5, 7.6],
-    leash: 7.5, mirrorY: 0, hideInReflection: L.hide, voidMat,
+    leash: 7.5, mirrorY: -.14, hideInReflection: L.hide, voidMat,
     palette: ['#0b0a1f', '#1a1838', '#2a2a5a', '#3d3f7a', '#5a5f9e', '#8a8fc4', '#c3c4e6', '#eef0ff', '#143a44', '#23626a', '#4a9a92', '#4a3a6e', '#7a5f98', '#e3c2b4', '#e8c98e', '#fff1c4'],
     tintLo: [.97, .96, 1.04], tintHi: [1.06, 1.02, .94],
-    light: { sky: 0x7470b0, ground: 0x1a1028, hemi: .13, moon: 0x8f9cff, moonK: 1.5, moonDir: [-7, 5], orb: 0xd6e6ff, halo: 0x8fb0ff, mote: [.75, .85, 1],
+    light: { sky: 0x7470b0, ground: 0x1a1028, hemi: .24, moon: 0x8f9cff, moonK: 1.4, moonDir: [-7, 5], orb: 0xd6e6ff, halo: 0x8fb0ff, mote: [.75, .85, 1],
       env: [0x2a2650, 0x06051a, [[4, 5, 2, 0xffd9a0, .9], [-5, 4, -3, 0x9fb4ff, 1.1], [0, 8, 0, 0x8080c0, 2]]] },
     endCard: { title: '星光归位', line: '第一幕　星　完<br>下一幕　月　已在水边等你' },
     cell,
@@ -578,7 +579,7 @@ export function buildStar(ctx) {
     hole(x, z) { const c = cell(Math.floor(x), Math.floor(z)); if (c === ' ') return true; if (c === '*') { const b = bridges.find(b => b.x === Math.floor(x) && b.z === Math.floor(z)); return !b || b.lit < .22; } return false; },
     ground(x, z) { return !'* '.includes(cell(Math.floor(x), Math.floor(z))); },
     onFall() { if (!S.hints.fall) { S.hints.fall = 1; setTimeout(() => toast('星光散了，脚下的路也就没了', 3.4), 900); } },
-    ambient(P) { return (P.x > 36.6 && P.x < 49.2) ? .05 : .13; },
+    ambient(P) { return (P.x > 36.6 && P.x < 49.2) ? .1 : .24; },
     reset, update, logic, nearest, interact, finaleStart, finale, idle,
     finaleCam: () => [altar.x - 1, altar.z],
     finaleOrb: () => [altar.x - 1.2, altar.z + 1],

@@ -205,6 +205,7 @@ export class PixelPipeline {
     const bg = scene.background; scene.background = null;
     scene.overrideMaterial = this.normalMat;
     r.setRenderTarget(this.normalRT); r.setClearColor(0x8080ff, 1); r.clear(); r.render(scene, cam);
+    if (this.normalExtra) this.normalExtra(r, cam);
     scene.overrideMaterial = null; scene.background = bg;
     cam.layers.enableAll();
     // 3) 泛光

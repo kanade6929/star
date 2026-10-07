@@ -108,7 +108,8 @@ export function buildMoon(ctx) {
 
   /* ================= 材质（湿润的月石：缝隙深凹、表面反光） ================= */
   const cStone = TX.moonStoneTexHD(), cMoss = TX.mossTex(), cSand = TX.sandTex(), cRuin = TX.ruinWallTex(), cRuinT = TX.ruinTopTex(), cTower = TX.towerTex();
-  const matStone = reflective(toon({ map: tex(cStone), normalMap: ntex(cStone, 7), normalScale: new THREE.Vector2(1.6, 1.6), roughness: .26 }), .38);
+  // 石板不做镜面倒影（倒影跟着光点晃会闪），凹凸也收弱一些
+  const matStone = toon({ map: tex(cStone), normalMap: ntex(cStone, 4), normalScale: new THREE.Vector2(.9, .9), roughness: .45 });
   const matMoss = toon({ map: tex(cMoss), normalMap: ntex(cMoss, 3.5), roughness: .9 });
   const matSand = toon({ map: tex(cSand), normalMap: ntex(cSand, 4), roughness: .7 });
   const ruinS = toon({ map: tex(cRuin), normalMap: ntex(cRuin, 6), normalScale: new THREE.Vector2(1.5, 1.5), roughness: .65 });
@@ -128,9 +129,9 @@ export function buildMoon(ctx) {
     [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dx, dz]) => { if (isLake(cell(x + dx, z + dz))) cliffs.push([x, z, dx, dz]); });
   }
   const mF = (cells, mat, y) => { const m = new THREE.Mesh(quadGeo(cells, y), mat); m.receiveShadow = true; root.add(m); return m; };
-  root.add(slabFloor(fl['.'], matStone, { seed: 2, jitter: 1.4 })); mF(fl[','], matMoss, 0); mF(fl['~'], matSand, -.16);
+  root.add(slabFloor(fl['.'], matStone, { seed: 2, jitter: 1.4, tile: 4 })); mF(fl[','], matMoss, 0); mF(fl['~'], matSand, -.16);
   const cW = TX.waterTex(), wN = ntex(cW, 2.4);
-  const shallowM = reflective(toon({ color: 0x5a6aa8, normalMap: wN, transparent: true, opacity: .55, roughness: .04, metalness: .2, emissive: 0x141a40, emissiveIntensity: .4 }), .8, 1.4);
+  const shallowM = reflective(toon({ color: 0x5a6aa8, normalMap: wN, transparent: true, opacity: .55, roughness: .2, metalness: .2, emissive: 0x141a40, emissiveIntensity: .4 }), .45, .45);
   const shallow = mF(fl['~'], shallowM, -.05); shallow.receiveShadow = true;
   // 浅水池边沿：一圈矮石
   root.add(cliffMesh(cliffs, toon({ map: tex(TX.cliffTex()), normalMap: ntex(TX.cliffTex(), 4), color: 0x9aa0c8, side: THREE.DoubleSide }), 1.4));
@@ -154,7 +155,7 @@ export function buildMoon(ctx) {
   const mistT = tex(TX.mistTex());
   const mGeo = tileBevel(.94, .14); mGeo.translate(0, -.14, 0);
   for (let z = 0; z < MH; z++) for (let x = 0; x < MW; x++) if (grid[z][x] === '%') {
-    const mat = reflective(toon({ map: mistT, emissive: 0xb8b0ff, emissiveIntensity: .2, transparent: true, opacity: .3, depthWrite: false, roughness: .1 }), .35);
+    const mat = reflective(toon({ map: mistT, emissive: 0xb8b0ff, emissiveIntensity: .2, transparent: true, opacity: .3, depthWrite: false, roughness: .1 }), .22);
     const m = new THREE.Mesh(mGeo, mat); m.position.set(x + .5, 0, z + .5); m.receiveShadow = true; root.add(m);
     L.mist.push({ x, z, cx: x + .5, cz: z + .5, solid: false, k: 0, last: -9, mesh: m, mat, ph: hashv(x, z) * 6 });
   }
@@ -265,7 +266,7 @@ export function buildMoon(ctx) {
     const g0 = new THREE.Group(); g0.position.set(x + .5, 0, z + .5);
     // 小石池
     const basin = new THREE.Mesh(new THREE.CylinderGeometry(.48, .52, .22, 12), paleM); basin.position.y = .11; g0.add(basin);
-    const water = reflective(toon({ color: 0x3a4a90, roughness: .05, metalness: .2, emissive: 0x202a66, emissiveIntensity: .5, normalMap: wN }), .7, 1.4);
+    const water = reflective(toon({ color: 0x3a4a90, roughness: .05, metalness: .2, emissive: 0x202a66, emissiveIntensity: .5, normalMap: wN }), .6, .6);
     const wm = new THREE.Mesh(new THREE.CircleGeometry(.42, 16), water); wm.rotation.x = -Math.PI / 2; wm.position.y = .2; g0.add(wm);
     const front = tex(moonCardCanvas()); front.wrapS = front.wrapT = THREE.ClampToEdgeWrapping;
     const fm = toon({ map: front, transparent: true, opacity: 0, emissive: 0xffffff, emissiveMap: front, emissiveIntensity: .7, side: THREE.DoubleSide });
@@ -281,7 +282,7 @@ export function buildMoon(ctx) {
     const g0 = new THREE.Group(); g0.position.set(cx, 0, cz);
     const rim = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.55, .35, 24, 1, true), paleM); rim.position.y = .17; g0.add(rim);
     const rimTop = new THREE.Mesh(new THREE.TorusGeometry(1.45, .07, 5, 32), silverM); rimTop.rotation.x = Math.PI / 2; rimTop.position.y = .35; g0.add(rimTop);
-    const pm = reflective(toon({ color: 0x2a3a80, roughness: .15, metalness: .2, normalMap: wN, emissive: 0xc8d0ff, emissiveIntensity: 0 }), .85, 1.6);
+    const pm = reflective(toon({ color: 0x2a3a80, roughness: .15, metalness: .2, normalMap: wN, emissive: 0xc8d0ff, emissiveIntensity: 0 }), .75, .6);
     const pool = new THREE.Mesh(new THREE.CircleGeometry(1.42, 32), pm); pool.rotation.x = -Math.PI / 2; pool.position.y = .25; g0.add(pool);
     const lotusT = tex(TX.lotusCanvas(true)); lotusT.wrapS = lotusT.wrapT = THREE.ClampToEdgeWrapping;
     const ped = new THREE.Mesh(new THREE.CylinderGeometry(.18, .28, .6, 8), silverM); ped.position.y = .4; g0.add(ped);
@@ -401,7 +402,7 @@ export function buildMoon(ctx) {
   const cray = new THREE.Group(); cray.add(voxelBatch(crayC, [place(0, 0, 0, 0, .35)], vm, { maxT: .12, minT: .06, slope: .03 })); root.add(cray);
 
   /* ================= 月光从云缝里落下的光柱 ================= */
-  [[4.6, 7.4, 1.7], [22.4, 8.6, 1.5], [46.5, 7.4, 1.3], [54.6, 7.5, 1.5]].forEach(([x, z, r]) => lightShaft(root, x, z, { color: 0xd8e0ff, r, I: 11, k: .4, lean: [.3, -.42] }));
+  [[4.6, 7.4, 1.7], [22.4, 8.6, 1.5], [46.5, 7.4, 1.3], [54.6, 7.5, 1.5]].forEach(([x, z, r]) => lightShaft(root, x, z, { color: 0xd8e0ff, r, I: 11, k: .4, lean: [.3, -.42], hide: L.hide }));
 
   /* ================= 遍历摆放 ================= */
   const beasts = {};
@@ -639,7 +640,7 @@ export function buildMoon(ctx) {
     lake.uniforms.spin.value += dt * (.04 + S.trail * .5);
     lake.uniforms.pole.value.set(altar.x, altar.z - 6);
     const dawn = smooth(5, 10, e);
-    ctx.hemi.color.lerpColors(new THREE.Color(0x8a90d0), new THREE.Color(0xd8d8ff), dawn); ctx.hemi.intensity = .17 + dawn * .4;
+    ctx.hemi.color.lerpColors(new THREE.Color(0x8a90d0), new THREE.Color(0xd8d8ff), dawn); ctx.hemi.intensity = .3 + dawn * .35;
     return e > 11.5;
   }
 
@@ -655,10 +656,10 @@ export function buildMoon(ctx) {
   return {
     id: 2, roman: 'XVIII', name: '月', motto: '光与影，交替托住你', mood: 2,
     spawn: [3.5, 7.5], menuP: [3.5, 7.5], menuOrb: [6, 6.5], menuCam: [6.5, 7.6],
-    leash: 7.5, mirrorY: -.12, hideInReflection: L.hide, voidMat: lake,
+    leash: 7.5, mirrorY: -.05, hideInReflection: L.hide, voidMat: lake,
     palette: ['#0a0a1c', '#15152e', '#22224a', '#33356a', '#4b4f8c', '#6a6fae', '#9a9fcc', '#cfd3ea', '#f2f0ff', '#1b3150', '#2f5684', '#6f9ad0', '#3a5a64', '#e88a9a', '#f6b8bc', '#e6d6a8'],
     tintLo: [.96, .97, 1.05], tintHi: [1.02, 1.0, 1.05],
-    light: { sky: 0x8a90d0, ground: 0x141830, hemi: .17, moon: 0xb8c4ff, moonK: 1.5, moonDir: [6, -5], orb: 0xffe6c8, halo: 0xffd9a8, mote: [1, .9, .75],
+    light: { sky: 0x8a90d0, ground: 0x141830, hemi: .3, moon: 0xb8c4ff, moonK: 1.35, moonDir: [6, -5], orb: 0xffe6c8, halo: 0xffd9a8, mote: [1, .9, .75],
       env: [0x3a4070, 0x080a18, [[6, 6, -3, 0xdfe6ff, 1.8], [-4, 3, 4, 0xe88a9a, .5], [0, 8, 0, 0x8a90d0, 2]]] },
     endCard: { title: '满月照影', line: '第二幕　月　完<br>下一幕　太阳　尚在远方' },
     sockets,
@@ -684,7 +685,7 @@ export function buildMoon(ctx) {
       if (c === '~') { if (Math.random() < dt * (4 + P.run * 6)) { fx.ring(P.x, -.03, P.z + .1, 0x9fb0e0, .9, .8, { a: .5 }); fx.emit(P.x, 0, P.z + .1, { vy: .8, vx: (Math.random() - .5) * .6, g: -5, life: .4, c: [.7, .8, 1], a: .7 }); } }
       else if (P.run > .6 && Math.random() < dt * 12) fx.emit(P.x + (Math.random() - .5) * .3, .05, P.z + .1, { vy: .4, vx: -P.vx * .1, vz: -P.vz * .1, life: .5, c: [.6, .6, .8], a: .5, drag: 2 });
     },
-    ambient(P) { return .17; },
+    ambient(P) { return .3; },
     reset, update, logic, nearest, interact, finaleStart, finale, idle,
     finaleCam: () => [altar.x - .5, altar.z - 1.8],
     finaleOrb: () => [altar.x - 1.6, altar.z + 1.2],
