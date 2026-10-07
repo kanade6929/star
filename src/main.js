@@ -1,0 +1,627 @@
+// 辰星夜 · 3D 像素光影 demo —— 第一幕「XVII 星」、第二幕「XVIII 月」
+import * as THREE from 'three';
+import { PixelPipeline, LAYER_FX, LAYER_SH_ORB, LAYER_SH_MOON } from './post.js';
+import { billboard, tex, disposeGroup, makeEnv } from './common.js';
+import { orbCanvas, haloCanvas } from './sprites.js';
+import { PixelChar, CW, CH } from './character.js';
+import { createAudio } from './audio.js';
+import { FX } from './fx.js';
+import { buildStar } from './level1.js';
+import { buildMoon } from './level2.js';
+
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+
+/* ================= 渲染器 / 相机 ================= */
+const canvas = $('c');
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' }); }
+catch (e) { $('nogl').hidden = false; throw e; }
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.shadowMap.autoUpdate = false;
+const pipe = new PixelPipeline(renderer);
+const scene = new THREE.Scene();
+scene.environmentIntensity = .4;
+const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 90);
+const ELEV0 = 58 * Math.PI / 180;
+const camDir = e => new THREE.Vector3(0, -Math.sin(e), -Math.cos(e));
+const CAM_DIR = camDir(ELEV0);
+const CAM_DIST = 30;
+cam.position.set(0, 0, 0); cam.lookAt(CAM_DIR); cam.updateMatrixWorld();
+const camQuat = cam.quaternion.clone();
+
+// 手机竖着拿时，把整个游戏转 90° 横过来显示（全程横屏）
+const TOUCH = matchMedia('(pointer: coarse)').matches;
+const view = { rot: false, w: innerWidth, h: innerHeight };
+function layoutView() {
+  view.rot = TOUCH && innerHeight > innerWidth;
+  view.w = view.rot ? innerHeight : innerWidth; view.h = view.rot ? innerWidth : innerHeight;
+  const b = document.body, st = document.documentElement.style;
+  b.classList.toggle('rot', view.rot);
+  b.classList.toggle('short', view.h < 520);
+  b.style.width = view.rot ? view.w + 'px' : ''; b.style.height = view.rot ? view.h + 'px' : '';
+  st.setProperty('--vw', view.rot ? view.w / 100 + 'px' : '1vw'); st.setProperty('--vh', view.rot ? view.h / 100 + 'px' : '1vh');
+}
+// 屏幕坐标 → 游戏画面坐标（竖屏旋转时换算）
+function toView(cx, cy) { return view.rot ? [cy, innerWidth - cx] : [cx, cy]; }
+function resize() {
+  layoutView();
+  pipe.resize(view.w, view.h, Math.min(devicePixelRatio || 1, 2));
+  pipe.setupCamera(cam);
+}
+addEventListener('resize', resize); resize();
+
+/* ================= 全局灯光（每关重新配色） ================= */
+const hemi = new THREE.HemisphereLight(0x7470b0, 0x1a1028, .36); scene.add(hemi);
+const moon = new THREE.DirectionalLight(0x8f9cff, .4);
+moon.castShadow = true; moon.shadow.mapSize.set(1024, 1024);
+Object.assign(moon.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: .5, far: 60 });
+moon.shadow.bias = -.0003; moon.shadow.normalBias = .02;
+moon.shadow.camera.layers.set(0); moon.shadow.camera.layers.enable(LAYER_SH_MOON);
+scene.add(moon); scene.add(moon.target);
+// 月光阴影跟着镜头走时，按阴影贴图的像素对齐，避免滚屏时影子边缘闪烁
+const mR = new THREE.Vector3(), mU = new THREE.Vector3(), mF = new THREE.Vector3(), mC = new THREE.Vector3();
+function snapMoon(c) {
+  const d = LV.light.moonDir, D = new THREE.Vector3(d[0], 14, d[1]);
+  mF.copy(D).negate().normalize(); mR.crossVectors(mF, new THREE.Vector3(0, 1, 0)).normalize(); mU.crossVectors(mR, mF);
+  const tx = 32 / moon.shadow.mapSize.x;
+  const a = Math.round(c.dot(mR) / tx) * tx, b = Math.round(c.dot(mU) / tx) * tx, f = c.dot(mF);
+  mC.copy(mR).multiplyScalar(a).addScaledVector(mU, b).addScaledVector(mF, f);
+  moon.target.position.copy(mC); moon.position.copy(mC).add(D);
+}
+
+/* ================= 角色 ================= */
+const pc = new PixelChar();
+const charTex = (c, srgb) => { const t = new THREE.CanvasTexture(c); t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
+const pTex = charTex(pc.canvas, true), pNrm = charTex(pc.normal, false);
+const pMat = new THREE.MeshStandardMaterial({ map: pTex, normalMap: pNrm, alphaTest: .5, roughness: .75, emissive: 0x2a2440, emissiveMap: pTex, side: THREE.DoubleSide });
+// 角色受光上限：再亮也只到本色的 1.5 倍，像素画的五官不会被灯光冲成白块
+// 遮挡深度：画面上是一张斜着朝向相机的纸片，但深度按「站在脚下的竖直面」来算。
+// 这样贴着北边的墙/树时头不会插进墙里，站在墙后面时又会被墙正确挡住。
+const SPR = { pz: { value: 0 }, cosE: { value: Math.cos(58 * Math.PI / 180) }, depthK: { value: 1 / 89.9 } };
+pMat.onBeforeCompile = sh => {
+  Object.assign(sh.uniforms, { sprPz: SPR.pz, sprCosE: SPR.cosE, sprDepthK: SPR.depthK });
+  sh.vertexShader = 'varying vec3 vSprW;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\nvSprW = (modelMatrix * vec4(transformed, 1.)).xyz;');
+  sh.fragmentShader = 'uniform float sprPz, sprCosE, sprDepthK; varying vec3 vSprW;\n' + sh.fragmentShader.replace('#include <opaque_fragment>',
+    'outgoingLight = min(outgoingLight, diffuseColor.rgb * 1.25 + totalEmissiveRadiance);\n#include <opaque_fragment>\ngl_FragDepth = clamp(gl_FragCoord.z + ((vSprW.z - sprPz) / sprCosE - .3) * sprDepthK, 0., 1.);');
+};
+const SW = CW / 16, SH = CH / 16;
+const pGeo = new THREE.PlaneGeometry(SW, SH); pGeo.translate(0, SH / 2 - 2 / 16, 0);
+const player = new THREE.Group(); scene.add(player);
+const pSprite = new THREE.Mesh(pGeo, pMat); pSprite.quaternion.copy(camQuat);
+pSprite.layers.set(LAYER_FX); player.add(pSprite);
+// 投影替身：一片始终正对光点、一片正对月光的竖直面，用角色当前帧的剪影投影
+const shMat = new THREE.MeshBasicMaterial({ map: pTex, alphaTest: .5, colorWrite: false, depthWrite: false, side: THREE.DoubleSide });
+shMat.shadowSide = THREE.DoubleSide;
+const shOrb = new THREE.Mesh(pGeo, shMat), shMoon = new THREE.Mesh(pGeo, shMat);
+shOrb.castShadow = shMoon.castShadow = true;
+shOrb.layers.set(LAYER_SH_ORB); shMoon.layers.set(LAYER_SH_MOON);
+player.add(shOrb, shMoon);
+const P = { x: 2.5, z: 7.5, dir: 'down', vx: 0, vz: 0, run: 0, moving: false, falling: false, fallT: 0, y: 0, safe: [2.5, 7.5], crouch: 0, lie: false, act: null, actT: 0 };
+
+/* ================= 光点（鼠标即光源） ================= */
+const ORB_Y = 1.6;
+const orb = { x: 6, z: 6, tx: 6, tz: 6, y: ORB_Y, g: new THREE.Group(), lift: 0, lock: null, k: 1, held: 0, px: 6, pz: 6 };
+const orbLight = new THREE.PointLight(0xd6e6ff, 7, 11, 1.7);
+orbLight.castShadow = true; orbLight.shadow.mapSize.set(512, 512); orbLight.shadow.bias = -.0006; orbLight.shadow.normalBias = .025;
+orbLight.shadow.camera.near = .05; orbLight.shadow.camera.far = 11;
+orbLight.shadow.camera.layers.set(0); orbLight.shadow.camera.layers.enable(LAYER_SH_ORB);
+orb.g.add(orbLight);
+const orbT = tex(orbCanvas()); orbT.wrapS = orbT.wrapT = THREE.ClampToEdgeWrapping;
+const haloT = tex(haloCanvas(32)); haloT.wrapS = haloT.wrapT = THREE.ClampToEdgeWrapping;
+const orbCore = billboard(orbT, 9 / 16, 9 / 16, true, camQuat); orbCore.material.color.setRGB(2.2, 2.2, 2.4); orb.g.add(orbCore);
+const orbHalo = billboard(haloT, 3.2, 3.2, true, camQuat); orbHalo.material.color.set(0x8fb0ff); orbHalo.material.opacity = .5; orb.g.add(orbHalo);
+scene.add(orb.g);
+
+/* ================= 特效 ================= */
+const fx = new FX(scene, camQuat);
+
+/* ================= 主界面：星空里熟睡的她 ================= */
+// 远离关卡的一小块浮空石台，下面就是第一幕的星空虚空
+const DREAM = [-120, 7];
+const dream = new THREE.Group(); dream.position.set(DREAM[0], 0, DREAM[1]); scene.add(dream);
+{
+  const stoneM = new THREE.MeshStandardMaterial({ color: 0x2a2858, roughness: .35, metalness: .15 });
+  const goldM = new THREE.MeshStandardMaterial({ color: 0xc9a25a, roughness: .3, metalness: .8, emissive: 0x3a2a10, emissiveIntensity: .4 });
+  const dais = new THREE.Mesh(new THREE.CylinderGeometry(1.55, 1.05, .5, 40), stoneM); dais.position.y = -.25; dais.receiveShadow = true; dream.add(dais);
+  const under = new THREE.Mesh(new THREE.ConeGeometry(1.05, 1.5, 40), stoneM); under.rotation.x = Math.PI; under.position.y = -1.3; dream.add(under);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(1.54, .035, 5, 64), goldM); rim.rotation.x = Math.PI / 2; rim.position.y = .01; dream.add(rim);
+  const sig = new THREE.Mesh(new THREE.PlaneGeometry(2.9, 2.9), new THREE.MeshBasicMaterial({ map: fx.sigT.star, color: 0x5a5070, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: .55 }));
+  sig.rotation.x = -Math.PI / 2; sig.position.y = .02; sig.layers.set(LAYER_FX); dream.add(sig);
+  dream.userData.sig = sig;
+  // 几块缓缓漂浮的碎星石
+  dream.userData.shards = [[-2.8, -.4, -1.6, .22], [2.9, -.9, -1.2, .16], [-2.3, -1.4, 1.9, .13], [2.4, -.2, 1.5, .19], [.3, -1.8, -2.6, .12]].map(([x, y, z, r], i) => {
+    const m = new THREE.Mesh(new THREE.OctahedronGeometry(r, 0), goldM); m.position.set(x, y, z); m.userData = { y, ph: i * 1.7 }; dream.add(m); return m;
+  });
+}
+function updateDream(dt) {
+  dream.visible = S.mode === 'menu' || S.fade > .5 && !document.body.classList.contains('playing');
+  if (!dream.visible) return;
+  dream.userData.sig.rotation.z += dt * .05;
+  dream.userData.sig.material.opacity = .22 + Math.sin(T * .8) * .07;
+  dream.userData.shards.forEach(m => { m.rotation.y += dt * .5; m.position.y = m.userData.y + Math.sin(T * .6 + m.userData.ph) * .15; });
+  if (Math.random() < dt * 9) fx.swirl(DREAM[0] + (Math.random() - .5) * .8, .1 + Math.random() * .4, DREAM[1], .7 + Math.random() * 1.1, Math.random() < .5 ? [.8, .86, 1] : [1, .9, .7], { w: .5 + Math.random() * .5, vy: .12, life: 3.2, a: .7 });
+}
+
+/* ================= 状态 ================= */
+let T = 0;
+const S = { mode: 'menu', t: 0, level: 1, fade: 1, fadeTo: 0, endShown: false, ev: -1, introT: 0, cine: null, shakeT: 0, shakeA: 0, shakeD: 1, flash: 0,
+  idle: { x: 0, z: 0, t: 0, tier: 0, key: '' }, bars: false, elev: ELEV0, hints: {} };
+const AU = createAudio(on => { syncSound(); toast(on ? '琴声已开启' : '琴声已关闭', 1.4); });
+
+/* ================= UI 辅助 ================= */
+let toastT = 0;
+// 触屏上把"鼠标"的说法换成摇杆
+const touchText = m => !TOUCH ? m : m.replace('移动鼠标', '推动右摇杆').replace('用鼠标', '用右摇杆').replace('晃动鼠标', '把右摇杆推到底');
+function toast(msg, dur = 3) { msg = touchText(msg); const el = $('toast'); el.textContent = msg; el.classList.add('on'); toastT = dur; }
+// 常驻提示：每帧调用就一直显示；别的提示出现时先让它说完
+function holdToast(msg) { msg = touchText(msg); if (toastT < .25 || $('toast').textContent === msg) toast(msg, .5); }
+const promptEl = $('prompt');
+const v3 = new THREE.Vector3();
+function toScreen(x, y, z) {
+  v3.set(x, y, z).project(cam);
+  const fx_ = (pipe.w + 2) / pipe.w, fy = (pipe.h + 2) / pipe.h;
+  return [(v3.x * fx_ + 1) / 2, (1 - v3.y * fy) / 2];
+}
+function showPrompt(label, x, y, z) {
+  if (!label) { promptEl.classList.remove('on'); return; }
+  const [sx, sy] = toScreen(x, y, z);
+  promptEl.style.left = (sx * view.w) + 'px'; promptEl.style.top = (sy * view.h) + 'px';
+  promptEl.innerHTML = `<span class="key">E</span>${label}`; promptEl.classList.add('on');
+}
+function updateHud() {
+  if (!LV) return;
+  const h = LV.hud();
+  $('hudlabel').textContent = h.label;
+  $('dots').innerHTML = h.dots.map(d => `<i class="${d ? 'on' : ''}"></i>`).join('');
+  $('hudcard').textContent = LV.roman;
+  $('hudcard').classList.toggle('have', h.have);
+  $('cardline').textContent = h.line;
+}
+function shake(a, d = .5) { if (a >= S.shakeA * (S.shakeT / S.shakeD || 0)) { S.shakeA = a; S.shakeT = S.shakeD = d; } }
+function flash(k) { S.flash = Math.max(S.flash, k); }
+function setBars(on) { if (S.bars !== on) { S.bars = on; document.body.classList.toggle('cine', on); } }
+// 仪式演出：锁住操作，镜头移到机关上，按步骤播放
+function cine(steps) { S.cine = { steps, i: 0, t: 0, started: false }; setBars(true); }
+
+/* ================= 关卡装载 ================= */
+let LV = null, root = null;
+const ctx = { THREE, camQuat, P, orb, S, fx, AU, toast, holdToast, cine, shake, flash, hemi, moon, renderer, pipe, get T() { return T; }, updateHud };
+const BUILDERS = { 1: buildStar, 2: buildMoon };
+function loadLevel(n) {
+  if (root) disposeGroup(root);
+  fx.clear();
+  root = new THREE.Group(); scene.add(root); ctx.group = root;
+  LV = BUILDERS[n](ctx);
+  S.level = n;
+  const lg = LV.light;
+  hemi.color.set(lg.sky); hemi.groundColor.set(lg.ground); hemi.intensity = lg.hemi;
+  moon.color.set(lg.moon); orbLight.color.set(lg.orb); orbHalo.material.color.set(lg.halo);
+  if (scene.environment) scene.environment.dispose();
+  scene.environment = makeEnv(renderer, ...lg.env);
+  pipe.setPalette(LV.palette, LV.tintLo, LV.tintHi);
+  pipe.mirrorY = LV.mirrorY; pipe.hideInReflection = LV.hideInReflection || [];
+  document.querySelector('#pause .proman').textContent = `${LV.roman}　${LV.name}`;
+  const ch = $('chapter'); ch.querySelector('.num').textContent = LV.roman; ch.querySelector('.name').textContent = LV.name; ch.querySelector('.line').textContent = LV.motto;
+  AU.setMood(LV.mood);
+}
+
+function resetLevel() {
+  const [sx, sz] = LV.spawn;
+  Object.assign(P, { x: sx, z: sz, dir: 'down', vx: 0, vz: 0, run: 0, moving: false, falling: false, fallT: 0, y: 0, safe: [sx, sz], crouch: 0, lie: false, act: null, actT: 0 });
+  Object.assign(S, { t: 0, ev: -1, endShown: false, cine: null, hints: {} });
+  S.idle = { x: sx, z: sz, t: 0, tier: 0, key: '' };
+  orb.x = orb.tx = sx + 1; orb.z = orb.tz = sz; orb.lock = null; orb.k = 1;
+  LV.reset();
+  setBars(false);
+  updateHud();
+}
+
+/* ================= 输入 ================= */
+const keys = {};
+const mouse = { nx: 0, ny: 0, seen: false, fresh: false };
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (S.mode === 'menu') { menuKey(e, k); return; }
+  keys[k] = true;
+  if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
+  if (k === 'escape' || k === 'p') { if (S.mode === 'play' || S.mode === 'intro') pause(); else if (S.mode === 'paused') resume(); }
+  if (k === 'm' && !e.repeat) AU.toggle();
+  if ((k === 'e' || k === ' ' || k === 'enter') && !e.repeat) { if (S.mode === 'play' && !S.cine) interact(); else if (S.mode === 'intro' && S.introT > .6) skipIntro(); }
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+canvas.addEventListener('pointermove', e => { if (e.pointerType === 'touch') return; setMouse(e.clientX, e.clientY); });
+function setMouse(cx, cy) {
+  const nx = cx / view.w * 2 - 1, ny = -(cy / view.h) * 2 + 1;
+  if (!mouse.seen || Math.abs(nx - mouse.nx) * view.w + Math.abs(ny - mouse.ny) * view.h > 1.5) mouse.fresh = true;
+  mouse.nx = nx; mouse.ny = ny; mouse.seen = true;
+  ptrEl.style.transform = `translate(${cx}px,${cy}px)`;
+}
+const ptrEl = $('ptr');
+const ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -ORB_Y), hit = new THREE.Vector3();
+function screenWorld(nx, ny) {
+  const fx_ = pipe.w / (pipe.w + 2), fy = pipe.h / (pipe.h + 2);
+  ray.setFromCamera(new THREE.Vector2(nx * fx_, ny * fy), cam);
+  return ray.ray.intersectPlane(plane, hit);
+}
+function mouseWorld() { return screenWorld(mouse.nx, mouse.ny); }
+// 光点被留在原地时，只有快要离开画面才被画面边缘推着走
+const vEdge = new THREE.Vector3();
+function keepOrbInView() {
+  vEdge.set(orb.tx, ORB_Y, orb.tz).project(cam);
+  const sx = vEdge.x * (pipe.w + 2) / pipe.w, sy = vEdge.y * (pipe.h + 2) / pipe.h, MX = .9, MY = .84;
+  if (Math.abs(sx) <= MX && Math.abs(sy) <= MY) return false;
+  const h = screenWorld(clamp(sx, -MX, MX), clamp(sy, -MY, MY));
+  if (h) { orb.tx = h.x; orb.tz = h.z; }
+  return true;
+}
+// 触屏：左半屏摇杆走路，右半屏摇杆推动光点（松手后光点留在原地）
+const joy = { id: null, x: 0, y: 0, dx: 0, dz: 0 }, joyR = { id: null, x: 0, y: 0, dx: 0, dz: 0, t: 0 };
+if (TOUCH) document.body.classList.add('touchdev');
+const STICK_R = 42;
+function stickEl(j) { return j === joy ? ['stick', 'knob'] : ['stick2', 'knob2']; }
+function stickHome() {
+  // 摇杆不用时停在两个下角，淡淡地提示位置
+  [[joy, 'stick', 92, view.h - 92], [joyR, 'stick2', view.w - 180, view.h - 104]].forEach(([j, id, x, y]) => {
+    if (j.id === null) { const el = $(id); el.style.left = x + 'px'; el.style.top = y + 'px'; el.classList.remove('on'); }
+  });
+}
+addEventListener('resize', stickHome);
+canvas.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'touch') return;
+  if (S.mode === 'intro' && S.introT > .6) { skipIntro(); return; }
+  if (S.mode !== 'play') return;
+  const [x, y] = toView(e.clientX, e.clientY);
+  const j = x < view.w * .5 ? joy : joyR;
+  if (j.id !== null) return;
+  Object.assign(j, { id: e.pointerId, x, y, dx: 0, dz: 0 });
+  const [s_, k_] = stickEl(j); const el = $(s_); el.style.left = x + 'px'; el.style.top = y + 'px'; el.classList.add('on');
+  $(k_).style.transform = '';
+});
+canvas.addEventListener('pointermove', e => {
+  if (e.pointerType !== 'touch') return;
+  const j = e.pointerId === joy.id ? joy : e.pointerId === joyR.id ? joyR : null; if (!j) return;
+  const [x, y] = toView(e.clientX, e.clientY);
+  const dx = x - j.x, dy = y - j.y, d = Math.hypot(dx, dy);
+  j.dx = dx / Math.max(d, STICK_R); j.dz = dy / Math.max(d, STICK_R);
+  $(stickEl(j)[1]).style.transform = `translate(${j.dx * 24}px,${j.dz * 24}px)`;
+});
+const endJoy = e => { [joy, joyR].forEach(j => { if (e.pointerId === j.id) { j.id = null; j.dx = j.dz = 0; $(stickEl(j)[1]).style.transform = ''; } }); stickHome(); };
+canvas.addEventListener('pointerup', endJoy); canvas.addEventListener('pointercancel', endJoy);
+// 安卓：第一次点击时尝试全屏并锁定横屏
+addEventListener('pointerdown', () => {
+  if (!TOUCH || document.fullscreenElement || !document.documentElement.requestFullscreen) return;
+  document.documentElement.requestFullscreen({ navigationUI: 'hide' }).then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {})).catch(() => {});
+}, { once: true, capture: true });
+$('tE').addEventListener('pointerdown', e => { e.preventDefault(); if (S.mode === 'play' && !S.cine) interact(); else if (S.mode === 'intro') skipIntro(); });
+$('tP').addEventListener('pointerdown', e => { e.preventDefault(); if (S.mode === 'play') pause(); });
+
+/* ================= 互动 ================= */
+function nearest() {
+  let best = null;
+  LV.nearest().forEach(o => { const d = Math.hypot(P.x - o.x, P.z - o.z); if (d < (o.r || 1.5) && (!best || d < best.d)) best = { d, ...o }; });
+  return best;
+}
+function interact() {
+  const n = nearest(); if (!n) return;
+  if (n.type === 'finale') { S.ev = 0; S.mode = 'cut'; AU.finale(); setBars(true); LV.finaleStart(); updateHud(); return; }
+  LV.interact(n);
+}
+
+/* ================= 移动与坠落 ================= */
+function blocked(x, z) { const r = .26; return LV.solid(x - r, z - r) || LV.solid(x + r, z - r) || LV.solid(x - r, z + r) || LV.solid(x + r, z + r); }
+function updatePlayer(dt, canMove) {
+  if (P.falling) {
+    P.fallT += dt; P.y = -P.fallT * P.fallT * 9;
+    if (LV.onFallFrame) LV.onFallFrame(P);
+    if (P.fallT > .45 && S.fadeTo === 0) S.fadeTo = 1;
+    if (P.fallT > .9) {
+      // 就近复活：回到最后一次站稳的地面
+      P.falling = false; P.fallT = 0; P.y = 0; P.x = P.safe[0]; P.z = P.safe[1]; P.vx = P.vz = 0;
+      if (!orb.lock) { orb.x = orb.tx = P.x; orb.z = orb.tz = P.z; }
+      S.fadeTo = 0;
+      fx.swirl(P.x, .4, P.z, .6, [.8, .85, 1]);
+    }
+    return;
+  }
+  let ix = 0, iz = 0;
+  if (canMove) {
+    if (keys.a || keys.arrowleft) ix -= 1; if (keys.d || keys.arrowright) ix += 1;
+    if (keys.w || keys.arrowup) iz -= 1; if (keys.s || keys.arrowdown) iz += 1;
+    if (joy.id !== null) { ix += joy.dx; iz += joy.dz; }
+  }
+  const m = Math.hypot(ix, iz);
+  const wantRun = (keys.shift || (joy.id !== null && m > .95)) ? 1 : 0;
+  P.run = lerp(P.run, m > .15 ? wantRun : 0, 1 - Math.exp(-dt * 6));
+  const sp = (3.0 + P.run * 2.2) / Math.max(1, m);
+  // 带加速度的移动：起步和停下都有一点惯性
+  const tx = m > .15 ? ix * sp : 0, tz = m > .15 ? iz * sp : 0, acc = m > .15 ? 14 : 18;
+  P.vx += (tx - P.vx) * (1 - Math.exp(-dt * acc)); P.vz += (tz - P.vz) * (1 - Math.exp(-dt * acc));
+  const dx = P.vx * dt, dz = P.vz * dt;
+  if (!blocked(P.x + dx, P.z)) P.x += dx; else P.vx = 0;
+  if (!blocked(P.x, P.z + dz)) P.z += dz; else P.vz = 0;
+  P.moving = Math.hypot(P.vx, P.vz) > .4;
+  if (m > .15) P.dir = Math.abs(ix) > Math.abs(iz) * 1.1 ? (ix > 0 ? 'right' : 'left') : (iz > 0 ? 'down' : 'up');
+  if (P.moving) {
+    AU.step();
+    if (LV.onStep) LV.onStep(P, dt);
+    else if (P.run > .6 && Math.random() < dt * 14) fx.emit(P.x + (Math.random() - .5) * .3, .05, P.z + .1, { vy: .4, vx: -P.vx * .1, vz: -P.vz * .1, life: .5, c: [.55, .52, .7], a: .5, drag: 2 });
+  }
+  // 踩空？
+  if (LV.hole(P.x, P.z)) {
+    P.falling = true; P.fallT = 0; AU.fall();
+    if (LV.onFall) LV.onFall(P);
+    return;
+  }
+  // 记录最后一次站稳的位置（四角都在实地上）
+  const r = .3;
+  if (LV.ground(P.x - r, P.z - r) && LV.ground(P.x + r, P.z - r) && LV.ground(P.x - r, P.z + r) && LV.ground(P.x + r, P.z + r)) P.safe = [P.x, P.z];
+}
+
+/* ================= 开场：躺在地上醒来 ================= */
+const INTRO = { lie: 2.6, sit: 3.1, rub: 4.7, look: 6.5, stand: 7.1, cam: 8.3 };
+function skipIntro() { if (S.introT < INTRO.stand) { S.introT = INTRO.stand; P.lie = false; P.act = null; P.crouch = 0; } }
+function updateIntro(dt) {
+  S.introT += dt; const t = S.introT;
+  P.vx = P.vz = 0; P.moving = false; P.dir = 'down';
+  if (t < INTRO.lie) { P.lie = true; P.crouch = 7; P.act = null; }
+  else if (t < INTRO.sit) { if (P.lie) { P.lie = false; fx.burst(P.x, .3, P.z, 14, { c: [.75, .8, 1], sp: .8, life: .9, g: .2, up: .4 }); } P.crouch = 7; P.act = null; }
+  else if (t < INTRO.rub) { P.act = 'rub'; P.actT = t - INTRO.sit; P.crouch = 7; }
+  else if (t < INTRO.look) { P.act = 'look'; P.actT = (t - INTRO.rub); P.crouch = 7; }
+  else if (t < INTRO.stand) { P.act = null; P.crouch = 7 * (1 - smooth(INTRO.look, INTRO.stand, t)); }
+  else { P.crouch = 0; P.act = null; P.lie = false; }
+  // 星光环绕
+  if (t < INTRO.look) {
+    const a = T * 1.5, r = 1.15 - smooth(0, INTRO.lie, t) * .2;
+    orb.tx = P.x + Math.cos(a) * r; orb.tz = P.z + Math.sin(a) * r * .8;
+    if (Math.random() < dt * 40) fx.swirl(P.x + (Math.random() - .5) * .2, .15 + Math.random() * .5, P.z, .5 + Math.random() * .7, Math.random() < .5 ? [.8, .86, 1] : [1, .9, .7], { w: 1.4 + Math.random(), vy: .22, life: 2.2 });
+  } else { orb.tx = lerp(orb.tx, P.x + 1.1, .05); orb.tz = lerp(orb.tz, P.z - .2, .05); }
+  if (t > 1.1 && !S.chShown) { S.chShown = true; const ch = $('chapter'); ch.classList.add('on'); setTimeout(() => ch.classList.remove('on'), 3600); }
+  if (t > INTRO.stand + .2 && S.mode === 'intro') { S.mode = 'play'; setBars(false); $('hud').classList.add('on'); $('skip').classList.remove('on'); }
+}
+
+/* ================= 主更新 ================= */
+const tmpV = new THREE.Vector3();
+let camFocus = new THREE.Vector3(6, 0, 7);
+const focusUV = new THREE.Vector2(.5, .47);
+let dofK = 1, vig = .55;
+function update(dt) {
+  T += dt; S.t += dt;
+  const play = S.mode === 'play';
+  const intro = S.mode === 'intro';
+  if (intro) updateIntro(dt);
+  // 仪式演出
+  let cineFocus = null;
+  if (S.cine) {
+    const c = S.cine, st = c.steps[c.i];
+    if (!c.started) { c.started = true; st.start && st.start(); }
+    c.t += dt; st.run && st.run(Math.min(1, c.t / st.dur), dt, c.t);
+    if (st.focus) cineFocus = st.focus;
+    if (c.t >= st.dur) { st.end && st.end(); c.i++; c.t = 0; c.started = false; if (c.i >= c.steps.length) { S.cine = null; if (S.mode !== 'cut') setBars(false); } }
+  }
+  // 光点目标
+  if (S.mode === 'menu') {
+    const a = T * .55; orb.tx = DREAM[0] + Math.cos(a) * 1.75; orb.tz = DREAM[1] + .1 + Math.sin(a) * 1.2;
+  } else if ((play || S.mode === 'cut') && (mouse.seen || joyR.id !== null)) {
+    const h = mouse.seen ? mouseWorld() : null, rm = Math.hypot(joyR.dx, joyR.dz);
+    if (orb.lock) {
+      orb.tx = orb.lock.x; orb.tz = orb.lock.z;
+      // 鼠标移开，或右摇杆推到底一会儿，光点离开轴心
+      joyR.t = joyR.id !== null && rm > .8 ? joyR.t + dt : 0;
+      if ((mouse.seen && mouse.fresh && Math.hypot(mouse.nx - orb.lockM[0], mouse.ny - orb.lockM[1]) > .2) || joyR.t > .35) { orb.lock = null; orb.unlockT = .6; AU.ghost(); }
+    } else {
+      orb.unlockT = Math.max(0, (orb.unlockT || 0) - dt);
+      // 右摇杆：推着光点走，越推越快；松手就停在原地
+      if (joyR.id !== null && rm > .12) { const sp = 7.5 * Math.pow(Math.min(1, rm), 1.6); orb.tx += joyR.dx / rm * Math.min(1, rm) * sp * dt; orb.tz += joyR.dz / rm * Math.min(1, rm) * sp * dt; orb.held = 1; }
+      // 鼠标真的动了，光点才去鼠标那里；鼠标不动时光点留在原地（不跟着角色和画面走）
+      else if (mouse.fresh && h) { orb.tx = h.x; orb.tz = h.z; orb.held = 1; }
+      else orb.held = Math.max(0, orb.held - dt * 1.5);
+      keepOrbInView();
+      // 轴心：光点靠近就被吸住，直到鼠标再移开
+      if (LV.constrainOrb) LV.constrainOrb(orb);
+      if (!orb.unlockT) (LV.sockets || []).forEach(s => { if (!orb.lock && Math.hypot(orb.x - s.x, orb.z - s.z) < .5 && s.active()) { orb.lock = s; orb.lockM = [mouse.nx, mouse.ny]; s.onLock && s.onLock(); } });
+    }
+  }
+  mouse.fresh = false;
+  if (S.mode === 'cut' && LV.finaleOrb) { const f = LV.finaleOrb(S.ev); orb.tx = lerp(orb.tx, f[0], .03); orb.tz = lerp(orb.tz, f[1], .03); }
+  const k = 1 - Math.exp(-dt * 11);
+  orb.x += (orb.tx - orb.x) * k; orb.z += (orb.tz - orb.z) * k;
+  // 光点靠近角色时自然升高，避免贴脸过曝
+  const near = 1 - smooth(.4, 1.8, Math.hypot(orb.x - P.x, orb.z - P.z));
+  orb.lift = lerp(orb.lift, S.mode === 'menu' || intro || orb.lock ? 0 : near * .8, 1 - Math.exp(-dt * 6));
+  const bob = Math.sin(T * 2.2) * .06 + orb.lift;
+  orb.y = ORB_Y + bob;
+  orb.g.position.set(Math.round(orb.x * 16) / 16, Math.round(orb.y * 16) / 16, Math.round(orb.z * 16) / 16);
+  // 光源本身不吸附像素格：否则光照和影子会随着一格一格跳动而闪烁
+  orbLight.position.set(orb.x - orb.g.position.x, orb.y - orb.g.position.y, orb.z - orb.g.position.z);
+  const fin = S.mode === 'cut' ? 1 - smooth(1, 3, S.ev) * .8 : 1;
+  orb.k = (1 - near * (intro ? .55 : .35)) * fin * (S.mode === 'menu' ? .75 : 1);
+  orbLight.intensity = (7 + Math.sin(T * 1.7) * .1) * orb.k;
+  orbHalo.material.opacity = .5 * fin * (intro ? .45 : S.mode === 'menu' ? .22 : 1 - near * .65);
+  // 光尘拖尾：划得越快留下越多，沿路径均匀撒开
+  const ov = Math.hypot(orb.x - orb.px, orb.z - orb.pz), mc = LV.light.mote;
+  orb.dust = (orb.dust || 0) + dt * (16 + Math.min(ov / dt, 30) * 4.5);
+  for (; orb.dust >= 1; orb.dust--) {
+    const u = Math.random();
+    fx.emit(lerp(orb.px, orb.x, u) + (Math.random() - .5) * .22, orb.y + (Math.random() - .5) * .22, lerp(orb.pz, orb.z, u) + (Math.random() - .5) * .22,
+      { vy: -.12 - Math.random() * .15, vx: (Math.random() - .5) * .3, vz: (Math.random() - .5) * .3, drag: 1.5, life: .9 + Math.random() * .8, c: Math.random() < .25 ? [1, 1, 1] : mc, s: Math.random() < .3 ? 2 : 1, a: .95, tw: 9 });
+  }
+  orb.px = orb.x; orb.pz = orb.z;
+
+  if (play) updatePlayer(dt, !S.cine);
+  if (play && !S.cine) { LV.logic(dt); idleHints(dt); }
+  if (S.mode === 'cut') { S.ev += dt; if (LV.finale(dt, S.ev) && !S.endShown) { S.endShown = true; endGame(); } }
+  else { const amb = S.mode === 'menu' ? LV.light.hemi : LV.ambient(P); hemi.intensity = lerp(hemi.intensity, amb, 1 - Math.exp(-dt * 2)); moon.intensity = hemi.intensity * LV.light.moonK; }
+
+  // 角色帧
+  pc.update({ dir: P.dir, moving: P.moving && !P.falling, run: P.run, vx: P.falling ? 0 : P.vx, vz: P.falling ? 0 : P.vz, dt, lie: P.lie, crouch: P.crouch, act: P.act, actT: P.actT });
+  pTex.needsUpdate = true; pNrm.needsUpdate = true;
+  player.position.set(Math.round(P.x * 16) / 16, P.y, Math.round(P.z * 16) / 16);
+  // 投影替身朝向光点 / 月光
+  shOrb.rotation.y = Math.atan2(orb.x - P.x, orb.z - P.z);
+  shMoon.rotation.y = Math.atan2(moon.position.x - moon.target.position.x, moon.position.z - moon.target.position.z);
+
+  LV.update(dt, T);
+  updateDream(dt);
+  fx.update(dt, T);
+
+  // 相机：开场时压低视角、聚焦主角
+  const lowK = intro ? 1 - smooth(INTRO.stand - .3, INTRO.cam, S.introT) : S.mode === 'menu' ? .7 : 0;
+  S.elev = ELEV0 - lowK * (20 * Math.PI / 180);
+  SPR.cosE.value = Math.cos(S.elev);
+  const dir = camDir(S.elev);
+  let target;
+  if (S.mode === 'menu') target = tmpV.set(DREAM[0] + 4.7 + Math.sin(T * .1) * .25, 0, DREAM[1] - 1.1);
+  else if (cineFocus) target = tmpV.set(cineFocus[0], 0, cineFocus[1]);
+  else if (S.mode === 'cut') { const f = LV.finaleCam(S.ev); target = tmpV.set(lerp(P.x, f[0], smooth(0, 2, S.ev)), 0, lerp(P.z, f[1], smooth(0, 2, S.ev))); }
+  else if (intro) target = tmpV.set(P.x, 0, P.z + .3 * lowK);
+  else { const lk = .18 * Math.min(1, orb.held * 2); target = tmpV.set(P.x + (orb.x - P.x) * lk, 0, P.z + (orb.z - P.z) * lk); }
+  camFocus.lerp(target, 1 - Math.exp(-dt * (cineFocus ? 2.2 : 4)));
+  const focusPt = camFocus.clone().add(new THREE.Vector3(0, 0, -.6 * (1 - lowK)));
+  if (S.shakeT > 0) { S.shakeT -= dt; const a = S.shakeA * Math.max(0, S.shakeT / S.shakeD); focusPt.x += (Math.random() - .5) * a; focusPt.z += (Math.random() - .5) * a; }
+  pipe.snap(cam, focusPt, dir, CAM_DIST);
+  pSprite.position.copy(dir).multiplyScalar(-1.0); // 向相机方向挪一点：只改深度，不改画面位置
+  SPR.pz.value = player.position.z; SPR.depthK.value = 1 / (cam.far - cam.near);
+  snapMoon(camFocus);
+  if (LV.voidMat) LV.voidMat.uniforms.cam.value.set(camFocus.x, camFocus.z);
+  // 景深焦点：开场时对准主角，其余时候在画面中央
+  cam.updateMatrixWorld();
+  const [fsx, fsy] = toScreen(P.x, .8, P.z);
+  const menuM = S.mode === 'menu';
+  focusUV.lerp(intro || menuM ? new THREE.Vector2(fsx, 1 - fsy) : new THREE.Vector2(.5, .47), 1 - Math.exp(-dt * 3));
+  dofK = lerp(dofK, intro ? 1.6 : menuM ? 1.4 : 1, 1 - Math.exp(-dt * 2));
+  vig = lerp(vig, menuM ? 1.25 : intro || S.cine ? 1.1 : .55, 1 - Math.exp(-dt * 2));
+  S.flash *= Math.exp(-dt * 5);
+
+  // 提示
+  if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('on'); }
+  if (play && !P.falling && !S.cine) { const n = nearest(); n ? showPrompt(n.label, n.x, n.y, n.z) : showPrompt(null); } else showPrompt(null);
+  S.fade = lerp(S.fade, S.fadeTo, 1 - Math.exp(-dt * (S.fadeTo ? 9 : 3)));
+}
+
+// 在一个地方停留太久：根据当前进度给出提示，先含蓄、再明确
+function idleHints(dt) {
+  const I = S.idle, key = LV.progress();
+  if (Math.hypot(P.x - I.x, P.z - I.z) > 2.4 || key !== I.key) { I.x = P.x; I.z = P.z; I.t = 0; I.tier = 0; I.key = key; return; }
+  I.t += dt;
+  const H = LV.idle(P);
+  if (!H) return;
+  if (I.tier === 0 && I.t > 16) { I.tier = 1; toast(H[0], 5.5); AU.ghost(); }
+  else if (I.tier === 1 && I.t > 36) { I.tier = 2; toast(H[1] || H[0], 6.5); AU.ghost(); }
+}
+
+/* ================= 菜单 / 流程 ================= */
+const PROG_KEY = 'chenxingye3d';
+let prog = { done: [] };
+try { prog = JSON.parse(localStorage.getItem(PROG_KEY)) || prog; } catch (e) {}
+function saveProg() { try { localStorage.setItem(PROG_KEY, JSON.stringify(prog)); } catch (e) {} }
+const menu = $('menu');
+function syncSound() { document.querySelectorAll('[data-act="sound"]').forEach(b => { b.setAttribute('aria-pressed', AU.on); b.querySelector('.snd').textContent = AU.on ? '开' : '关'; }); }
+function nextLevel() { return prog.done.includes(1) && !prog.done.includes(2) ? 2 : 1; }
+function refreshMenu() {
+  [1, 2].forEach(n => { document.querySelector(`.tcard[data-n="${n}"] .st`).textContent = prog.done.includes(n) ? '已完成' : '可进入'; });
+  const nl = nextLevel();
+  document.querySelector('#mainNav [data-act="start"] .sub').textContent = prog.done.includes(1) ? (nl === 2 ? '第二幕 月' : '再走一次') : '';
+}
+let woke = false;
+function wake() { if (woke) { AU.init(); return; } woke = true; AU.init(); menu.classList.add('awake'); }
+addEventListener('pointerdown', wake, { capture: true });
+addEventListener('keydown', wake, { capture: true });
+function showView(v) {
+  $('vMain').classList.toggle('off', v !== 'main'); $('vChap').classList.toggle('off', v !== 'chap');
+  const deck = $('deck');
+  if (v === 'chap') { deck.classList.remove('dealt', 'picking'); deck.classList.add('dealing'); requestAnimationFrame(() => requestAnimationFrame(() => deck.classList.add('dealt'))); AU.deal(); setTimeout(() => deck.querySelector('.tcard:not(.locked)').focus(), 300); }
+  else setTimeout(() => document.querySelector('#mainNav .vbtn').focus({ preventScroll: true }), 50);
+}
+function menuAct(act) {
+  if (act === 'start') begin(nextLevel());
+  else if (act === 'chapters') showView('chap');
+  else if (act === 'sound') AU.toggle();
+}
+document.querySelectorAll('.vbtn').forEach((b, i) => {
+  b.addEventListener('click', () => { const a = b.dataset.act; if (b.closest('#pause')) pauseAct(a); else menuAct(a); });
+  b.addEventListener('mouseenter', () => AU.hover(i));
+});
+document.querySelectorAll('.tcard').forEach(c => {
+  c.addEventListener('click', () => {
+    if (c.classList.contains('locked')) { c.classList.remove('nudge'); void c.offsetWidth; c.classList.add('nudge'); AU.locked(); return; }
+    $('deck').classList.add('picking'); c.classList.add('chosen'); setTimeout(() => begin(+c.dataset.n), 650);
+  });
+  c.addEventListener('mouseenter', () => AU.hover(+c.dataset.n + 1));
+});
+$('back').addEventListener('click', () => { AU.back(); showView('main'); });
+function menuKey(e, k) {
+  if (k === 'escape' && !$('vChap').classList.contains('off')) { AU.back(); showView('main'); }
+}
+function begin(n = 1) {
+  AU.init();
+  S.fadeTo = 1;
+  setTimeout(() => {
+    if (!LV || S.level !== n) loadLevel(n);
+    pipe.setZoom(1); pipe.setupCamera(cam);
+    stickHome();
+    resetLevel();
+    menu.classList.add('hide'); document.body.classList.add('playing'); $('end').classList.remove('on');
+    $('deck').classList.remove('picking'); document.querySelectorAll('.tcard').forEach(c => c.classList.remove('chosen'));
+    S.mode = 'intro'; S.introT = 0; S.chShown = false; S.fadeTo = 0; camFocus.set(P.x, 0, P.z);
+    P.lie = true; P.crouch = 7;
+    setBars(true);
+    $('hud').classList.remove('on');
+    $('skip').classList.toggle('on', prog.done.includes(n));
+    AU.setMood(LV.mood);
+  }, 700);
+}
+const pauseEl = $('pause');
+let pausedFrom = 'play';
+function pause() { pausedFrom = S.mode; S.mode = 'paused'; pauseEl.classList.remove('off'); document.body.classList.add('paused'); setTimeout(() => pauseEl.querySelector('.vbtn').focus(), 50); }
+function resume() { S.mode = pausedFrom; pauseEl.classList.add('off'); document.body.classList.remove('paused'); document.activeElement && document.activeElement.blur(); }
+function pauseAct(a) { if (a === 'resume') resume(); else if (a === 'menu') toMenu(); else if (a === 'sound') AU.toggle(); }
+// 主界面：她躺在星空里的石台上熟睡，镜头更近
+function toDream() {
+  Object.assign(P, { x: DREAM[0] + .15, z: DREAM[1] + .2, lie: true, crouch: 0, act: null, dir: 'down' });
+  orb.x = orb.tx = DREAM[0] + 1.5; orb.z = orb.tz = DREAM[1]; orb.px = orb.x; orb.pz = orb.z;
+  camFocus.set(DREAM[0] + 4.7, 0, DREAM[1] - 1.1);
+  pipe.setZoom(1.5); pipe.setupCamera(cam);
+}
+function toMenu() {
+  S.fadeTo = 1;
+  setTimeout(() => {
+    pauseEl.classList.add('off'); document.body.classList.remove('paused', 'playing'); $('end').classList.remove('on'); $('hud').classList.remove('on'); $('skip').classList.remove('on');
+    if (S.level !== 1) loadLevel(1);
+    resetLevel(); toDream(); S.mode = 'menu'; S.fadeTo = 0; menu.classList.remove('hide'); refreshMenu(); showView('main'); AU.setMood(0); setBars(false);
+  }, 600);
+}
+function endGame() {
+  const n = S.level;
+  if (!prog.done.includes(n)) prog.done.push(n); saveProg();
+  const E = LV.endCard;
+  $('endRoman').textContent = LV.roman; $('endTitle').textContent = E.title; $('endLine').innerHTML = E.line;
+  $('again2').textContent = n === 1 ? '前往月之章' : '再走月之章';
+  $('end').classList.add('on'); S.mode = 'end'; refreshMenu(); setBars(false);
+  setTimeout(() => $('again2').focus(), 400);
+}
+$('again').addEventListener('click', toMenu);
+$('again2').addEventListener('click', () => { $('end').classList.remove('on'); begin(S.level === 1 ? 2 : 2); });
+
+/* ================= 主循环 ================= */
+let last = performance.now();
+function frame(now) {
+  const dt = clamp((now - last) / 1000, .001, .05); last = now;
+  if (S.mode !== 'paused') update(dt);
+  pipe.render(scene, cam, { time: T, fade: S.fade, grade: 0, focus: focusUV, dofK, flash: S.flash, vig });
+  requestAnimationFrame(frame);
+}
+loadLevel(1);
+resetLevel(); refreshMenu(); syncSound(); S.mode = 'menu'; S.fadeTo = 0;
+toDream(); stickHome();
+requestAnimationFrame(frame);
+setTimeout(() => document.querySelector('#mainNav .vbtn').focus({ preventScroll: true }), 100);
+
+// 调试/测试钩子
+window.__G = {
+  sim(sec) { for (let t = 0; t < sec; t += 1 / 30) update(1 / 30); return [S.mode, LV.progress(), P.x.toFixed(1), P.z.toFixed(1), P.falling]; },
+  S, P, orb, get LV() { return LV; }, get mouse() { return mouse; }, set mouse(v) { mouse.seen = false; },
+  begin, toMenu, interact, setMouse, mouseWorld, keys, update, pipe, cam, loadLevel, skipIntro, nearest, render() { pipe.render(scene, cam, { time: T, fade: S.fade, focus: focusUV, dofK, flash: S.flash, vig }); }
+};

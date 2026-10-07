@@ -1,0 +1,303 @@
+<title>辰星夜</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="description" content="辰星夜：用星光解谜的像素光影小游戏。">
+<meta name="theme-color" content="#05040f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="辰星夜">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%2305040f'/%3E%3Cpath d='M50 12 L56 44 L88 50 L56 56 L50 88 L44 56 L12 50 L44 44 Z' fill='%23e8c98e'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;500;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+<style>
+/* 布局：全屏 3D 像素场景，文字与卡牌以竖排书法式浮在其上 */
+:root{
+  --vw:1vw; --vh:1vh;
+  --night:#05040f; --bone:#efe8dc; --gold:#e8c98e; --gold-dim:rgba(232,201,142,.45); --star:#cfe3ff; --ink:rgba(10,8,26,.55);
+  --serif:"Noto Serif SC","Songti SC","STSong","SimSun",serif;
+  --title:"ZCOOL XiaoWei","Noto Serif SC","STKaiti","KaiTi",serif;
+  --u:min(calc(1*var(--vh)),calc(.5625*var(--vw)));
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--night);overflow:hidden;color:var(--bone);font-family:var(--serif);-webkit-user-select:none;user-select:none;touch-action:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated}
+body.playing #c{cursor:none}
+#ptr{position:fixed;left:-5px;top:-5px;width:10px;height:10px;border:1px solid rgba(220,228,255,.45);border-radius:50%;pointer-events:none;z-index:5;opacity:0;transition:opacity .4s}
+body.playing:not(.paused):not(.touchdev) #ptr{opacity:1}
+#nogl[hidden]{display:none}
+#nogl{position:fixed;inset:0;display:grid;place-items:center;text-align:center;padding:0 16px;line-height:2;letter-spacing:.1em}
+.key{display:inline-grid;place-items:center;min-width:1.7em;height:1.7em;padding:0 .35em;border:1px solid var(--gold-dim);border-radius:3px;color:var(--gold);font-size:.85em;background:var(--ink)}
+
+#prompt{position:fixed;transform:translate(-50%,-100%);white-space:nowrap;font-size:clamp(12px,calc(1.15*var(--vw)),15px);letter-spacing:.08em;pointer-events:none;
+  text-shadow:0 0 8px #000,0 0 2px #000;opacity:0;transition:opacity .3s;display:flex;align-items:center;gap:.5em}
+#prompt.on{opacity:1}
+#hud{position:fixed;left:max(16px,calc(2.2*var(--vw)),calc(env(safe-area-inset-left) + 10px));top:max(16px,calc(3.5*var(--vh)));display:flex;gap:.9em;align-items:flex-start;pointer-events:none;opacity:0;transition:opacity 1.2s}
+#hud.on{opacity:1}
+.mini{width:clamp(30px,calc(3*var(--vw)),40px);aspect-ratio:7/12;border:1px solid var(--gold-dim);border-radius:3px;position:relative;
+  background:linear-gradient(180deg,rgba(30,24,60,.7),rgba(10,8,26,.7));display:grid;place-items:center;color:var(--gold);font-size:clamp(9px,calc(.8*var(--vw)),11px)}
+.mini::before{content:"";position:absolute;inset:3px;border:1px solid rgba(232,201,142,.18);border-radius:2px}
+.mini.have{background:linear-gradient(180deg,#f3ead6,#d9c9a6);color:#6b4f2a;box-shadow:0 0 14px rgba(255,226,160,.5)}
+.hudtext{font-size:clamp(12px,calc(1.05*var(--vw)),14px);line-height:1.9;letter-spacing:.06em;text-shadow:0 0 6px #000}
+.hudtext .dim{color:rgba(239,232,220,.55)}
+.dots{display:inline-flex;gap:.35em;vertical-align:middle;margin-left:.4em}
+.dots i{width:.55em;height:.55em;border-radius:50%;border:1px solid var(--gold);opacity:.6}
+.dots i.on{background:var(--gold);box-shadow:0 0 6px var(--gold);opacity:1}
+#toast{position:fixed;left:50%;bottom:9%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);font-size:clamp(13px,calc(1.25*var(--vw)),17px);letter-spacing:.14em;
+  text-shadow:0 0 10px #000,0 0 3px #000;opacity:0;transition:opacity .6s;pointer-events:none;text-align:center;line-height:1.8}
+#toast.on{opacity:1}
+#help{position:fixed;right:max(16px,calc(2.2*var(--vw)));bottom:max(16px,calc(3.5*var(--vh)));font-size:clamp(11px,calc(.9*var(--vw)),12px);color:rgba(239,232,220,.6);letter-spacing:.08em;pointer-events:none;
+  line-height:2.1;text-align:right;transition:opacity 2s;opacity:0;text-shadow:0 0 6px #000}
+body.playing #help{opacity:1}
+body.touchdev #help{display:none}
+#help .key{margin:0 .15em}
+#chapter{position:fixed;inset:0;display:grid;place-items:start center;padding-top:calc(16*var(--vh))!important;pointer-events:none;opacity:0;transition:opacity 1.6s;padding:0 16px}
+#chapter.on{opacity:1}
+#chapter div{text-align:center}
+#chapter .num{font-weight:300;color:var(--gold);font-size:clamp(14px,calc(1.6*var(--vw)),22px);letter-spacing:.6em;margin-bottom:.6em}
+#chapter .name{font-family:var(--title);font-size:clamp(40px,calc(5*var(--vw)),68px);letter-spacing:.3em;padding-left:.3em;text-shadow:0 0 30px rgba(207,227,255,.45)}
+#chapter .line{margin-top:1.2em;font-size:clamp(12px,calc(1.2*var(--vw)),16px);color:rgba(239,232,220,.75);letter-spacing:.25em;text-shadow:0 0 8px #000}
+#bars i{position:fixed;left:0;right:0;height:calc(9*var(--vh));background:#03020a;transition:transform 1.2s cubic-bezier(.4,0,.2,1);pointer-events:none;z-index:1}
+#bars i:first-child{top:0;transform:translateY(-100%)}
+#bars i:last-child{bottom:0;transform:translateY(100%)}
+body.cine #bars i{transform:none}
+body.cine #help,body.cine #hud{opacity:0!important}
+#skip{position:fixed;right:max(16px,calc(2.2*var(--vw)));bottom:calc(calc(9*var(--vh)) + 14px);font-size:clamp(11px,calc(.9*var(--vw)),12px);color:rgba(239,232,220,.5);letter-spacing:.1em;opacity:0;transition:opacity 1s;pointer-events:none;z-index:2}
+#skip.on{opacity:1}
+#toast{z-index:2}
+#fadeTop{position:fixed;inset:0;pointer-events:none;background:radial-gradient(120% 95% at 50% 45%,transparent 60%,rgba(3,2,12,.5) 100%)}
+
+/* 主界面 */
+#menu{position:fixed;inset:0;transition:opacity 1.2s}
+#menu.hide{opacity:0;pointer-events:none}
+#menu::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(48% 70% at 50% 46%,rgba(5,4,15,.42),rgba(5,4,15,.08) 72%),linear-gradient(180deg,rgba(5,4,15,.3),rgba(5,4,15,0) 30%,rgba(5,4,15,0) 70%,rgba(5,4,15,.55))}
+.view{position:absolute;inset:0;transition:opacity .9s,visibility .9s}
+.view.off{opacity:0;visibility:hidden;pointer-events:none}
+.scroll{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);display:flex;flex-direction:row-reverse;align-items:flex-start}
+.brand{display:flex;flex-direction:column;align-items:center;gap:calc(var(--u)*2.6)}
+.brand .sigil{width:calc(var(--u)*8.5);aspect-ratio:1;animation:spin 200s linear infinite}
+.brand h1{margin:0;writing-mode:vertical-rl;font-family:var(--title);font-weight:400;font-size:calc(var(--u)*11.5);letter-spacing:.28em;line-height:1;
+  color:#f7f1e7;text-shadow:0 0 calc(var(--u)*3) rgba(207,227,255,.55),0 0 2px rgba(255,255,255,.8)}
+.brand h1 span{display:inline-block}
+.brand .en{writing-mode:vertical-rl;font-size:calc(var(--u)*1.35);letter-spacing:.5em;color:var(--gold);opacity:.8}
+.rule{width:1px;align-self:stretch;margin:calc(var(--u)*1) calc(var(--u)*5) 0;background:linear-gradient(180deg,transparent,var(--gold-dim) 18%,var(--gold-dim) 82%,transparent)}
+.vmenu{display:flex;flex-direction:row-reverse;gap:calc(var(--u)*3.4);align-items:flex-start;padding-top:calc(var(--u)*10)}
+.vbtn{writing-mode:vertical-rl;font:inherit;font-family:var(--title);font-size:max(15px,calc(var(--u)*3.4));letter-spacing:.4em;line-height:1;color:rgba(239,232,220,.65);
+  background:none;border:0;padding:calc(var(--u)*3.2) calc(var(--u)*1) calc(var(--u)*1);cursor:pointer;position:relative;transition:color .5s,text-shadow .5s;-webkit-tap-highlight-color:transparent}
+.vbtn::before{content:"";position:absolute;top:0;left:50%;width:calc(var(--u)*.85);height:calc(var(--u)*.85);background:var(--gold);opacity:0;
+  transform:translateX(-50%) rotate(45deg) scale(.3);transition:opacity .5s,transform .6s,box-shadow .6s}
+.vbtn:hover,.vbtn:focus-visible{color:#fbf7ee;text-shadow:0 0 calc(var(--u)*2.2) rgba(207,227,255,.6);outline:none}
+.vbtn:hover::before,.vbtn:focus-visible::before{opacity:1;transform:translateX(-50%) rotate(45deg) scale(1);box-shadow:0 0 10px 2px rgba(255,226,160,.65)}
+.vbtn:focus{outline:none}
+.vbtn small{margin-inline-start:.9em;font-family:var(--serif);font-weight:300;font-size:.5em;letter-spacing:.3em;color:var(--gold)}
+.vbtn small:empty{display:none}
+.wake{position:absolute;left:50%;bottom:calc(var(--u)*11.5);transform:translateX(-50%);margin:0;white-space:nowrap;font-size:max(12px,calc(var(--u)*1.6));letter-spacing:.3em;
+  color:rgba(239,232,220,.75);animation:breath 3.6s ease-in-out infinite;transition:opacity 1.5s;text-shadow:0 0 8px #000}
+#menu.awake .wake{opacity:0!important;animation:none}
+.foot{position:absolute;left:50%;bottom:calc(var(--u)*5);transform:translateX(-50%);white-space:nowrap;font-size:max(11px,calc(var(--u)*1.45));color:rgba(239,232,220,.5);letter-spacing:.1em;text-shadow:0 0 6px #000}
+.foot .key{margin:0 .25em}
+body.touchdev .foot{display:none}
+#menu.intro .brand .sigil{animation:spin 200s linear infinite,ink 3s ease .1s both}
+#menu.intro .brand h1 span{animation:ink 2.6s cubic-bezier(.3,.6,.3,1) both}
+#menu.intro .brand h1 span:nth-child(2){animation-delay:.45s}
+#menu.intro .brand h1 span:nth-child(3){animation-delay:.9s}
+#menu.intro .rule{animation:draw 2.2s ease 1.2s both}
+#menu.intro #mainNav .vbtn{animation:ink 1.8s ease both}
+#menu.intro #mainNav .vbtn:nth-child(1){animation-delay:1.8s}
+#menu.intro #mainNav .vbtn:nth-child(2){animation-delay:2.05s}
+#menu.intro #mainNav .vbtn:nth-child(3){animation-delay:2.3s}
+#menu.intro .foot,#menu.intro .brand .en{animation:fadein 2s ease 2.8s both}
+#menu.intro .wake{animation:fadein 2s ease 2.8s both,breath 3.6s ease-in-out 4.8s infinite}
+@keyframes fadein{from{opacity:0;filter:blur(4px)}to{opacity:1;filter:none}}
+@keyframes ink{from{opacity:0;filter:blur(6px);transform:translateY(calc(var(--u)*-1))}to{opacity:1;filter:blur(0);transform:none}}
+@keyframes draw{from{transform:scaleY(0);opacity:0}to{transform:scaleY(1);opacity:1}}
+@keyframes spin{to{rotate:360deg}}
+@keyframes breath{0%,100%{opacity:.45}50%{opacity:1}}
+
+/* 章节：三张塔罗牌 */
+.deck{position:absolute;inset:0}
+.tcard{--x:0px;--y:calc(var(--u)*6);--r:0deg;position:absolute;left:50%;top:46%;height:calc(var(--u)*56);aspect-ratio:7/12;padding:0;border:0;background:none;
+  font:inherit;color:inherit;cursor:pointer;opacity:0;transform:translate(-50%,-50%) translate(var(--x),var(--y)) rotate(var(--r));
+  transition:transform .7s cubic-bezier(.2,.75,.25,1),opacity .7s ease;-webkit-tap-highlight-color:transparent}
+.deck.dealing .tcard{transition:transform 1.1s cubic-bezier(.2,.75,.25,1) calc(var(--k)*.14s),opacity .9s ease calc(var(--k)*.14s)}
+.deck.dealt .tcard{--x:calc(var(--i)*var(--u)*36);--y:calc(var(--a)*var(--u)*2.4);--r:calc(var(--i)*6deg);opacity:1}
+.deck.dealt .tcard:hover,.deck.dealt .tcard:focus-visible{--y:calc(var(--a)*var(--u)*2.4 - var(--u)*3.6);--r:calc(var(--i)*2deg);outline:none;z-index:2}
+.deck.dealt .tcard.locked:hover,.deck.dealt .tcard.locked:focus-visible{--y:calc(var(--a)*var(--u)*2.4 - var(--u)*1.2);--r:calc(var(--i)*5deg)}
+.tcard:focus{outline:none}
+.deck.picking .tcard:not(.chosen){opacity:0}
+.deck.dealt.picking .tcard.chosen{--x:0px;--y:calc(var(--u)*-1.5);--r:0deg}
+.face{position:absolute;inset:0;border:1px solid var(--gold-dim);border-radius:calc(var(--u)*.8);
+  background:linear-gradient(180deg,rgba(24,18,56,.88),rgba(8,6,22,.94));box-shadow:0 0 calc(var(--u)*5) rgba(120,100,200,.18);
+  display:flex;flex-direction:column;align-items:center;padding:calc(var(--u)*4.4) calc(var(--u)*2.8) calc(var(--u)*3.6);
+  transition:border-color .5s,box-shadow .6s;animation:float 9s ease-in-out infinite;animation-delay:calc(var(--k)*-3s)}
+.face::before{content:"";position:absolute;inset:calc(var(--u)*1.1);border:1px solid rgba(232,201,142,.18);border-radius:calc(var(--u)*.4);pointer-events:none}
+.tcard:hover .face,.tcard:focus-visible .face{border-color:rgba(232,201,142,.85);box-shadow:0 0 calc(var(--u)*6) rgba(170,150,255,.3),0 0 calc(var(--u)*1.4) rgba(255,226,160,.25)}
+.tcard.chosen .face{border-color:var(--gold);box-shadow:0 0 calc(var(--u)*9) rgba(255,226,160,.5)}
+.face .rn{font-weight:300;color:var(--gold);letter-spacing:.45em;padding-left:.45em;font-size:calc(var(--u)*2)}
+.face .emb{width:56%;aspect-ratio:1;margin-top:auto}
+.face .nm{font-family:var(--title);font-size:calc(var(--u)*6.6);line-height:1;letter-spacing:.2em;padding-left:.2em;color:#f7f1e7;margin:calc(var(--u)*2.4) 0 auto;text-shadow:0 0 calc(var(--u)*2.4) rgba(207,227,255,.45)}
+.face .ln{font-size:max(11px,calc(var(--u)*1.5));line-height:1.9;letter-spacing:.12em;color:rgba(239,232,220,.7);text-align:center;text-wrap:balance}
+.face .st{margin-top:calc(var(--u)*1.4);font-size:max(10px,calc(var(--u)*1.3));letter-spacing:.3em;padding-left:.3em;color:var(--gold)}
+.locked{cursor:default}
+.locked .face{background:repeating-linear-gradient(45deg,rgba(232,201,142,.06) 0 1px,transparent 1px calc(var(--u)*1.4)),
+  repeating-linear-gradient(-45deg,rgba(232,201,142,.06) 0 1px,transparent 1px calc(var(--u)*1.4)),linear-gradient(180deg,rgba(26,20,52,.9),rgba(9,7,22,.95))}
+.locked .face .emb{opacity:.55}
+.locked .face .nm{color:rgba(247,241,231,.55)}
+.locked .face .st{color:var(--gold-dim)}
+.tcard.nudge .face{animation:nudge .5s ease}
+.back{position:absolute;left:50%;bottom:calc(var(--u)*5.2);transform:translateX(-50%);font:inherit;font-size:max(13px,calc(var(--u)*1.7));letter-spacing:.3em;
+  color:rgba(239,232,220,.6);background:none;border:0;cursor:pointer;padding:.6em 1.2em;border-radius:3px;transition:color .4s;white-space:nowrap}
+.back:hover,.back:focus-visible{color:var(--bone);outline:none;box-shadow:inset 0 0 0 1px var(--gold-dim)}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(calc(var(--u)*-.7))}}
+@keyframes nudge{0%,100%{transform:none}25%{transform:translateX(calc(var(--u)*-.6))}75%{transform:translateX(calc(var(--u)*.6))}}
+
+/* 暂停 / 结算 */
+#pause{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(60% 70% at 50% 50%,rgba(5,4,15,.35),rgba(5,4,15,.82));transition:opacity .6s,visibility .6s}
+#pause.off{opacity:0;visibility:hidden;pointer-events:none}
+body.paused #chapter,body.paused #prompt,body.paused #toast,body.paused #help{opacity:0!important}
+.pwrap{display:flex;flex-direction:column;align-items:center}
+.proman{font-weight:300;color:var(--gold);letter-spacing:.5em;padding-left:.5em;font-size:max(14px,calc(var(--u)*2.2))}
+#pauseNav{padding-top:calc(var(--u)*4)}
+#end{position:fixed;inset:0;display:grid;place-items:center;opacity:0;pointer-events:none;transition:opacity 2.5s;padding:0 16px;
+  background:radial-gradient(70% 70% at 50% 50%,rgba(60,44,70,.35),rgba(5,4,15,.88))}
+#end.on{opacity:1;pointer-events:auto}
+.card{position:relative;height:min(72%,500px);max-width:100%;aspect-ratio:7/12;border:1px solid var(--gold-dim);border-radius:6px;
+  background:linear-gradient(180deg,rgba(18,14,44,.75),rgba(8,6,22,.86));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(14px,calc(3.2*var(--vh)),30px);padding:8% 6% 9%;box-shadow:0 0 60px rgba(255,220,160,.18)}
+.card::before{content:"";position:absolute;inset:10px;border:1px solid rgba(232,201,142,.2);border-radius:3px;pointer-events:none}
+.card .roman{font-weight:300;color:var(--gold);letter-spacing:.5em;padding-left:.5em;font-size:clamp(14px,calc(1.8*var(--vw)),22px)}
+#end h2{margin:0;flex:none;white-space:nowrap;font-family:var(--title);font-weight:400;writing-mode:vertical-rl;font-size:clamp(28px,calc(4.4*var(--vh)),44px);letter-spacing:.3em;text-shadow:0 0 24px rgba(255,226,170,.45)}
+#end p{margin:0;white-space:nowrap;font-size:clamp(11px,calc(1.1*var(--vw)),14px);letter-spacing:.2em;color:rgba(239,232,220,.75);text-align:center;line-height:2}
+#end button{font:inherit;font-size:clamp(12px,calc(1.1*var(--vw)),14px);letter-spacing:.25em;color:var(--gold);background:transparent;border:1px solid var(--gold-dim);padding:.6em 1.4em;border-radius:3px;cursor:pointer;white-space:nowrap}
+#end .btns{display:flex;flex-direction:column;gap:.8em;align-items:center}
+#end button:hover,#end button:focus-visible{background:rgba(232,201,142,.12);outline:none}
+/* 矮屏（手机横屏）：结算卡改成横向排布 */
+body.short .card{height:auto;max-height:92%;aspect-ratio:auto;display:grid;grid-template-columns:auto auto;align-items:center;justify-items:center;gap:10px 34px;padding:20px 34px 24px}
+body.short #endRoman{grid-column:1/-1}
+body.short #end h2{grid-row:2/4;font-size:30px}
+body.short #end .btns{flex-direction:row}
+body.paused #touch,body:has(#end.on) #touch{display:none!important}
+
+/* 触屏 */
+#touch{position:fixed;inset:0;pointer-events:none;display:none}
+body.touchdev.playing #touch{display:block}
+#touch .stk{position:fixed;width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:50%;border:1px solid var(--gold-dim);background:rgba(10,8,26,.3);opacity:.32;transition:opacity .2s}
+#touch .stk.on{opacity:1}
+#touch .knb{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:rgba(232,201,142,.35)}
+#stick2 .knb{background:rgba(190,215,255,.4);box-shadow:0 0 12px rgba(190,215,255,.5)}
+#stick2 span{position:absolute;left:50%;top:100%;transform:translate(-50%,6px);font-size:11px;letter-spacing:.2em;color:rgba(207,227,255,.6);white-space:nowrap}
+/* 竖着拿手机：整页旋转成横屏 */
+body.rot{position:fixed;left:0;top:0;transform-origin:0 0;transform:translateX(100vw) rotate(90deg)}
+#touch button{position:fixed;width:64px;height:64px;border-radius:50%;border:1px solid var(--gold-dim);background:rgba(10,8,26,.4);color:var(--gold);font:inherit;font-size:16px;pointer-events:auto}
+#tE{right:max(16px,calc(4*var(--vw)),calc(env(safe-area-inset-right) + 10px));bottom:max(24px,calc(6*var(--vh)))}
+#tP{right:max(16px,calc(4*var(--vw)),calc(env(safe-area-inset-right) + 10px));top:max(16px,calc(3*var(--vh)));width:44px!important;height:44px!important;font-size:13px!important}
+#touchTip{position:fixed;left:50%;top:max(16px,calc(3*var(--vh)));transform:translateX(-50%);font-size:12px;letter-spacing:.1em;color:rgba(239,232,220,.55);white-space:nowrap;text-shadow:0 0 6px #000}
+@media (max-width:640px){ .tcard{height:calc(var(--u)*46)} .deck.dealt .tcard{--x:calc(var(--i)*var(--u)*20)} }
+@media (prefers-reduced-motion:reduce){ #menu *,#menu *::before{animation:none!important} .tcard,.deck.dealing .tcard{transition:opacity .3s!important} }
+</style>
+
+<canvas id="c" aria-label="辰星夜 游戏画面"></canvas>
+<div id="ptr" aria-hidden="true"></div>
+<div id="oops" hidden style="position:fixed;left:16px;right:16px;bottom:16px;z-index:99;padding:10px 14px;border:1px solid #6a5a3a;border-radius:4px;background:#0b0a18;color:#e8dcc0;font:12px/1.6 monospace;white-space:pre-wrap"></div>
+<script>addEventListener('error',function(e){var o=document.getElementById('oops');if(!o)return;o.hidden=false;o.textContent='出错了，请把这段文字发给我：\n'+(e.message||e)+(e.filename?'\n'+e.lineno+':'+e.colno:'');});</script>
+<div id="nogl" hidden>这个浏览器没有开启 WebGL，游戏画面无法显示。<br>请换用新版 Chrome、Edge、Safari 或 Firefox 打开。</div>
+<div id="fadeTop"></div>
+<div id="prompt"></div>
+<div id="hud">
+  <div class="mini" id="hudcard">XVII</div>
+  <div class="hudtext">
+    <div><span id="hudlabel">星灯</span><span class="dots" id="dots"></span></div>
+    <div id="cardline" class="dim">遗失的牌　未寻得</div>
+  </div>
+</div>
+<div id="help"><div><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> 移动　<span class="key">Shift</span> 奔跑　<span class="key">E</span> 互动</div><div>鼠标 引导星光　<span class="key">M</span> 琴声　<span class="key">Esc</span> 暂停</div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="bars" aria-hidden="true"><i></i><i></i></div>
+<div id="skip"><span class="key">E</span> 跳过</div>
+<div id="chapter"><div><div class="num">XVII</div><div class="name">星</div><div class="line">在无光之处，星辰等待被唤醒</div></div></div>
+<div id="touch"><div id="stick" class="stk"><div id="knob" class="knb"></div></div><div id="stick2" class="stk"><div id="knob2" class="knb"></div><span>星光</span></div><button id="tE" aria-label="互动">E</button><button id="tP" aria-label="暂停">Ⅱ</button><div id="touchTip">左边摇杆行走　右边摇杆移动星光</div></div>
+<div id="end"><div class="card">
+  <div class="roman" id="endRoman">XVII</div>
+  <h2 id="endTitle">星光归位</h2>
+  <p id="endLine">第一幕　星　完<br>下一幕　月　已在水边等你</p>
+  <div class="btns"><button id="again2">前往月之章</button><button id="again">回到主界面</button></div>
+</div></div>
+<div id="menu" class="intro">
+  <section class="view" id="vMain">
+    <div class="scroll">
+      <div class="brand">
+        <svg class="sigil" viewBox="0 0 100 100" fill="none" stroke="#e8c98e" stroke-width="1" aria-hidden="true">
+          <circle cx="50" cy="50" r="46" opacity=".35"/><circle cx="50" cy="50" r="31" opacity=".22"/>
+          <path d="M50 6 L55 45 L94 50 L55 55 L50 94 L45 55 L6 50 L45 45 Z" fill="rgba(232,201,142,.12)"/>
+          <path d="M50 26 L52 48 L74 50 L52 52 L50 74 L48 52 L26 50 L48 48 Z" opacity=".6" transform="rotate(45 50 50)"/>
+          <circle cx="50" cy="4" r="1.6" fill="#e8c98e" stroke="none"/><circle cx="96" cy="50" r="1.2" fill="#e8c98e" stroke="none" opacity=".6"/>
+        </svg>
+        <h1 aria-label="辰星夜"><span>辰</span><span>星</span><span>夜</span></h1>
+      </div>
+      <i class="rule" aria-hidden="true"></i>
+      <nav class="vmenu" id="mainNav">
+        <button class="vbtn" data-act="start"><span class="lbl">踏入夜色</span><small class="sub"></small></button>
+        <button class="vbtn" data-act="chapters"><span class="lbl">章节</span></button>
+        <button class="vbtn" data-act="sound" aria-pressed="true"><span class="lbl">琴声</span><small class="snd">开</small></button>
+      </nav>
+    </div>
+    <p class="wake">点击任意处，让琴声响起</p>
+    <div class="foot"><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> 移动　鼠标 引导星光　<span class="key">E</span> 互动　<span class="key">Esc</span> 暂停</div>
+  </section>
+  <section class="view off" id="vChap">
+    <div class="deck" id="deck">
+      <button class="tcard" data-n="1" style="--i:-1;--a:1;--k:0">
+        <span class="face">
+          <span class="rn">XVII</span>
+          <svg class="emb" viewBox="0 0 100 100" fill="none" stroke="#e8c98e" stroke-width="1" aria-hidden="true">
+            <circle cx="50" cy="50" r="40" opacity=".22"/>
+            <path d="M50 12 L55 45 L88 50 L55 55 L50 88 L45 55 L12 50 L45 45 Z" fill="rgba(232,201,142,.14)"/>
+            <path d="M50 30 L52 48 L70 50 L52 52 L50 70 L48 52 L30 50 L48 48 Z" opacity=".55" transform="rotate(45 50 50)"/>
+            <g fill="#e8c98e" stroke="none" opacity=".8"><circle cx="22" cy="24" r="1.3"/><circle cx="80" cy="20" r="1"/><circle cx="78" cy="80" r="1.4"/><circle cx="18" cy="74" r="1"/></g>
+          </svg>
+          <span class="nm">星</span>
+          <span class="ln">光之桥　影之晷<br>在无光之处，星辰等待被唤醒</span>
+          <span class="st">可进入</span>
+        </span>
+      </button>
+      <button class="tcard" data-n="2" style="--i:0;--a:0;--k:1">
+        <span class="face">
+          <span class="rn">XVIII</span>
+          <svg class="emb" viewBox="0 0 100 100" fill="none" stroke="#e8c98e" stroke-width="1" aria-hidden="true">
+            <circle cx="50" cy="50" r="40" opacity=".22"/>
+            <path d="M58 18 A32 32 0 1 0 58 82 A26 26 0 1 1 58 18 Z" fill="rgba(232,201,142,.14)"/>
+            <path d="M20 86 Q35 82 50 86 T80 86" opacity=".5"/><path d="M28 92 Q40 89 52 92 T74 92" opacity=".3"/>
+          </svg>
+          <span class="nm">月</span>
+          <span class="ln">影中之路　水底之月<br>光与影，交替托住你</span>
+          <span class="st">可进入</span>
+        </span>
+      </button>
+      <button class="tcard locked" data-n="3" aria-disabled="true" style="--i:1;--a:1;--k:2">
+        <span class="face">
+          <span class="rn">XIX</span>
+          <svg class="emb" viewBox="0 0 100 100" fill="none" stroke="#e8c98e" stroke-width="1" aria-hidden="true">
+            <circle cx="50" cy="50" r="14" fill="rgba(232,201,142,.1)"/><circle cx="50" cy="50" r="24" opacity=".35"/>
+            <g opacity=".6"><path d="M50 12v12M50 76v12M12 50h12M76 50h12M23 23l8 8M69 69l8 8M77 23l-8 8M31 69l-8 8"/></g>
+          </svg>
+          <span class="nm">太阳</span>
+          <span class="ln">折光之镜　向日之花<br>把光，送到最远的地方</span>
+          <span class="st">尚在远方</span>
+        </span>
+      </button>
+    </div>
+    <button class="back" id="back"><span class="key">Esc</span>　返回</button>
+  </section>
+</div>
+<div id="pause" class="off"><div class="pwrap">
+  <div class="proman">XVII　星</div>
+  <nav class="vmenu" id="pauseNav">
+    <button class="vbtn" data-act="resume"><span class="lbl">继续</span></button>
+    <button class="vbtn" data-act="menu"><span class="lbl">回到主界面</span></button>
+    <button class="vbtn" data-act="sound" aria-pressed="true"><span class="lbl">琴声</span><small class="snd">开</small></button>
+  </nav>
+</div></div>
+<!--PIANO-->
+<script>
+<!--BUNDLE-->
+</script>
