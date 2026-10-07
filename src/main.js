@@ -2,8 +2,8 @@
 import * as THREE from 'three';
 import { PixelPipeline, LAYER_FX, LAYER_SH_ORB, LAYER_SH_MOON } from './post.js';
 import { billboard, tex, disposeGroup, makeEnv, SHAFT_T } from './common.js';
-import { orbCanvas, haloCanvas } from './sprites.js';
-import { VoxChar } from './voxchar.js';
+import { makeOrbStar } from './orbstar.js';
+import { SpriteChar, spriteRig } from './sprchar.js';
 import { createAudio } from './audio.js';
 import { FX } from './fx.js';
 import { buildStar } from './level1.js';
@@ -72,12 +72,11 @@ function snapMoon(c) {
 }
 
 /* ================= 角色 ================= */
-// 主角是真正立体的体素小人：正面、侧面、背面都是同一个身体，直接投出和身形一致的影子
-const pc = new VoxChar();
-const player = new THREE.Group(); scene.add(player); player.add(pc.group);
-pipe.normalExtra = (r, c) => { if (pc.group.parent && player.visible) pc.renderNormals(r, c); };
-// 角色不参与法线描边，但两种光都能用它投影
-pc.group.traverse(o => { if (o.isMesh) { o.layers.set(LAYER_FX); o.layers.enable(LAYER_SH_ORB); o.layers.enable(LAYER_SH_MOON); } });
+// 主角是平面像素小人：八个朝向的程序化像素画 + 每帧法线图（光照到身上有体积）
+const pc = new SpriteChar();
+const player = new THREE.Group(); scene.add(player);
+const rig = spriteRig(THREE, pc, { fx: LAYER_FX, shOrb: LAYER_SH_ORB, shMoon: LAYER_SH_MOON }); player.add(rig.group);
+pipe.normalExtra = (r, c) => rig.renderNormals(r, c);
 const P = { x: 2.5, z: 7.5, dir: 'down', vx: 0, vz: 0, run: 0, moving: false, falling: false, fallT: 0, y: 0, safe: [2.5, 7.5], crouch: 0, lie: false, act: null, actT: 0 };
 
 /* ================= 光点（鼠标即光源） ================= */
@@ -88,10 +87,8 @@ orbLight.castShadow = true; orbLight.shadow.mapSize.set(1024, 1024); orbLight.sh
 orbLight.shadow.camera.near = .05; orbLight.shadow.camera.far = 11;
 orbLight.shadow.camera.layers.set(0); orbLight.shadow.camera.layers.enable(LAYER_SH_ORB);
 orb.g.add(orbLight);
-const orbT = tex(orbCanvas()); orbT.wrapS = orbT.wrapT = THREE.ClampToEdgeWrapping;
-const haloT = tex(haloCanvas(64)); haloT.wrapS = haloT.wrapT = THREE.ClampToEdgeWrapping;
-const orbCore = billboard(orbT, 9 / 16, 9 / 16, true, camQuat); orbCore.material.color.setRGB(2.2, 2.2, 2.4); orb.g.add(orbCore);
-const orbHalo = billboard(haloT, 3.2, 3.2, true, camQuat); orbHalo.material.color.set(0x8fb0ff); orbHalo.material.opacity = .5; orb.g.add(orbHalo);
+// 光点本体是一颗立体的四芒星，光晕是空气里的体积散射（不是贴图）
+const orbStar = makeOrbStar(LAYER_FX); orb.g.add(orbStar.g); let orbGlow = 1;
 scene.add(orb.g);
 
 /* ================= 特效 ================= */
@@ -177,7 +174,7 @@ function loadLevel(n) {
   S.level = n;
   const lg = LV.light;
   hemi.color.set(lg.sky); hemi.groundColor.set(lg.ground); hemi.intensity = lg.hemi;
-  moon.color.set(lg.moon); orbLight.color.set(lg.orb); orbHalo.material.color.set(lg.halo);
+  moon.color.set(lg.moon); orbLight.color.set(lg.orb); orbStar.setColor(lg.orb);
   if (scene.environment) scene.environment.dispose();
   scene.environment = makeEnv(renderer, ...lg.env);
   pipe.setPalette(LV.palette, LV.tintLo, LV.tintHi);
@@ -363,7 +360,7 @@ function updateIntro(dt) {
 }
 
 /* ================= 主更新 ================= */
-const tmpV = new THREE.Vector3();
+const tmpV = new THREE.Vector3(), tmpM = new THREE.Vector3();
 let camFocus = new THREE.Vector3(6, 0, 7); const camVel = new THREE.Vector3(), camD = new THREE.Vector3();
 const focusUV = new THREE.Vector2(.5, .47);
 let dofK = 1, vig = .55;
@@ -421,7 +418,7 @@ function update(dt) {
   const fin = S.mode === 'cut' ? 1 - smooth(1, 3, S.ev) * .8 : 1;
   orb.k = (1 - near * (intro ? .55 : .35)) * fin * (S.mode === 'menu' ? .75 : 1);
   orbLight.intensity = (7 + Math.sin(T * 1.7) * .1) * orb.k;
-  orbHalo.material.opacity = .5 * fin * (intro ? .45 : S.mode === 'menu' ? .22 : 1 - near * .65);
+  orbGlow = fin * (intro ? .5 : S.mode === 'menu' ? .35 : 1 - near * .55);
   // 光尘拖尾：划得越快留下越多，沿路径均匀撒开
   const ov = Math.hypot(orb.x - orb.px, orb.z - orb.pz), mc = LV.light.mote;
   orb.dust = (orb.dust || 0) + dt * (16 + Math.min(ov / dt, 30) * 4.5);
@@ -439,7 +436,7 @@ function update(dt) {
 
   // 角色帧
   pc.update({ dir: P.dir, moving: P.moving && !P.falling, run: P.run, vx: P.falling ? 0 : P.vx, vz: P.falling ? 0 : P.vz, dt, lie: P.lie, crouch: P.crouch, act: P.act, actT: P.actT });
-  player.position.set(Math.round(P.x * 32) / 32, P.y, Math.round(P.z * 32) / 32); pc.U.foot.value.copy(player.position);
+  player.position.set(P.x, P.y, P.z);
 
   LV.update(dt, T);
   updateDream(dt);
@@ -467,6 +464,8 @@ function update(dt) {
   const focusPt = camFocus.clone().add(new THREE.Vector3(0, 0, -.6 * (1 - lowK)));
   if (S.shakeT > 0) { S.shakeT -= dt; const a = S.shakeA * Math.max(0, S.shakeT / S.shakeD); focusPt.x += (Math.random() - .5) * a; focusPt.z += (Math.random() - .5) * a; }
   pipe.snap(cam, focusPt, dir, CAM_DIST);
+  orbStar.update(dt, T, cam, Math.max(.35, orb.k), orbGlow);
+  rig.update(player.position, S.elev, pipe.colorRT.width, pipe.colorRT.height, orb, tmpM.subVectors(moon.position, moon.target.position));
   snapMoon(camFocus);
   if (LV.voidMat) LV.voidMat.uniforms.cam.value.set(camFocus.x, camFocus.z);
   // 景深焦点：开场时对准主角，其余时候在画面中央
