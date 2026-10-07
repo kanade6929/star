@@ -4,8 +4,9 @@ import * as THREE from 'three';
 import * as TX from './textures.js';
 import { mk } from './sprites.js';
 import { LAYER_FX } from './post.js';
-import { tex, ntex, toon, reflective, billboard, quadGeo, cliffMesh, wallGeo, instWalls, hashv, shadowAll, lightShaft } from './common.js';
+import { tex, ntex, toon, reflective, billboard, quadGeo, cliffMesh, wallGeo, instWalls, hashv, shadowAll, lightShaft, slabFloor, bevelWallGeo, tileBevel } from './common.js';
 import { lakeMat } from './abyss.js';
+import { voxelBatch, voxMat, place } from './voxel.js';
 import { haloCanvas } from './sprites.js';
 
 export const MW = 64, MH = 15;
@@ -91,6 +92,13 @@ function segSeg(a, b, c, d) {
   return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0;
 }
 
+function tuftCanvasM(seed) {
+  const c = mk(9, 7), g = c.getContext('2d'), r = TX.rng(seed), cols = ['#18283a', '#1f3546', '#2a4552', '#3a5a64', '#5a7c80'];
+  const n = 3 + (r() * 3 | 0);
+  for (let k = 0; k < n; k++) { let x = 1 + r() * 7; const lean = (r() - .5) * .8, h = 2 + (r() * 4 | 0); for (let y = 0; y < h; y++) { g.fillStyle = cols[Math.min(4, (y / h * 5 + (k % 2)) | 0)]; g.fillRect(Math.round(x), 6 - y, 1, 1); x += lean * .4; } }
+  return c;
+}
+
 export function buildMoon(ctx) {
   const { group: root, camQuat, fx, AU, toast, cine, shake, flash, P, orb } = ctx;
   const grid = buildMap();
@@ -99,7 +107,7 @@ export function buildMoon(ctx) {
   const L = { mist: [], sway: [], hide: [], monos: [], towers: [], q: [], reeds: [] };
 
   /* ================= 材质（湿润的月石：缝隙深凹、表面反光） ================= */
-  const cStone = TX.moonStoneTex(), cMoss = TX.mossTex(), cSand = TX.sandTex(), cRuin = TX.ruinWallTex(), cRuinT = TX.ruinTopTex(), cTower = TX.towerTex();
+  const cStone = TX.moonStoneTexHD(), cMoss = TX.mossTex(), cSand = TX.sandTex(), cRuin = TX.ruinWallTex(), cRuinT = TX.ruinTopTex(), cTower = TX.towerTex();
   const matStone = reflective(toon({ map: tex(cStone), normalMap: ntex(cStone, 7), normalScale: new THREE.Vector2(1.6, 1.6), roughness: .26 }), .38);
   const matMoss = toon({ map: tex(cMoss), normalMap: ntex(cMoss, 3.5), roughness: .9 });
   const matSand = toon({ map: tex(cSand), normalMap: ntex(cSand, 4), roughness: .7 });
@@ -120,7 +128,7 @@ export function buildMoon(ctx) {
     [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dx, dz]) => { if (isLake(cell(x + dx, z + dz))) cliffs.push([x, z, dx, dz]); });
   }
   const mF = (cells, mat, y) => { const m = new THREE.Mesh(quadGeo(cells, y), mat); m.receiveShadow = true; root.add(m); return m; };
-  mF(fl['.'], matStone, 0); mF(fl[','], matMoss, 0); mF(fl['~'], matSand, -.16);
+  root.add(slabFloor(fl['.'], matStone, { seed: 2, jitter: 1.4 })); mF(fl[','], matMoss, 0); mF(fl['~'], matSand, -.16);
   const cW = TX.waterTex(), wN = ntex(cW, 2.4);
   const shallowM = reflective(toon({ color: 0x5a6aa8, normalMap: wN, transparent: true, opacity: .55, roughness: .04, metalness: .2, emissive: 0x141a40, emissiveIntensity: .4 }), .8, 1.4);
   const shallow = mF(fl['~'], shallowM, -.05); shallow.receiveShadow = true;
@@ -140,11 +148,11 @@ export function buildMoon(ctx) {
     const near = (x === 33) ? 1 : .55 + hashv(x, z) * .6;
     walls.push([x, z, near]);
   }
-  instWalls(root, walls, wallGeo(1.6), [ruinS, ruinS, ruinT, ruinT, ruinS, ruinS]);
+  instWalls(root, walls, bevelWallGeo(1.6, 1, .06), [ruinS, ruinT]);
 
   /* ================= 影石（只在影子里成形的路） ================= */
   const mistT = tex(TX.mistTex());
-  const mGeo = new THREE.BoxGeometry(.94, .14, .94); mGeo.translate(0, -.07, 0);
+  const mGeo = tileBevel(.94, .14); mGeo.translate(0, -.14, 0);
   for (let z = 0; z < MH; z++) for (let x = 0; x < MW; x++) if (grid[z][x] === '%') {
     const mat = reflective(toon({ map: mistT, emissive: 0xb8b0ff, emissiveIntensity: .2, transparent: true, opacity: .3, depthWrite: false, roughness: .1 }), .35);
     const m = new THREE.Mesh(mGeo, mat); m.position.set(x + .5, 0, z + .5); m.receiveShadow = true; root.add(m);
@@ -218,7 +226,7 @@ export function buildMoon(ctx) {
   };
 
   /* ================= 月相石 ================= */
-  const haloT = tex(haloCanvas(32)); haloT.wrapS = haloT.wrapT = THREE.ClampToEdgeWrapping;
+  const haloT = tex(haloCanvas(64)); haloT.wrapS = haloT.wrapT = THREE.ClampToEdgeWrapping;
   const addPhase = (x, z, name) => {
     const g0 = new THREE.Group(); g0.position.set(x + .5, 0, z + .5);
     const ped = new THREE.Mesh(new THREE.CylinderGeometry(.22, .32, .7, 8), paleM); ped.position.y = .35; g0.add(ped);
@@ -328,7 +336,7 @@ export function buildMoon(ctx) {
     hook.g.position.set(HOOK_R, 1.6, 0); arm.add(hook.g);
     hook.ringM = new THREE.MeshStandardMaterial({ color: 0xd8dcf0, roughness: .2, metalness: .7, emissive: 0x8ff0e0, emissiveIntensity: .25 });
     const cres = new THREE.Mesh(new THREE.TorusGeometry(.38, .045, 5, 22, Math.PI * 1.25), hook.ringM); cres.rotation.set(0, Math.PI / 2, Math.PI * 1.37); hook.g.add(cres);
-    hook.glow = billboard(tex(haloCanvas(32)), 1.1, 1.1, true, camQuat); hook.glow.material.color.set(0x8ff0e0); hook.glow.material.opacity = .3; hook.g.add(hook.glow);
+    hook.glow = billboard(tex(haloCanvas(64)), 1.1, 1.1, true, camQuat); hook.glow.material.color.set(0x8ff0e0); hook.glow.material.opacity = .3; hook.g.add(hook.glow);
     shadowAll(arm, true, false); cres.castShadow = chain.castShadow = false;
   }
   // 月钩走过的轨道：一圈很淡的光环，告诉玩家「把光放在这条线上」
@@ -362,25 +370,27 @@ export function buildMoon(ctx) {
     g0.rotation.y = hashv(z, x) * 6.28; shadowAll(g0); root.add(g0);
     L.sway.push({ o: strands, ph: hashv(x, z) * 6 });
   };
-  const reedTs = [1, 2, 3].map(s => { const t = tex(TX.reedCanvas(s * 17)); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t; });
-  const reedMs = reedTs.map(t => toon({ map: t, alphaTest: .5, side: THREE.DoubleSide }));
-  const rGeo = new THREE.PlaneGeometry(.62, 1); rGeo.translate(0, .5, 0);
-  const lotusTs = [false, true].map(o => { const t = tex(TX.lotusCanvas(o)); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t; });
-  const lotusMs = lotusTs.map(t => toon({ map: t, alphaTest: .5, side: THREE.DoubleSide, roughness: .4 }));
-  const lGeo = new THREE.PlaneGeometry(.75, .5); lGeo.rotateX(-Math.PI / 2);
+  // 芦苇、睡莲、苔草：挤出厚度的像素画（体素），和角色同一种做法
+  const vm = voxMat();
+  const reedCs = [1, 2, 3].map(s => TX.reedCanvas(s * 17)), lotusCs = [false, true].map(o => TX.lotusCanvas(o));
+  const reedP = [[], [], []], lotusP = [[], []], mossP = [[], []];
   const rr = TX.rng(31);
   for (let z = 0; z < MH; z++) for (let x = 0; x < MW; x++) {
     const c = grid[z][x];
     // 芦苇长在岸边和浅水边
     if ((c === ',' || c === '~') && [[0, 1], [0, -1], [1, 0], [-1, 0]].some(([dx, dz]) => cell(x + dx, z + dz) === ' ') && rr() < .55) {
-      const m = new THREE.Mesh(rGeo, reedMs[rr() * 3 | 0]); m.quaternion.copy(camQuat); m.position.set(x + .2 + rr() * .6, c === '~' ? -.05 : 0, z + .2 + rr() * .6); m.layers.set(LAYER_FX); root.add(m);
-      L.reeds.push({ m, ph: rr() * 6 });
+      reedP[rr() * 3 | 0].push(place(x + .2 + rr() * .6, c === '~' ? -.05 : 0, z + .2 + rr() * .6, (rr() - .5) * .9, .25));
     }
     // 睡莲漂在湖面
-    if (c === ' ' && rr() < .05 && x > 1 && x < MW - 2) { const ok = [[0, 1], [0, -1], [1, 0], [-1, 0]].some(([dx, dz]) => !' %'.includes(cell(x + dx, z + dz))); if (ok) { const m = new THREE.Mesh(lGeo, lotusMs[rr() < .4 ? 1 : 0]); m.position.set(x + .5, LAYER_Y(), z + .5); m.rotation.y = rr() * 6; root.add(m); } }
-    if (c === '~' && rr() < .25) { const m = new THREE.Mesh(lGeo, lotusMs[rr() < .5 ? 1 : 0]); m.position.set(x + .5, -.04, z + .5); m.rotation.y = rr() * 6; root.add(m); }
+    if (c === ' ' && rr() < .05 && x > 1 && x < MW - 2) { const ok = [[0, 1], [0, -1], [1, 0], [-1, 0]].some(([dx, dz]) => !' %'.includes(cell(x + dx, z + dz))); if (ok) lotusP[rr() < .4 ? 1 : 0].push(place(x + .5, LAYER_Y(), z + .5 - .25, rr() * 6, Math.PI / 2)); }
+    if (c === '~' && rr() < .25) lotusP[rr() < .5 ? 1 : 0].push(place(x + .5, -.04, z + .5 - .25, rr() * 6, Math.PI / 2));
+    // 苔岸上的一簇簇矮草
+    if (c === ',') { const nt = rr() < .7 ? 1 + (rr() * 2 | 0) : 0; for (let k = 0; k < nt; k++) mossP[rr() * 2 | 0].push(place(x + .1 + rr() * .8, 0, z + .1 + rr() * .8, (rr() - .5) * 1.2, .2, .8 + rr() * .4)); }
   }
   function LAYER_Y() { return LAKE_Y + .02; }
+  reedCs.forEach((c, i) => root.add(voxelBatch(c, reedP[i], vm, { maxT: .06, minT: .045, slope: .01 })));
+  lotusCs.forEach((c, i) => root.add(voxelBatch(c, lotusP[i], vm, { maxT: .08, minT: .04, slope: .02 })));
+  [21, 22].forEach((s, i) => root.add(voxelBatch(tuftCanvasM(s), mossP[i], vm, { maxT: .06, minT: .05, slope: 0 })));
 
   // 小龙虾（月亮牌里从水中爬出的那只）：在月池旁的浅水里来回走
   const crayC = mk(12, 8); { const g = crayC.getContext('2d'); const px = (x, y, k) => { g.fillStyle = k; g.fillRect(x, y, 1, 1); };
@@ -388,8 +398,7 @@ export function buildMoon(ctx) {
     for (let x = 4; x <= 7; x++) for (let y = 3; y <= 6; y++) px(x, y, y === 3 ? '#f6b8bc' : '#c76a80');
     px(5, 7, '#a85a72'); px(6, 7, '#a85a72'); px(4, 2, '#2b2a4a'); px(7, 2, '#2b2a4a'); px(1, 1, '#e88a9a'); px(10, 1, '#e88a9a'); }
   const crayT = tex(crayC); crayT.wrapS = crayT.wrapT = THREE.ClampToEdgeWrapping;
-  const cray = new THREE.Mesh(new THREE.PlaneGeometry(.75, .5), toon({ map: crayT, alphaTest: .5, side: THREE.DoubleSide, roughness: .4 }));
-  cray.geometry.translate(0, .25, 0); cray.quaternion.copy(camQuat); cray.layers.set(LAYER_FX); root.add(cray);
+  const cray = new THREE.Group(); cray.add(voxelBatch(crayC, [place(0, 0, 0, 0, .35)], vm, { maxT: .12, minT: .06, slope: .03 })); root.add(cray);
 
   /* ================= 月光从云缝里落下的光柱 ================= */
   [[4.6, 7.4, 1.7], [22.4, 8.6, 1.5], [46.5, 7.4, 1.3], [54.6, 7.5, 1.5]].forEach(([x, z, r]) => lightShaft(root, x, z, { color: 0xd8e0ff, r, I: 11, k: .4, lean: [.3, -.42] }));

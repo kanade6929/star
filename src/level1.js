@@ -3,8 +3,9 @@ import * as THREE from 'three';
 import * as TX from './textures.js';
 import { flowerCanvas, starCardCanvas, cardBackCanvas, haloCanvas, mk } from './sprites.js';
 import { LAYER_FX } from './post.js';
-import { tex, ntex, toon, reflective, billboard, quadGeo, cliffMesh, wallGeo, instWalls, hashv, shadowAll, lightShaft } from './common.js';
+import { tex, ntex, toon, reflective, billboard, quadGeo, cliffMesh, wallGeo, instWalls, hashv, shadowAll, lightShaft, slabFloor, bevelWallGeo, tileBevel } from './common.js';
 import { starVoid } from './abyss.js';
+import { voxelBatch, voxMat, place } from './voxel.js';
 
 export const MW = 61, MH = 15;
 const WALL_H = 1.7, LOW_H = .45;
@@ -58,6 +59,17 @@ function buildMap() {
 }
 const SOLID = new Set(['#', 'L', 'O', 'A', 'W', 'J', 'T', 'C', 'c', 'G']);
 
+// 一簇草：几根像素草叶（挤出厚度后就是立体的草丛）
+function tuftCanvas(seed, cols) {
+  const c = mk(9, 7), g = c.getContext('2d'), r = TX.rng(seed);
+  const n = 3 + (r() * 3 | 0);
+  for (let k = 0; k < n; k++) {
+    let x = 1 + r() * 7, lean = (r() - .5) * .8; const h = 3 + (r() * 4 | 0);
+    for (let y = 0; y < h; y++) { g.fillStyle = cols[Math.min(cols.length - 1, (y / h * cols.length + (k % 2)) | 0)]; g.fillRect(Math.round(x), 6 - y, 1, 1); x += lean * .4; }
+  }
+  return c;
+}
+
 export function buildStar(ctx) {
   const { group: root, camQuat, fx, AU, toast, cine, shake, flash, P, orb } = ctx;
   const grid = buildMap();
@@ -66,7 +78,7 @@ export function buildStar(ctx) {
   const L = { lamps: [], bridges: [], sway: [], shards: [], jugs: [], hide: [] };
 
   /* ================= 材质 ================= */
-  const cFloor = TX.floorTex(), cGrass = TX.grassTex(), cWallS = TX.wallSideTex(), cWallT = TX.wallTopTex(), cCliff = TX.cliffTex();
+  const cFloor = TX.floorTexHD(), cGrass = TX.grassTex(), cWallS = TX.wallSideTex(), cWallT = TX.wallTopTex(), cCliff = TX.cliffTex();
   // 抛光大理石：缝隙凹陷明显，能倒映灯光和人
   const matStone = reflective(toon({ map: tex(cFloor), normalMap: ntex(cFloor, 6), normalScale: new THREE.Vector2(1.5, 1.5), roughness: .3 }), .42);
   const matGrass = toon({ map: tex(cGrass), normalMap: ntex(cGrass, 3.4), roughness: .95 });
@@ -83,13 +95,14 @@ export function buildStar(ctx) {
     if (c !== 'W') floors[kind].push([x, z]);
     [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dx, dz]) => { if (isVoid(cell(x + dx, z + dz))) cliffs.push([x, z, dx, dz]); });
   }
-  const fs = new THREE.Mesh(quadGeo(floors['.']), matStone); fs.receiveShadow = true; root.add(fs);
+  // 大理石地面：一格一块有厚度、倒角的石板，缝里是暗的
+  root.add(slabFloor(floors['.'], matStone, { seed: 1 }));
   const fg = new THREE.Mesh(quadGeo(floors[',']), matGrass); fg.receiveShadow = true; root.add(fg);
   root.add(cliffMesh(cliffs, toon({ map: tex(cCliff), normalMap: ntex(cCliff, 4), side: THREE.DoubleSide })));
   const tall = [], low = [];
   for (let z = 0; z < MH; z++) for (let x = 0; x < MW; x++) if (grid[z][x] === '#') (z === 13 ? low : tall).push([x, z]);
-  const wallMats = [ws, ws, wt, wt, ws, ws];
-  instWalls(root, tall, wallGeo(WALL_H), wallMats); instWalls(root, low, wallGeo(LOW_H), wallMats);
+  const wallMats = [ws, wt];
+  instWalls(root, tall, bevelWallGeo(WALL_H), wallMats); instWalls(root, low, bevelWallGeo(LOW_H), wallMats);
   {
     const trim = new THREE.InstancedMesh(new THREE.BoxGeometry(1.02, .06, 1.02), toon({ color: 0x8a8fc4, metalness: .4, roughness: .35 }), tall.length);
     const M = new THREE.Matrix4(); tall.forEach(([x, z], i) => { M.makeTranslation(x + .5, WALL_H - .12, z + .5); trim.setMatrixAt(i, M); });
@@ -104,7 +117,7 @@ export function buildStar(ctx) {
 
   /* ================= 光之桥 ================= */
   const bridgeT = tex(TX.bridgeTex());
-  const bGeo = new THREE.BoxGeometry(.94, .12, .94); bGeo.translate(0, -.06, 0);
+  const bGeo = tileBevel(.94, .12); bGeo.translate(0, -.12, 0);
   for (let z = 0; z < MH; z++) for (let x = 0; x < MW; x++) if (grid[z][x] === '*') {
     const mat = reflective(toon({ map: bridgeT, emissive: 0x6f8fe0, emissiveIntensity: 0, transparent: true, opacity: .1, depthWrite: false, roughness: .12 }), .4);
     const m = new THREE.Mesh(bGeo, mat); m.position.set(x + .5, 0, z + .5); m.receiveShadow = true; root.add(m);
@@ -143,7 +156,7 @@ export function buildStar(ctx) {
   };
 
   /* ================= 星灯 ================= */
-  const haloT = tex(haloCanvas(32)); haloT.wrapS = haloT.wrapT = THREE.ClampToEdgeWrapping;
+  const haloT = tex(haloCanvas(64)); haloT.wrapS = haloT.wrapT = THREE.ClampToEdgeWrapping;
   const addLamp = (x, z) => {
     const g0 = new THREE.Group(); g0.position.set(x + .5, 0, z + .5);
     const ped = new THREE.Mesh(new THREE.CylinderGeometry(.2, .3, .8, 8), stoneM); ped.position.y = .4; g0.add(ped);
@@ -297,15 +310,19 @@ export function buildStar(ctx) {
   });
 
   /* ================= 小花、碎片 ================= */
-  const flowerTs = [tex(flowerCanvas('#f4a3b6', '#2f6b5e')), tex(flowerCanvas('#fff3b8', '#2f6b5e')), tex(flowerCanvas('#bfe3ff', '#2f6b5e'))];
-  flowerTs.forEach(t => { t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; });
-  const fMats = flowerTs.map(t => toon({ map: t, alphaTest: .5, side: THREE.DoubleSide }));
-  const fGeo = new THREE.PlaneGeometry(.5, .5); fGeo.translate(0, .25, 0);
+  // 花和草丛都是挤出厚度的像素画（体素），不再是贴在镜头前的纸片
+  const flowerCs = [flowerCanvas('#f4a3b6', '#2f6b5e'), flowerCanvas('#fff3b8', '#2f6b5e'), flowerCanvas('#bfe3ff', '#2f6b5e')];
+  const tuftCs = [11, 12, 13].map(s => tuftCanvas(s, ['#1d3a48', '#264d55', '#33615f', '#457a6c', '#64987f']));
+  const vm = voxMat(), fP = [[], [], []], tP = [[], [], []];
   const r = TX.rng(77);
   for (let z = 0; z < MH; z++) for (let x = 0; x < MW; x++) if (grid[z][x] === ',') {
     const n = r() < .55 ? 1 + (r() * 2 | 0) : 0;
-    for (let k = 0; k < n; k++) { const m = new THREE.Mesh(fGeo, fMats[r() * 3 | 0]); m.quaternion.copy(camQuat); m.position.set(x + .15 + r() * .7, 0, z + .15 + r() * .7); m.layers.set(LAYER_FX); root.add(m); }
+    for (let k = 0; k < n; k++) fP[r() * 3 | 0].push(place(x + .15 + r() * .7, 0, z + .15 + r() * .7, (r() - .5) * .8, .3));
+    const nt = 1 + (r() * 3 | 0);
+    for (let k = 0; k < nt; k++) tP[r() * 3 | 0].push(place(x + .1 + r() * .8, 0, z + .1 + r() * .8, (r() - .5) * 1.2, .2, .9 + r() * .4));
   }
+  flowerCs.forEach((c, i) => root.add(voxelBatch(c, fP[i], vm, { maxT: .07, minT: .045, slope: .02 })));
+  tuftCs.forEach((c, i) => root.add(voxelBatch(c, tP[i], vm, { maxT: .06, minT: .05, slope: 0 })));
   const shardM = toon({ color: 0xb7a6d6, emissive: 0x3a3a8a, emissiveIntensity: .4, flatShading: true });
   const sr = TX.rng(9);
   for (let i = 0; i < 46; i++) {

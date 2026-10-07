@@ -4,6 +4,7 @@ import { PixelPipeline, LAYER_FX, LAYER_SH_ORB, LAYER_SH_MOON } from './post.js'
 import { billboard, tex, disposeGroup, makeEnv, SHAFT_T } from './common.js';
 import { orbCanvas, haloCanvas } from './sprites.js';
 import { PixelChar, CW, CH } from './character.js';
+import { VoxelSprite } from './voxel.js';
 import { createAudio } from './audio.js';
 import { FX } from './fx.js';
 import { buildStar } from './level1.js';
@@ -75,22 +76,28 @@ function snapMoon(c) {
 const pc = new PixelChar();
 const charTex = (c, srgb) => { const t = new THREE.CanvasTexture(c); t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
 const pTex = charTex(pc.canvas, true), pNrm = charTex(pc.normal, false);
-const pMat = new THREE.MeshStandardMaterial({ map: pTex, normalMap: pNrm, alphaTest: .5, roughness: .75, emissive: 0x2a2440, emissiveMap: pTex, side: THREE.DoubleSide });
-// 角色受光上限：再亮也只到本色的 1.5 倍，像素画的五官不会被灯光冲成白块
-// 遮挡深度：画面上是一张斜着朝向相机的纸片，但深度按「站在脚下的竖直面」来算。
+// 体素角色：每帧把像素画挤出厚度。材质用实例颜色；暗处保留一点自身颜色，受光有上限
+// 遮挡深度：画面上身体往后仰，但深度按「站在脚下的竖直面」来算。
 // 这样贴着北边的墙/树时头不会插进墙里，站在墙后面时又会被墙正确挡住。
 const SPR = { pz: { value: 0 }, cosE: { value: Math.cos(58 * Math.PI / 180) }, depthK: { value: 1 / 89.9 } };
+const pMat = new THREE.MeshStandardMaterial({ roughness: .7, metalness: 0 });
 pMat.onBeforeCompile = sh => {
   Object.assign(sh.uniforms, { sprPz: SPR.pz, sprCosE: SPR.cosE, sprDepthK: SPR.depthK });
-  sh.vertexShader = 'varying vec3 vSprW;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\nvSprW = (modelMatrix * vec4(transformed, 1.)).xyz;');
-  sh.fragmentShader = 'uniform float sprPz, sprCosE, sprDepthK; varying vec3 vSprW;\n' + sh.fragmentShader.replace('#include <opaque_fragment>',
+  sh.vertexShader = 'varying vec3 vSprW; varying float vSide;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\nvSide = 1. - abs(normal.z);\n{ vec4 wp = vec4(transformed, 1.);\n#ifdef USE_INSTANCING\nwp = instanceMatrix * wp;\n#endif\nvSprW = (modelMatrix * wp).xyz; }');
+  sh.fragmentShader = 'uniform float sprPz, sprCosE, sprDepthK; varying vec3 vSprW; varying float vSide;\n' + sh.fragmentShader
+    .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= mix(1., .6, vSide); // 侧面、顶面压暗一点，厚度更明显')
+    .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += diffuseColor.rgb * .16;')
+    .replace('#include <opaque_fragment>',
     'outgoingLight = min(outgoingLight, diffuseColor.rgb * 1.25 + totalEmissiveRadiance);\n#include <opaque_fragment>\ngl_FragDepth = clamp(gl_FragCoord.z + ((vSprW.z - sprPz) / sprCosE - .3) * sprDepthK, 0., 1.);');
 };
 const SW = CW / 16, SH = CH / 16;
 const pGeo = new THREE.PlaneGeometry(SW, SH); pGeo.translate(0, SH / 2 - 2 / 16, 0);
 const player = new THREE.Group(); scene.add(player);
-const pSprite = new THREE.Mesh(pGeo, pMat); pSprite.quaternion.copy(camQuat);
-pSprite.layers.set(LAYER_FX); player.add(pSprite);
+// 身体后仰 20°：从斜上方看得到头顶、肩膀的厚度；竖向拉长一点，抵消俯视带来的压扁
+const VOX_TILT = 20 * Math.PI / 180, VOX_SY = 1 / Math.cos(58 * Math.PI / 180 - VOX_TILT);
+const pVox = new VoxelSprite(pc.canvas, pMat, { px: 1 / 16, stretchY: VOX_SY });
+const pSprite = new THREE.Group(); pSprite.rotation.x = -VOX_TILT; pSprite.add(pVox.mesh); pVox.mesh.position.y = -2 / 16 * VOX_SY;
+pVox.mesh.layers.set(LAYER_FX); player.add(pSprite);
 // 投影替身：一片始终正对光点、一片正对月光的竖直面，用角色当前帧的剪影投影
 const shMat = new THREE.MeshBasicMaterial({ map: pTex, alphaTest: .5, colorWrite: false, depthWrite: false, side: THREE.DoubleSide });
 shMat.shadowSide = THREE.DoubleSide;
@@ -104,12 +111,12 @@ const P = { x: 2.5, z: 7.5, dir: 'down', vx: 0, vz: 0, run: 0, moving: false, fa
 const ORB_Y = 1.6;
 const orb = { x: 6, z: 6, tx: 6, tz: 6, y: ORB_Y, g: new THREE.Group(), lift: 0, lock: null, k: 1, held: 0, px: 6, pz: 6 };
 const orbLight = new THREE.PointLight(0xd6e6ff, 7, 12, 1.6);
-orbLight.castShadow = true; orbLight.shadow.mapSize.set(512, 512); orbLight.shadow.bias = -.0006; orbLight.shadow.normalBias = .025;
+orbLight.castShadow = true; orbLight.shadow.mapSize.set(1024, 1024); orbLight.shadow.bias = -.0006; orbLight.shadow.normalBias = .025;
 orbLight.shadow.camera.near = .05; orbLight.shadow.camera.far = 11;
 orbLight.shadow.camera.layers.set(0); orbLight.shadow.camera.layers.enable(LAYER_SH_ORB);
 orb.g.add(orbLight);
 const orbT = tex(orbCanvas()); orbT.wrapS = orbT.wrapT = THREE.ClampToEdgeWrapping;
-const haloT = tex(haloCanvas(32)); haloT.wrapS = haloT.wrapT = THREE.ClampToEdgeWrapping;
+const haloT = tex(haloCanvas(64)); haloT.wrapS = haloT.wrapT = THREE.ClampToEdgeWrapping;
 const orbCore = billboard(orbT, 9 / 16, 9 / 16, true, camQuat); orbCore.material.color.setRGB(2.2, 2.2, 2.4); orb.g.add(orbCore);
 const orbHalo = billboard(haloT, 3.2, 3.2, true, camQuat); orbHalo.material.color.set(0x8fb0ff); orbHalo.material.opacity = .5; orb.g.add(orbHalo);
 scene.add(orb.g);
@@ -425,7 +432,7 @@ function update(dt) {
   // 机关插槽（可以是会动的）：光点停在附近就被挂走，之后跟着插槽走，直到鼠标/右摇杆把它取下
   if (play || S.mode === 'cut') {
     if (orb.lock) { orb.tx = orb.lock.x; orb.tz = orb.lock.z; }
-    else if (!orb.unlockT) (LV.sockets || []).forEach(s => { if (!orb.lock && Math.hypot(orb.x - s.x, orb.z - s.z) < (s.r || .5) && s.active()) { orb.lock = s; orb.lockM = [mouse ? mouse.nx : 0, mouse ? mouse.ny : 0]; s.onLock && s.onLock(); } });
+    else if (!orb.unlockT && Math.hypot(orb.tx - orb.x, orb.tz - orb.z) < .3) (LV.sockets || []).forEach(s => { if (!orb.lock && Math.hypot(orb.x - s.x, orb.z - s.z) < (s.r || .5) && s.active()) { orb.lock = s; orb.lockM = [mouse ? mouse.nx : 0, mouse ? mouse.ny : 0]; s.onLock && s.onLock(); } });
   }
   if (S.mode === 'cut' && LV.finaleOrb) { const f = LV.finaleOrb(S.ev); orb.tx = lerp(orb.tx, f[0], .03); orb.tz = lerp(orb.tz, f[1], .03); }
   const k = 1 - Math.exp(-dt * 11);
@@ -435,7 +442,7 @@ function update(dt) {
   orb.lift = lerp(orb.lift, S.mode === 'menu' || intro || orb.lock ? 0 : near * .8, 1 - Math.exp(-dt * 6));
   const bob = Math.sin(T * 2.2) * .06 + orb.lift;
   orb.y = ORB_Y + bob;
-  orb.g.position.set(Math.round(orb.x * 16) / 16, Math.round(orb.y * 16) / 16, Math.round(orb.z * 16) / 16);
+  orb.g.position.set(Math.round(orb.x * 32) / 32, Math.round(orb.y * 32) / 32, Math.round(orb.z * 32) / 32);
   // 光源本身不吸附像素格：否则光照和影子会随着一格一格跳动而闪烁
   orbLight.position.set(orb.x - orb.g.position.x, orb.y - orb.g.position.y, orb.z - orb.g.position.z);
   const fin = S.mode === 'cut' ? 1 - smooth(1, 3, S.ev) * .8 : 1;
@@ -459,8 +466,8 @@ function update(dt) {
 
   // 角色帧
   pc.update({ dir: P.dir, moving: P.moving && !P.falling, run: P.run, vx: P.falling ? 0 : P.vx, vz: P.falling ? 0 : P.vz, dt, lie: P.lie, crouch: P.crouch, act: P.act, actT: P.actT });
-  pTex.needsUpdate = true; pNrm.needsUpdate = true;
-  player.position.set(Math.round(P.x * 16) / 16, P.y, Math.round(P.z * 16) / 16);
+  pTex.needsUpdate = true; pVox.update();
+  player.position.set(Math.round(P.x * 32) / 32, P.y, Math.round(P.z * 32) / 32);
   // 投影替身朝向光点 / 月光
   shOrb.rotation.y = Math.atan2(orb.x - P.x, orb.z - P.z);
   shMoon.rotation.y = Math.atan2(moon.position.x - moon.target.position.x, moon.position.z - moon.target.position.z);
@@ -475,7 +482,7 @@ function update(dt) {
   SPR.cosE.value = Math.cos(S.elev);
   const dir = camDir(S.elev);
   let target;
-  if (S.mode === 'menu') target = tmpV.set(DREAM[0] + 4.7 + Math.sin(T * .1) * .25, 0, DREAM[1] - 1.1);
+  if (S.mode === 'menu') target = tmpV.set(DREAM[0] + 5.2 + Math.sin(T * .1) * .25, 0, DREAM[1] - 1.1);
   else if (cineFocus) target = tmpV.set(cineFocus[0], 0, cineFocus[1]);
   else if (S.mode === 'cut') { const f = LV.finaleCam(S.ev); target = tmpV.set(lerp(P.x, f[0], smooth(0, 2, S.ev)), 0, lerp(P.z, f[1], smooth(0, 2, S.ev))); }
   else if (intro) target = tmpV.set(P.x, 0, P.z + .3 * lowK);
@@ -484,7 +491,6 @@ function update(dt) {
   const focusPt = camFocus.clone().add(new THREE.Vector3(0, 0, -.6 * (1 - lowK)));
   if (S.shakeT > 0) { S.shakeT -= dt; const a = S.shakeA * Math.max(0, S.shakeT / S.shakeD); focusPt.x += (Math.random() - .5) * a; focusPt.z += (Math.random() - .5) * a; }
   pipe.snap(cam, focusPt, dir, CAM_DIST);
-  pSprite.position.copy(dir).multiplyScalar(-1.0); // 向相机方向挪一点：只改深度，不改画面位置
   SPR.pz.value = player.position.z; SPR.depthK.value = 1 / (cam.far - cam.near);
   snapMoon(camFocus);
   if (LV.voidMat) LV.voidMat.uniforms.cam.value.set(camFocus.x, camFocus.z);
@@ -585,7 +591,7 @@ function toDream() {
   Object.assign(P, { x: DREAM[0] + .15, z: DREAM[1] + .2, lie: true, crouch: 0, act: null, dir: 'down' });
   orb.x = orb.tx = DREAM[0] + 1.5; orb.z = orb.tz = DREAM[1]; orb.px = orb.x; orb.pz = orb.z;
   camFocus.set(DREAM[0] + 4.7, 0, DREAM[1] - 1.1);
-  pipe.setZoom(1.5); pipe.setupCamera(cam);
+  pipe.setZoom(1.25); pipe.setupCamera(cam);
 }
 function toMenu() {
   S.fadeTo = 1;
@@ -622,7 +628,7 @@ requestAnimationFrame(frame);
 setTimeout(() => document.querySelector('#mainNav .vbtn').focus({ preventScroll: true }), 100);
 
 // 调试/测试钩子
-window.__G = {
+window.__G = { scene,
   sim(sec) { for (let t = 0; t < sec; t += 1 / 30) update(1 / 30); return [S.mode, LV.progress(), P.x.toFixed(1), P.z.toFixed(1), P.falling]; },
   S, P, orb, get LV() { return LV; }, get mouse() { return mouse; }, set mouse(v) { mouse.seen = false; },
   begin, toMenu, interact, setMouse, mouseWorld, keys, update, pipe, cam, loadLevel, skipIntro, nearest, render() { pipe.render(scene, cam, { time: T, fade: S.fade, focus: focusUV, dofK, flash: S.flash, vig }); }

@@ -54,12 +54,12 @@ export function floorTex() {
 // 夜色草地：蓝绿，点缀白色小点
 const GRASS = ['#152a3a', '#1d3a48', '#264d55', '#33615f', '#457a6c', '#64987f'].map(hex);
 export function grassTex() {
-  const N = 32, p = painter(N, N);
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+  const N = 32, S = 2, p = painter(N * S, N * S);
+  for (let yy = 0; yy < N * S; yy++) for (let xx = 0; xx < N * S; xx++) { const x = xx / S, y = yy / S;
     let v = .45 + (fbm(x * .15, y * .15, 5) - .5) * .7;
     const blade = hash(x, y * 3) > .86; if (blade) v += .22;
     if (hash(x * 7, y) > .975) v -= .25;
-    p.ramp(x, y, GRASS, v);
+    p.ramp(xx, yy, GRASS, v);
   }
   return p.done();
 }
@@ -67,33 +67,33 @@ export function grassTex() {
 // 墙面：错缝砌石，越往下越暗
 const WALL = ['#2a2547', '#38325c', '#4a4372', '#5e568a', '#7a72a3', '#9a93bf'].map(hex);
 export function wallSideTex() {
-  const W = 16, H = 32, p = painter(W, H);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  const W = 16, H = 32, S = 2, p = painter(W * S, H * S);
+  for (let yy = 0; yy < H * S; yy++) for (let xx = 0; xx < W * S; xx++) { const x = xx / S, y = yy / S;
     const row = y >> 3, inY = y & 7, off = row % 2 ? 8 : 0, bx = (x + off) % 16, inX = bx % 8, col = ((x + off) >> 3) + row * 3;
     let v = .55 + (hash(col, row) - .5) * .2 + (fbm(x * .3, y * .3, 4) - .5) * .25;
     if (inY === 0) v += .2; else if (inY === 7 || inX === 0) v = .08;
     v -= (y / H) * .25;
-    p.ramp(x, y, WALL, v);
+    p.ramp(xx, yy, WALL, v);
   }
   return p.done();
 }
 export function wallTopTex() {
-  const N = 16, p = painter(N, N);
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+  const N = 16, S = 2, p = painter(N * S, N * S);
+  for (let yy = 0; yy < N * S; yy++) for (let xx = 0; xx < N * S; xx++) { const x = xx / S, y = yy / S;
     let v = .72 + (fbm(x * .3, y * .3, 4) - .5) * .25;
     if (x === 0 || y === 0) v += .12; if (x === N - 1 || y === N - 1) v -= .2;
-    p.ramp(x, y, STONE, v);
+    p.ramp(xx, yy, STONE, v);
   }
   return p.done();
 }
 // 浮岛崖壁（地块边缘向下）
 const ROCK = ['#120f24', '#1d1835', '#2a2347', '#3a3160', '#4c4378'].map(hex);
 export function cliffTex() {
-  const W = 16, H = 32, p = painter(W, H);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  const W = 16, H = 32, S = 2, p = painter(W * S, H * S);
+  for (let yy = 0; yy < H * S; yy++) for (let xx = 0; xx < W * S; xx++) { const x = xx / S, y = yy / S;
     let v = .75 - y / H * .8 + (fbm(x * .25, y * .12, 4) - .5) * .5;
     if (y < 2) v = .95;
-    p.ramp(x, y, ROCK, v);
+    p.ramp(xx, yy, ROCK, v);
   }
   return p.done();
 }
@@ -112,17 +112,17 @@ export function bridgeTex() {
 }
 // 石碑/方尖碑表面，带刻纹
 export function obeliskTex() {
-  const W = 16, H = 48, p = painter(W, H);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  const W = 16, H = 48, S = 2, p = painter(W * S, H * S);
+  for (let yy = 0; yy < H * S; yy++) for (let xx = 0; xx < W * S; xx++) { const x = xx / S, y = yy / S;
     let v = .6 + (fbm(x * .25, y * .2, 4) - .5) * .3 - (y / H) * .2;
     if ((y === 10 || y === 38) && x > 2 && x < 13) v = .15;
-    p.ramp(x, y, STONE, v);
+    p.ramp(xx, yy, STONE, v);
   }
   // 八芒星刻纹
-  const cx = 7, cy = 22;
-  for (let k = -4; k <= 4; k++) { p.set(cx + k, cy, GOLD[2]); p.set(cx, cy + k, GOLD[2]); }
-  for (let k = -2; k <= 2; k++) { p.set(cx + k, cy + k, GOLD[1]); p.set(cx + k, cy - k, GOLD[1]); }
-  p.set(cx, cy, GOLD[3]);
+  const cx = 15, cy = 45; // 高清坐标
+  for (let k = -8; k <= 8; k++) { p.set(cx + k, cy, GOLD[2]); p.set(cx, cy + k, GOLD[2]); }
+  for (let k = -4; k <= 4; k++) { p.set(cx + k, cy + k, GOLD[1]); p.set(cx + k, cy - k, GOLD[1]); }
+  p.set(cx, cy, GOLD[3]); p.set(cx + 1, cy, GOLD[3]); p.set(cx, cy + 1, GOLD[3]);
   return p.done();
 }
 // 星纹地砖（日晷的目标）
@@ -137,11 +137,11 @@ export function runeTex() {
 }
 // 柱子（八棱柱身）
 export function columnTex() {
-  const W = 16, H = 32, p = painter(W, H);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  const W = 16, H = 32, S = 2, p = painter(W * S, H * S);
+  for (let yy = 0; yy < H * S; yy++) for (let xx = 0; xx < W * S; xx++) { const x = xx / S, y = yy / S;
     let v = .62 + (fbm(x * .3, y * .15, 4) - .5) * .25;
     if (x % 4 === 0) v -= .2;
-    p.ramp(x, y, STONE, v);
+    p.ramp(xx, yy, STONE, v);
   }
   return p.done();
 }
@@ -184,8 +184,9 @@ export function heightNormal(src, k = 2.5, invert = false) {
   const h = new Float32Array(W * H);
   const raw = new Float32Array(W * H);
   for (let i = 0; i < W * H; i++) { const l = (d[i * 4] * .3 + d[i * 4 + 1] * .59 + d[i * 4 + 2] * .11) / 255; raw[i] = invert ? 1 - l : l; }
-  // 先做一次 3×3 平滑，去掉抖动噪点，只保留砖缝和大的起伏
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let s = 0; for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) s += raw[((y + j + H) % H) * W + ((x + i + W) % W)]; h[y * W + x] = s / 9; }
+  // 先平滑一次，去掉抖动噪点，只保留砖缝和大的起伏（高清贴图用 5×5，不然高光会变成满地的白点）
+  const R = W >= 32 && H >= 32 ? 2 : 1, NN = (2 * R + 1) * (2 * R + 1);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let s = 0; for (let j = -R; j <= R; j++) for (let i = -R; i <= R; i++) s += raw[((y + j + H) % H) * W + ((x + i + W) % W)]; h[y * W + x] = s / NN; }
   const out = mk(W, H), g = out.getContext('2d'), im = g.createImageData(W, H), o = im.data;
   const Hh = (x, y) => h[((y + H) % H) * W + ((x + W) % W)];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -220,59 +221,59 @@ export function moonStoneTex() {
   return p.done();
 }
 export function mossTex() {
-  const N = 32, p = painter(N, N);
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+  const N = 32, S = 2, p = painter(N * S, N * S);
+  for (let yy = 0; yy < N * S; yy++) for (let xx = 0; xx < N * S; xx++) { const x = xx / S, y = yy / S;
     let v = .42 + (fbm(x * .16, y * .16, 5) - .5) * .8;
     if (hash(x, y * 3) > .88) v += .25;
     if (hash(x * 5, y) > .985) v = 1;
-    p.ramp(x, y, MOSS, v);
+    p.ramp(xx, yy, MOSS, v);
   }
   return p.done();
 }
 export function sandTex() {
-  const N = 32, p = painter(N, N);
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+  const N = 32, S = 2, p = painter(N * S, N * S);
+  for (let yy = 0; yy < N * S; yy++) for (let xx = 0; xx < N * S; xx++) { const x = xx / S, y = yy / S;
     let v = .45 + (fbm(x * .22, y * .22, 7) - .5) * .5;
     const pb = hash((x >> 1) * 3, (y >> 1) * 7); if (pb > .9) v += .3; else if (pb < .05) v -= .25;
-    p.ramp(x, y, SAND, v);
+    p.ramp(xx, yy, SAND, v);
   }
   return p.done();
 }
 // 断墙：大块条石错缝，底部长苔，有裂纹
 export function ruinWallTex() {
-  const W = 16, H = 32, p = painter(W, H);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  const W = 16, H = 32, S = 2, p = painter(W * S, H * S);
+  for (let yy = 0; yy < H * S; yy++) for (let xx = 0; xx < W * S; xx++) { const x = xx / S, y = yy / S;
     const row = (y / 6) | 0, inY = y % 6, off = row % 2 ? 5 : 0, bx = (x + off) % 10, col = ((x + off) / 10 | 0) + row * 3;
     let v = .58 + (hash(col, row) - .5) * .22 + (fbm(x * .3, y * .3, 4) - .5) * .25;
     if (inY === 0) v += .18; else if (inY === 5 || bx === 0) v = .06;
     if (Math.abs(x - 6 - Math.sin(y * .7) * 2) < .6 && y > 8 && y < 22) v = .1;
     v -= (y / H) * .2;
-    p.ramp(x, y, RUIN, v);
-    if (y > H - 8 && fbm(x * .4, y * .5, 4) > .48 - (y - H + 8) * .04) p.ramp(x, y, MOSS, .45 + hash(x, y) * .3);
+    p.ramp(xx, yy, RUIN, v);
+    if (y > H - 8 && fbm(x * .4, y * .5, 4) > .48 - (y - H + 8) * .04) p.ramp(xx, yy, MOSS, .45 + hash(x, y) * .3);
   }
   return p.done();
 }
 export function ruinTopTex() {
-  const N = 16, p = painter(N, N);
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+  const N = 16, S = 2, p = painter(N * S, N * S);
+  for (let yy = 0; yy < N * S; yy++) for (let xx = 0; xx < N * S; xx++) { const x = xx / S, y = yy / S;
     let v = .6 + (fbm(x * .3, y * .3, 4) - .5) * .3;
     if (x === 0 || y === 0) v += .15; if (x === N - 1 || y === N - 1) v = .1;
-    p.ramp(x, y, RUIN, v);
-    if (fbm(x * .3 + 7, y * .3, 4) > .6) p.ramp(x, y, MOSS, .5);
+    p.ramp(xx, yy, RUIN, v);
+    if (fbm(x * .3 + 7, y * .3, 4) > .6) p.ramp(xx, yy, MOSS, .5);
   }
   return p.done();
 }
 // 塔身：环形石带 + 窄窗
 export function towerTex() {
-  const W = 32, H = 64, p = painter(W, H);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  const W = 32, H = 64, S = 2, p = painter(W * S, H * S);
+  for (let yy = 0; yy < H * S; yy++) for (let xx = 0; xx < W * S; xx++) { const x = xx / S, y = yy / S;
     const row = (y / 5) | 0, inY = y % 5, off = row % 2 ? 4 : 0;
     let v = .55 + (hash(((x + off) / 8) | 0, row) - .5) * .2 + (fbm(x * .2, y * .2, 4) - .5) * .2;
     if (inY === 0) v += .15; else if (inY === 4 || (x + off) % 8 === 0) v = .08;
     if (y % 20 === 10 || y % 20 === 11) v = y % 20 === 10 ? .85 : .2;
     if ((x % 16 > 6 && x % 16 < 9) && (y % 20 > 13 && y % 20 < 19)) v = .02;
     v -= (y / H) * .15;
-    p.ramp(x, y, MSTONE, v);
+    p.ramp(xx, yy, MSTONE, v);
   }
   return p.done();
 }
@@ -327,3 +328,47 @@ export function lotusCanvas(open) {
   if (open) { [[5, 2], [6, 2], [4, 3], [5, 3], [6, 3], [7, 3], [3, 4], [8, 4]].forEach(([x, y]) => px(x, y, '#f6d6e4')); px(5, 4, '#ffe9a0'); px(6, 4, '#ffe9a0'); }
   return c;
 }
+
+/* ================= 高清贴图：32 像素 = 1 米（和画面像素一一对应） ================= */
+// 一块 1 米石板：明暗从左上到右下缓缓过渡（像参考里被灯照着的地砖），边上一像素高光 / 暗边
+function tileShade(bx, by, N, id, salt) {
+  let v = .5 + (hash(id, salt) - .5) * .16;
+  v += (.5 - (bx + by) / (2 * N)) * .18;
+  if (bx < 1 || by < 1) v += .16; else if (bx > N - 2 || by > N - 2) v -= .14;
+  return v;
+}
+// 星之章大理石板：64×64 = 2×2 块，部分石板中心嵌一枚金色四芒星
+export function floorTexHD() {
+  const N = 64, T = 32, p = painter(N, N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const bx = x % T, by = y % T, id = (x >> 5) + (y >> 5) * 2;
+    let v = tileShade(bx, by, T, id, 7) + (fbm(x * .07, y * .07, 9) - .5) * .14;
+    const vein = Math.abs(Math.sin((x + y * .55) * .16 + fbm(x * .08, y * .08, 9) * 5 + id));
+    if (vein < .045) v -= .1; else if (vein < .09) v -= .04;
+    if (hash(x * 3 + id, y * 5) > .992) v -= .2;
+    p.ramp(x, y, STONE, v);
+    // 四芒星嵌金（只在对角两块上）
+    if (id === 0 || id === 3) {
+      const dx = Math.abs(bx - 15.5), dy = Math.abs(by - 15.5);
+      const star = dx * dy < 2.2 && dx + dy < 6.5;
+      if (star) p.ramp(x, y, GOLD, .9 - (dx + dy) / 8 + (bx < 16 && by < 16 ? .1 : 0));
+    }
+  }
+  return p.done();
+}
+// 月之章月石：圆角大石板，局部湿润发亮，有的刻着新月
+export function moonStoneTexHD() {
+  const N = 64, T = 32, p = painter(N, N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const bx = x % T, by = y % T, id = (x >> 5) + (y >> 5) * 2;
+    let v = tileShade(bx, by, T, id, 3) - .04 + (fbm(x * .09, y * .09, 11) - .5) * .16;
+    if (fbm(x * .05 + 4, y * .05, 6) > .6) v += .07; // 湿的地方
+    if (hash(x * 7 + id, y * 3) > .99) v -= .22;
+    if (id === 1 || id === 2) { const a = Math.hypot(bx - 15.5, by - 15.5), b = Math.hypot(bx - 18.5, by - 13); if (a < 8.4 && a > 6.4 && b > 6.8) v = .14 + (a < 7 ? .08 : 0); }
+    p.ramp(x, y, MSTONE, v);
+  }
+  return p.done();
+}
+// 通用：把旧的 16 像素/米贴图函数按 2 倍分辨率重画（坐标缩小一半，抖动在新像素上做）
+export function hd(fnName, ...args) { return HD[fnName](...args); }
+const HD = {};

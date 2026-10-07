@@ -4,7 +4,7 @@ import * as THREE from 'three';
 
 export const LAYER_FX = 2; // 不参与法线描边的层（角色精灵、粒子、光晕）
 export const LAYER_SH_ORB = 3, LAYER_SH_MOON = 4; // 角色投影替身：分别只给光点 / 月光的阴影相机看
-export const PX_WORLD = 1 / 16; // 低分辨率下 1 像素 = 1/16 米（相机平面）
+export const PX_WORLD = 1 / 32; // 低分辨率下 1 像素 = 1/32 米（相机平面）：贴图的每个像素正好是 2×2，几何和光影边缘更细
 
 const quadVS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }`;
 
@@ -138,7 +138,7 @@ export class PixelPipeline {
     this.css = [cssW, cssH, dpr];
     const devW = Math.round(cssW * dpr), devH = Math.round(cssH * dpr);
     // 按画面面积定像素大小：横屏、竖屏、宽屏看到的范围都差不多
-    this.scale = Math.max(1, Math.round(Math.sqrt(devW * devH) / (288 / this.zoom)));
+    this.scale = Math.max(1, Math.round(Math.sqrt(devW * devH) / (576 / this.zoom)));
     this.w = Math.ceil(devW / this.scale); this.h = Math.ceil(devH / this.scale);
     const W = this.w + 2, H = this.h + 2;
     this.colorRT.setSize(W, H); this.normalRT.setSize(W, H); this.reflRT.setSize(W, H);

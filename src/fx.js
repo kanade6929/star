@@ -41,7 +41,7 @@ export class FX {
     pg.setAttribute('size', new THREE.BufferAttribute(this.pSize, 1)); pg.setAttribute('alpha', new THREE.BufferAttribute(this.pAlpha, 1));
     const pm = new THREE.ShaderMaterial({
       vertexShader: `attribute float size; attribute float alpha; attribute vec3 color; varying vec3 vC; varying float vA;
-        void main(){ vC = color; vA = alpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); gl_PointSize = size; }`,
+        void main(){ vC = color; vA = alpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); gl_PointSize = max(1., floor(size * 1.5 + .5)); }`,
       fragmentShader: `varying vec3 vC; varying float vA; void main(){ if (vA <= .01) discard; gl_FragColor = vec4(vC * vA, 1.); }`,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
     });
@@ -50,7 +50,7 @@ export class FX {
     // 光环 / 星印
     this.ringGeo = new THREE.RingGeometry(.92, 1, 48); this.ringGeo.rotateX(-Math.PI / 2);
     this.sigT = { star: nearest(new THREE.CanvasTexture(sigilCanvas('star'))), moon: nearest(new THREE.CanvasTexture(sigilCanvas('moon'))) };
-    this.haloT = nearest(new THREE.CanvasTexture(haloCanvas(32)));
+    this.haloT = nearest(new THREE.CanvasTexture(haloCanvas(64)));
     this.items = [];
     this.beacons = [];
   }

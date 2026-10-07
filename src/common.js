@@ -11,7 +11,7 @@ export const tex = (canvas, rep = 1) => {
 };
 // 由贴图明度生成法线：缝隙凹下去、凸起处鼓出来
 export const ntex = (canvas, k = 2.5, rep = 1) => {
-  const t = new THREE.CanvasTexture(TX.heightNormal(canvas, k)); t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+  const t = new THREE.CanvasTexture(TX.heightNormal(canvas, k * 1.5)); // 贴图改成高清后，相邻像素的高差变小，法线强度补回来 t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
   t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep, rep); return t;
 };
 export const toon = (o) => new THREE.MeshStandardMaterial({ roughness: .85, metalness: 0, ...o });
@@ -177,4 +177,77 @@ export function lightShaft(root, x, z, opts = {}) {
   const S = { g, light, shaft, k: 0, set(v) { this.k = v; k.value = v * o.k; light.intensity = v * o.I; shaft.visible = dust.visible = v > .005; } };
   S.set(opts.on === false ? 0 : 1);
   return S;
+}
+
+/* ---------- 块面感几何：倒角方块、石板地面 ---------- */
+// 倒角方块（顶面和侧面之间切一道斜面，能接住光，像参考视频里的厚块）。顶面在 y = h，底面在 y = 0
+export function bevelBox(w, h, d, b = .03) {
+  const s = new THREE.Shape(); const hw = w / 2 - b, hd = d / 2 - b;
+  s.moveTo(-hw, -hd); s.lineTo(hw, -hd); s.lineTo(hw, hd); s.lineTo(-hw, hd); s.lineTo(-hw, -hd);
+  const g = new THREE.ExtrudeGeometry(s, { depth: Math.max(.001, h - 2 * b), bevelEnabled: true, bevelThickness: b, bevelSize: b, bevelSegments: 1, steps: 1 });
+  g.rotateX(-Math.PI / 2); g.translate(0, b, 0);
+  return g.index ? g.toNonIndexed() : g;
+}
+// 按世界坐标重算 UV：顶面用 xz，侧面用水平方向 + 高度（贴图无缝衔接）
+export function worldUV(g, tile = 2, sideTile = tile) {
+  const p = g.attributes.position, n = g.attributes.normal, uv = new Float32Array(p.count * 2);
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i), nx = Math.abs(n.getX(i)), ny = Math.abs(n.getY(i)), nz = Math.abs(n.getZ(i));
+    if (ny > .7) { uv[i * 2] = x / tile; uv[i * 2 + 1] = -z / tile; }
+    else if (nx > nz) { uv[i * 2] = z / sideTile; uv[i * 2 + 1] = y / sideTile; }
+    else { uv[i * 2] = x / sideTile; uv[i * 2 + 1] = y / sideTile; }
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); return g;
+}
+// 合并若干个非索引几何（只取 position / normal）
+export function mergeFlat(list) {
+  let n = 0; list.forEach(g => n += g.attributes.position.count);
+  const P = new Float32Array(n * 3), N = new Float32Array(n * 3); let o = 0;
+  list.forEach(g => { P.set(g.attributes.position.array, o * 3); N.set(g.attributes.normal.array, o * 3); o += g.attributes.position.count; g.dispose(); });
+  const gg = new THREE.BufferGeometry();
+  gg.setAttribute('position', new THREE.BufferAttribute(P, 3)); gg.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+  return gg;
+}
+// 一格一块的石板地面：每块有厚度、倒角、轻微的高低和歪斜，缝里是暗的底座
+export function slabFloor(cells, mat, { y = 0, gap = .045, h = .12, b = .035, tile = 2, jitter = 1, seed = 1, groutMat } = {}) {
+  const base = bevelBox(1 - gap, h, 1 - gap, b), list = [];
+  const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), E = new THREE.Euler(), S = new THREE.Vector3(1, 1, 1), T = new THREE.Vector3();
+  cells.forEach(([x, z]) => {
+    const r1 = hashv(x * 3 + seed, z), r2 = hashv(z * 5 + seed, x * 2), r3 = hashv(x + z * 7, seed);
+    E.set((r1 - .5) * .025 * jitter, (r2 - .5) * .03 * jitter, (r3 - .5) * .025 * jitter); Q.setFromEuler(E);
+    T.set(x + .5, y - h + (r3 - .5) * .02 * jitter, z + .5);
+    M.compose(T, Q, S); list.push(base.clone().applyMatrix4(M));
+  });
+  base.dispose();
+  const gg = worldUV(mergeFlat(list), tile);
+  const g = new THREE.Group();
+  const m = new THREE.Mesh(gg, mat); m.receiveShadow = true; m.castShadow = true; g.add(m);
+  // 缝底：一张暗色平面，从缝里看下去是深的
+  const grout = new THREE.Mesh(quadGeo(cells, y - h * .8), groutMat || new THREE.MeshStandardMaterial({ color: 0x0c0a18, roughness: 1 }));
+  grout.receiveShadow = true; g.add(grout);
+  return g;
+}
+// 倒角墙块（实例化用）：材质组 0 = 侧面，1 = 顶面
+export function bevelWallGeo(h, w = 1, b = .04) {
+  const g = bevelBox(w, h, w, b);
+  const p = g.attributes.position, n = g.attributes.normal, uv = new Float32Array(p.count * 2);
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i), nx = Math.abs(n.getX(i)), ny = n.getY(i);
+    if (ny > .7) { uv[i * 2] = x + .5; uv[i * 2 + 1] = z + .5; }
+    else { uv[i * 2] = (nx > .5 ? z : x) + .5; uv[i * 2 + 1] = 1 - (h - y) / 2; } // 贴图顶端对齐墙顶
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  // 按顶面 / 侧面分组（三角形重排）
+  const tris = p.count / 3, top = [], side = [];
+  for (let t = 0; t < tris; t++) { let ny = 0; for (let k = 0; k < 3; k++) ny += n.getY(t * 3 + k); (ny / 3 > .7 ? top : side).push(t); }
+  const order = [...side, ...top], attrs = ['position', 'normal', 'uv'], out = new THREE.BufferGeometry();
+  attrs.forEach(a => { const src = g.attributes[a], sz = src.itemSize, arr = new Float32Array(src.count * sz); order.forEach((t, j) => { for (let k = 0; k < 3 * sz; k++) arr[j * 3 * sz + k] = src.array[t * 3 * sz + k]; }); out.setAttribute(a, new THREE.BufferAttribute(arr, sz)); });
+  out.addGroup(0, side.length * 3, 0); out.addGroup(side.length * 3, top.length * 3, 1);
+  g.dispose(); return out;
+}
+// 倒角块的局部 UV：顶面铺满一张贴图（光之桥、影石这类单块的石板）
+export function tileBevel(w, h, b = .03) {
+  const g = worldUV(bevelBox(w, h, w, b), w), uv = g.attributes.uv;
+  for (let i = 0; i < uv.count; i++) { uv.setX(i, uv.getX(i) + .5); uv.setY(i, uv.getY(i) + .5); }
+  return g;
 }
