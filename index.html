@@ -37,16 +37,16 @@ body.playing:not(.paused):not(.touchdev) #ptr{opacity:1}
 #prompt{position:fixed;transform:translate(-50%,-100%);white-space:nowrap;font-size:clamp(12px,calc(1.15*var(--vw)),15px);letter-spacing:.08em;pointer-events:none;
   text-shadow:0 0 8px #000,0 0 2px #000;opacity:0;transition:opacity .3s;display:flex;align-items:center;gap:.5em}
 #prompt.on{opacity:1}
-#hud{position:fixed;left:max(16px,calc(2.2*var(--vw)),calc(env(safe-area-inset-left) + 10px));top:max(16px,calc(3.5*var(--vh)));display:flex;gap:.9em;align-items:flex-start;pointer-events:none;opacity:0;transition:opacity 1.2s}
+#hud{position:fixed;left:max(16px,calc(2.2*var(--vw)),calc(env(safe-area-inset-left) + 10px));top:max(16px,calc(3.5*var(--vh)));display:flex;gap:1em;align-items:flex-start;pointer-events:none;opacity:0;transition:opacity 1.2s}
 #hud.on{opacity:1}
-.mini{width:clamp(30px,calc(3*var(--vw)),40px);aspect-ratio:7/12;border:1px solid var(--gold-dim);border-radius:3px;position:relative;
-  background:linear-gradient(180deg,rgba(30,24,60,.7),rgba(10,8,26,.7));display:grid;place-items:center;color:var(--gold);font-size:clamp(9px,calc(.8*var(--vw)),11px)}
+.mini{width:clamp(44px,calc(4.4*var(--vw)),62px);aspect-ratio:7/12;border:1px solid var(--gold-dim);border-radius:3px;position:relative;
+  background:linear-gradient(180deg,rgba(30,24,60,.7),rgba(10,8,26,.7));display:grid;place-items:center;color:var(--gold);font-size:clamp(12px,calc(1.15*var(--vw)),16px);letter-spacing:.04em}
 .mini::before{content:"";position:absolute;inset:3px;border:1px solid rgba(232,201,142,.18);border-radius:2px}
 .mini.have{background:linear-gradient(180deg,#f3ead6,#d9c9a6);color:#6b4f2a;box-shadow:0 0 14px rgba(255,226,160,.5)}
-.hudtext{font-size:clamp(12px,calc(1.05*var(--vw)),14px);line-height:1.9;letter-spacing:.06em;text-shadow:0 0 6px #000}
+.hudtext{font-size:clamp(15px,calc(1.55*var(--vw)),21px);line-height:1.75;padding-top:.15em;letter-spacing:.06em;text-shadow:0 0 6px #000}
 .hudtext .dim{color:rgba(239,232,220,.55)}
 .dots{display:inline-flex;gap:.35em;vertical-align:middle;margin-left:.4em}
-.dots i{width:.55em;height:.55em;border-radius:50%;border:1px solid var(--gold);opacity:.6}
+.dots i{width:.62em;height:.62em;border-radius:50%;border:1px solid var(--gold);opacity:.6}
 .dots i.on{background:var(--gold);box-shadow:0 0 6px var(--gold);opacity:1}
 #toast{position:fixed;left:50%;bottom:9%;transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);font-size:clamp(13px,calc(1.25*var(--vw)),17px);letter-spacing:.14em;
   text-shadow:0 0 10px #000,0 0 3px #000;opacity:0;transition:opacity .6s;pointer-events:none;text-align:center;line-height:1.8}
@@ -196,7 +196,7 @@ body.rot{position:fixed;left:0;top:0;transform-origin:0 0;transform:translateX(v
 #touch button{position:fixed;width:64px;height:64px;border-radius:50%;border:1px solid var(--gold-dim);background:rgba(10,8,26,.4);color:var(--gold);font:inherit;font-size:16px;pointer-events:auto}
 #tE{right:max(16px,calc(4*var(--vw)),calc(env(safe-area-inset-right) + 10px));bottom:max(24px,calc(6*var(--vh)))}
 #tP{right:max(16px,calc(4*var(--vw)),calc(env(safe-area-inset-right) + 10px));top:max(16px,calc(3*var(--vh)));width:44px!important;height:44px!important;font-size:13px!important}
-#touchTip{position:fixed;left:50%;top:max(16px,calc(3*var(--vh)));transform:translateX(-50%);width:max-content;max-width:calc(100% - 2*max(200px,calc(24*var(--vw))));font-size:12px;line-height:1.7;letter-spacing:.1em;color:rgba(239,232,220,.55);text-align:center;text-wrap:balance;text-shadow:0 0 6px #000}
+#touchTip{position:fixed;left:50%;top:max(16px,calc(3*var(--vh)));transform:translateX(-50%);width:max-content;max-width:calc(100% - 2*max(240px,calc(26*var(--vw))));font-size:12px;line-height:1.7;letter-spacing:.1em;color:rgba(239,232,220,.55);text-align:center;text-wrap:balance;text-shadow:0 0 6px #000}
 /* 触屏：提示文字避开两侧的摇杆和按钮 */
 body.touchdev #toast{max-width:calc(100% - 2*max(120px,calc(15*var(--vw))));text-wrap:balance;bottom:max(14px,calc(5*var(--vh)))}
 body.touchdev #prompt{font-size:13px}
@@ -257,7 +257,6 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
       </nav>
     </div>
     <p class="wake">点击任意处，让琴声响起</p>
-    <div class="foot"><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> 移动　鼠标 引导星光　<span class="key">E</span> 互动　<span class="key">Esc</span> 暂停</div>
   </section>
   <section class="view off" id="vChap">
     <div class="deck" id="deck">
