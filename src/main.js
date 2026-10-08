@@ -183,12 +183,22 @@ function loadLevel(n) {
   document.querySelector('#pause .proman').textContent = `${LV.roman}　${LV.name}`;
   const ch = $('chapter'); ch.querySelector('.num').textContent = LV.roman; ch.querySelector('.name').textContent = LV.name; ch.querySelector('.line').textContent = LV.motto;
   AU.setMood(LV.mood);
-  needWarm = true;
+  needWarm = 2;
 }
 
 // 预热：关卡载入时把整关（包括还没出现的机关、特效）都完整渲染一遍，
 // 让所有着色器和贴图提前编译、上传，走到下一个小场景时就不会突然卡一下
-let needWarm = false;
+let needWarm = 0;
+// 阴影着色器还会因为「投影物体有没有贴图、是不是实例化」分出不同版本：放一组隐形样本把这几种都覆盖到
+const warmKit = new THREE.Group(); warmKit.visible = false; warmKit.position.set(0, -40, 0); scene.add(warmKit);
+{
+  const t = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1); t.needsUpdate = true;
+  const g = new THREE.BoxGeometry(.01, .01, .01);
+  [new THREE.MeshStandardMaterial(), new THREE.MeshStandardMaterial({ map: t })].forEach(m => {
+    const a = new THREE.Mesh(g, m), b = new THREE.InstancedMesh(g, m, 1);
+    [a, b].forEach(o => { o.castShadow = true; o.layers.enableAll(); warmKit.add(o); });
+  });
+}
 function warmup() {
   const hid = [], fc = [], cs = [], ic = [], li = [], seen = new Set();
   const initTex = v => { if (v && v.isTexture && !seen.has(v)) { seen.add(v); renderer.initTexture(v); } };
@@ -570,7 +580,7 @@ function begin(n = 1) {
     if (!LV || S.level !== n) loadLevel(n);
     pipe.setZoom(1); pipe.setupCamera(cam);
     stickHome();
-    resetLevel(); needWarm = true; // 黑屏时以游戏镜头再预热一遍
+    resetLevel(); needWarm = 2; // 黑屏时以游戏镜头再预热一遍
     menu.classList.add('hide'); document.body.classList.add('playing'); $('end').classList.remove('on');
     $('deck').classList.remove('picking'); document.querySelectorAll('.tcard').forEach(c => c.classList.remove('chosen'));
     S.mode = 'intro'; S.introT = 0; S.chShown = false; S.fadeTo = 0; camFocus.set(P.x, 0, P.z); camVel.set(0, 0, 0);
@@ -618,7 +628,7 @@ let last = performance.now();
 function frame(now) {
   const dt = clamp((now - last) / 1000, .001, .05); last = now;
   if (S.mode !== 'paused') update(dt);
-  if (needWarm && pipe.w) { warmup(); needWarm = false; }
+  if (needWarm && pipe.w) { warmup(); needWarm--; } // 连续两帧：第一帧时有些阴影贴图才刚创建
   pipe.render(scene, cam, { time: T, fade: S.fade, grade: 0, focus: focusUV, dofK, flash: S.flash, vig });
   requestAnimationFrame(frame);
 }
