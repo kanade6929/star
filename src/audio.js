@@ -8,7 +8,7 @@ export function createAudio(onToggle) {
   function b64(url) { const s = atob(url.split(',')[1]), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer; }
   let hidden = false;
   function init() {
-    if (ac) { if (ac.state === 'suspended' && !hidden) ac.resume(); return; }
+    if (ac) { if (!hidden) { if (ac.state === 'suspended') ac.resume(); unlock(); } return; }
     try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
     master = ac.createGain(); master.gain.value = on ? .9 : 0;
     const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7000; lp.Q.value = .2;
@@ -20,7 +20,8 @@ export function createAudio(onToggle) {
     music = ac.createGain(); music.gain.value = .5; music.connect(master); const ms = ac.createGain(); ms.gain.value = .6; music.connect(ms); ms.connect(rev);
     bgm = ac.createGain(); bgm.gain.value = .55; bgm.connect(master);
     sfx = ac.createGain(); sfx.gain.value = .85; sfx.connect(master); const ss = ac.createGain(); ss.gain.value = .5; sfx.connect(ss); ss.connect(rev);
-    pool.forEach(v => { v.el.play().then(() => { if (!v.url) v.el.pause(); }).catch(() => {}); });
+    if (ac.state === 'suspended') { const p = ac.resume(); if (p && p.catch) p.catch(() => {}); }
+    unlock();
     bgmTick(); timerB = setInterval(bgmTick, 200);
     const src = window.PIANO_SAMPLES || {};
     Object.keys(src).forEach(k => {
@@ -53,6 +54,8 @@ export function createAudio(onToggle) {
   const XF = 4, FADE = 3, failed = {};
   let timerB = null;
   const pool = [0, 1, 2].map(() => { const el = new Audio(); el.preload = 'auto'; el.src = 'data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA//NwwAAAAAAAAAAAAEluZm8AAAAPAAAABgAAAykAWlpaWlpaWlpaWlpaWlpaWnt7e3t7e3t7e3t7e3t7e3t7nJycnJycnJycnJycnJycnL29vb29vb29vb29vb29vb293t7e3t7e3t7e3t7e3t7e3t7/////////////////////AAAAAExhdmM2MC4zMQAAAAAAAAAAAAAAACQCowAAAAAAAAMpso+sIAAAAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//NCxKMAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//NAxKQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVX/80LEowAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVU='; return { el, g: null, url: null, ending: 0 }; });
+  // 在用户操作里调用：让每个播放器都"解锁"（手机浏览器要求），被浏览器拦下的背景音乐也在这时补播
+  function unlock() { pool.forEach(v => { if (v.ending) return; const p = v.el.play(); if (p && p.then) p.then(() => { if (!v.url) v.el.pause(); }).catch(() => {}); }); }
   function voice() { return pool.find(v => !v.url) || pool.reduce((a, b) => (a.ending && (!b.ending || a.ending < b.ending)) ? a : b); }
   function fadeTo(v, val, sec) { if (!v.g) return; const t = ac.currentTime; v.g.gain.cancelScheduledValues(t); v.g.gain.setValueAtTime(v.g.gain.value, t); v.g.gain.linearRampToValueAtTime(val, t + sec); }
   function release(v, sec) { if (!v.url) return; fadeTo(v, 0, sec); v.ending = performance.now() + sec * 1000 + 100; }
@@ -117,7 +120,8 @@ export function createAudio(onToggle) {
     }
   }
   return {
-    init, note, setHidden, _dbg: () => ({ ac: ac && ac.state, hidden, playing: pool.filter(v => !v.el.paused).map(v => v.url) }),
+    init, note, setHidden,
+    get running() { return !!ac && ac.state === 'running' && pool.some(v => v.url && !v.el.paused); }, _dbg: () => ({ ac: ac && ac.state, hidden, playing: pool.filter(v => !v.el.paused).map(v => v.url) }),
     setMood(m) { if (m === mood) return; mood = m; barN = 0; if (ac) bgmTick(); },
     toggle() { on = !on; if (master) master.gain.setTargetAtTime(on ? .9 : 0, ac.currentTime, .2); onToggle && onToggle(on); },
     get on() { return on; },
