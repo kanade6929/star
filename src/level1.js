@@ -381,7 +381,7 @@ export function buildStar(ctx) {
     const im = new THREE.MeshStandardMaterial({ map: inlayT, transparent: true, alphaTest: .4, color: 0xd8c08a, roughness: .25, metalness: .7, emissive: 0xffd89a, emissiveMap: inlayT, emissiveIntensity: 0 });
     const inlay = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), im); inlay.rotation.x = -Math.PI / 2; inlay.position.y = .012; g0.add(inlay);
     shadowAll(g0); inlay.castShadow = false;
-    return { k, g: g0, im, x: 0, z: 0, y: 0, state: 'free', anchor: null, home: [[57, 11.6], [60.5, 2.2], [53.5, 3.4]][k], ph: k * 2.1, fly: null, glow: 0 };
+    return { k, g: g0, im, x: 0, z: 0, y: 0, state: 'free', anchor: null, home: [[57, 13.2], [60.5, 2.2], [53.5, 3.4]][k], ph: k * 2.1, fly: null, glow: 0 };
   });
   // 初始：一座浮岛已经停在第一颗星上（教学），另外两座在虚空里漂
   const dock = (isle, a) => { isle.state = 'dock'; isle.anchor = a; a.isle = isle; isle.x = a.x; isle.z = a.z; isle.y = 0; a.visited = true; };
@@ -536,13 +536,30 @@ export function buildStar(ctx) {
   const inIsle = (il, x, z, m = 0) => x > il.x - m && x < il.x + 3 + m && z > il.z - m && z < il.z + 3 + m;
   const occupied = il => inIsle(il, P.x, P.z, .4) || (P.falling && inIsle(il, P.safe[0], P.safe[1], .4));
   const onIsle = (x, z) => isles.some(il => il.state === 'dock' && inIsle(il, x, z));
+  // 飞行路线：绕开人和别的浮岛，从旁边弧线飞过去（不从头顶穿过）
+  function planFlight(il, a) {
+    const sx = il.x, sz = il.z, ex = a.x, ez = a.z, dx = ex - sx, dz = ez - sz, L = Math.hypot(dx, dz) || 1, nx = -dz / L, nz = dx / L;
+    const obst = [[P.x - 1.5, P.z - 1.5, 2.6], ...isles.filter(o => o !== il).map(o => [o.x, o.z, 3.4])];
+    let best = [(sx + ex) / 2, (sz + ez) / 2], bs = -1e9;
+    for (const off of [0, 2, -2, 3.5, -3.5, 5, -5, 7, -7, 9, -9]) {
+      const cx = (sx + ex) / 2 + nx * off * 2, cz = (sz + ez) / 2 + nz * off * 2;
+      let clear = 9;
+      for (let i = 1; i < 24; i++) {
+        const t = i / 24, u = 1 - t, x = u * u * sx + 2 * u * t * cx + t * t * ex, z = u * u * sz + 2 * u * t * cz + t * t * ez;
+        obst.forEach(([ox, oz, r]) => { if (t > .9 && Math.hypot(ox - ex, oz - ez) < r) return; clear = Math.min(clear, Math.hypot(x - ox, z - oz) - r); });
+      }
+      const sc = Math.min(clear, 1) * 20 - Math.abs(off);
+      if (sc > bs) { bs = sc; best = [cx, cz]; }
+    }
+    return best;
+  }
   function summon(a) {
     let best = null, bd = 1e9;
     isles.forEach(il => { if (il.state === 'fly' || occupied(il)) return; const d = Math.hypot(il.x + 1.5 - a.cx, il.z + 1.5 - a.cz); if (d < bd) { bd = d; best = il; } });
     if (!best) { AU.wrong(); return; }
     if (best.anchor) best.anchor.isle = null;
     best.state = 'fly'; best.anchor = null; a.isle = best;
-    best.fly = { t: 0, a, from: [best.x, best.y, best.z], dur: 1.1 + Math.min(1, bd / 9) };
+    best.fly = { t: 0, a, from: [best.x, best.y, best.z], ctrl: planFlight(best, a), dur: 1.4 + Math.min(1.2, bd / 8) };
     AU.ghost(); fx.ring(a.cx, .02, a.cz, 0xffd89a, 2.6, .9);
     if (!S.hints.summon) { S.hints.summon = 1; toast('星光牵来了一座浮岛。站着人的浮岛不会被牵走', 4); }
   }
@@ -566,7 +583,7 @@ export function buildStar(ctx) {
   }
   function updateIsles(dt, T) {
     anchors.forEach(a => {
-      const near = !a.isle && Math.hypot(orb.x - a.cx, orb.z - a.cz) < .95;
+      const near = !a.isle && ctx.orbNear(a.cx, a.cz, -.3) < .95;
       const pv = a.charge;
       a.charge = near ? a.charge + dt : Math.max(0, a.charge - dt * 2);
       if (near && Math.random() < dt * 22) fx.emit(a.cx + (Math.random() - .5) * .7, -.25, a.cz + (Math.random() - .5) * .7, { vy: .7, life: .7, c: GOLD, tw: 8 });
@@ -586,12 +603,16 @@ export function buildStar(ctx) {
         il.y = -.55 + Math.sin(T * .7 + il.ph) * .1; il.g.rotation.y = Math.sin(T * .2 + il.ph) * .15;
       } else if (il.state === 'fly') {
         const F = il.fly; F.t += dt / F.dur; const t = Math.min(1, F.t), e = t * t * (3 - 2 * t);
-        il.x = F.from[0] + (F.a.x - F.from[0]) * e; il.z = F.from[2] + (F.a.z - F.from[2]) * e;
-        il.y = F.from[1] * (1 - e) + Math.sin(t * Math.PI) * .8;
+        const u = 1 - e, px = il.x, pz = il.z;
+        il.x = u * u * F.from[0] + 2 * u * e * F.ctrl[0] + e * e * F.a.x; il.z = u * u * F.from[2] + 2 * u * e * F.ctrl[1] + e * e * F.a.z;
+        il.y = F.from[1] * (1 - e) - Math.sin(t * Math.PI) * .35;
+        // 顺着飞行方向微微倾斜，落位前摆正
+        const vx = (il.x - px) / Math.max(dt, 1e-3), vz = (il.z - pz) / Math.max(dt, 1e-3);
+        il.g.rotation.x = clamp(vz * .025, -.12, .12) * (1 - e); il.g.rotation.z = clamp(-vx * .025, -.12, .12) * (1 - e);
         il.g.rotation.y *= 1 - Math.min(1, dt * 4);
         if (Math.random() < dt * 40) fx.emit(il.x + 1.5 + (Math.random() - .5) * 2.6, il.y - .4, il.z + 1.5 + (Math.random() - .5) * 2.6, { vy: -.4, life: .9, c: GOLD, tw: 6 });
         if (t >= 1) {
-          const fresh = !F.a.visited; dock(il, F.a); il.fly = null; il.land = 0; il.g.rotation.y = 0;
+          const fresh = !F.a.visited; dock(il, F.a); il.fly = null; il.land = 0; il.g.rotation.set(0, 0, 0);
           AU.stone(); shake(.06, .35); fx.ring(F.a.cx, .03, F.a.cz, 0xffd89a, 3.6, 1.1); fx.bloom(F.a.cx, .2, F.a.cz, 26, GOLD, { w: 2, vr: 1.4, up: .5 });
           if (fresh) newStar(F.a);
         }
@@ -769,7 +790,7 @@ export function buildStar(ctx) {
     // 星灯
     lamps.forEach((l, i) => {
       if (l.lit) l.t = Math.min(1, l.t + dt * .7);
-      const kk = smooth(0, 1, l.t), near = Math.hypot(orb.x - l.x, orb.z - l.z) < 1.7 ? 1 : 0;
+      const kk = smooth(0, 1, l.t), near = ctx.orbNear(l.x, l.z, 1.28) < 1.7 ? 1 : 0;
       l.cm.emissiveIntensity = kk * 2.2 + near * .5 + .15;
       l.light.intensity = kk * (8 + Math.sin(T * 3 + i) * .4); l.shaft.set(kk);
       l.halo.material.opacity = kk * .55 + near * .12;
@@ -864,7 +885,7 @@ export function buildStar(ctx) {
   function interact(n) {
     if (n.type === 'lamp') {
       const l = lamps[n.i];
-      if (Math.hypot(orb.x - l.x, orb.z - l.z) > 1.7) { toast('把星光引到灯碗上，再点燃它', 2.6); AU.wrong(); return; }
+      if (ctx.orbNear(l.x, l.z, 1.28) > 1.7) { toast('把星光引到灯碗上，再点燃它', 2.6); AU.wrong(); return; }
       lightLamp(n.i);
     } else if (n.type === 'card') {
       card.taken = true; S.gotCard = true; AU.card();
@@ -933,7 +954,7 @@ export function buildStar(ctx) {
     leash: 7.5, mirrorY: -.14, hideInReflection: L.hide, voidMat,
     palette: ['#0b0a1f', '#1a1838', '#2a2a5a', '#3d3f7a', '#5a5f9e', '#8a8fc4', '#c3c4e6', '#eef0ff', '#143a44', '#23626a', '#4a9a92', '#4a3a6e', '#7a5f98', '#e3c2b4', '#e8c98e', '#fff1c4'],
     tintLo: [.97, .96, 1.04], tintHi: [1.06, 1.02, .94],
-    light: { sky: 0x7470b0, ground: 0x1a1028, hemi: .24, moon: 0x8f9cff, moonK: 1.4, moonDir: [-7, 5], orb: 0xd6e6ff, halo: 0x8fb0ff, mote: [.75, .85, 1],
+    light: { sky: 0x7470b0, ground: 0x1a1028, hemi: .24, moon: 0x8f9cff, moonK: 1.4, moonDir: [-7, 5], orb: 0xffd88e, halo: 0xffc878, mote: [1, .86, .55],
       env: [0x2a2650, 0x06051a, [[4, 5, 2, 0xffd9a0, .9], [-5, 4, -3, 0x9fb4ff, 1.1], [0, 8, 0, 0x8080c0, 2]]] },
     endCard: { title: '星光归位', line: '第一幕　星　完<br>下一幕　月　已在水边等你' },
     cell,
@@ -953,6 +974,7 @@ export function buildStar(ctx) {
     finaleCam: () => [altar.x - 1, altar.z],
     finaleOrb: () => [altar.x - 1.2, altar.z + 1],
     progress: () => `${S.lampsLit}${S.gotCard ? 1 : 0}${rune.solved ? 1 : 0}${P.x > 23.5 ? 1 : 0}${P.x > 36.5 ? 1 : 0}${S.dipper}${sluices.s1.cur === 's1w' ? 1 : 0}${sluices.s2.cur === 's2e' ? 1 : 0}${P.x > 49.5 ? 1 : 0}${P.x > 67 ? 1 : 0}${P.x > 88 ? 1 : 0}`,
+    MW, MH, mapMarks: () => [...lamps.map(l => ({ x: l.x, z: l.z, kind: 'lamp', done: l.lit })), { x: card.x, z: card.z, kind: 'card', done: card.taken }, { x: altar.x, z: altar.z, kind: 'goal', done: S.done }],
     hud: () => ({ label: '星灯', dots: lamps.map(l => l.lit), have: S.gotCard, line: S.done ? '牌已归位' : S.gotCard ? '持有　XVII 星' : '遗失的牌　未寻得' }),
     _: { L, S, lamps, rune, gate, card, altar, ob, bridges, rings, anchors, isles, sluices, pools, well, CH, summon }
   };

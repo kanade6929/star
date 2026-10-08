@@ -506,7 +506,7 @@ export function buildMoon(ctx) {
   // armA 是月柱影子所指的方向；月钩（光）在它的正对面
   const hookX = () => HUB[0] - Math.cos(armA) * HOOK_R, hookZ = () => HUB[1] - Math.sin(armA) * HOOK_R;
   // 会动的「插槽」：光点停在月钩经过的地方，月钩转到时把它挂走
-  const sockets = [{ get x() { return hookX(); }, get z() { return hookZ(); }, r: .55, active: () => !S.done,
+  const sockets = [{ get x() { return hookX(); }, get z() { return hookZ(); }, y: 1.6, r: .55, active: () => !S.done,
     onLock() { S.hubUsed = true; AU.lamp(0); const x = hookX(), z = hookZ(); fx.ring(x, 1.6, z, 0x8ff0e0, 1.6, .9); fx.ring(HUB[0], .05, HUB[1], 0x8ff0e0, 3.2, 1.2); fx.sigil(HUB[0], .06, HUB[1], 0x8ff0e0, 'moon', 3, 1.8); flash(.15); shake(.04, .3);
       if (!S.hints.lock) { S.hints.lock = 1; toast('月钩挂上了星光。月柱的影子跟着转，踩着影子走', 4.6); } } }];
   function occluded(ax, az, bx, bz) {
@@ -650,7 +650,7 @@ export function buildMoon(ctx) {
       w.open = open;
     });
     // 潮汐：光点停在引潮镜前，潮水上涨；离开就慢慢退去
-    const charging = !S.done && Math.hypot(orb.x - MIR[0], orb.z - MIR[1]) < 1.6, pt = S.tide;
+    const charging = !S.done && ctx.orbNear(MIR[0], MIR[1], 1.35) < 1.6, pt = S.tide;
     S.tide = clamp(S.tide + (charging ? .22 : -.15) * dt, 0, 1);
     if (pt < .85 && S.tide >= .85) { AU.stone(); fx.ring(MIR[0], .02, 7.5, 0x9fe0ff, 5, 1.4); if (!S.hints.hi) { S.hints.hi = 1; toast('涨潮了。浮台浮了上来，石堤沉进了水里', 4); } }
     if (pt > .3 && S.tide <= .3 && S.hints.hi && !S.hints.lo && P.x < 84) { S.hints.lo = 1; toast('潮水退了，石堤又露了出来', 3.4); }
@@ -779,7 +779,7 @@ export function buildMoon(ctx) {
     leash: 7.5, mirrorY: -.05, hideInReflection: L.hide, voidMat: lake,
     palette: ['#0a0a1c', '#15152e', '#22224a', '#33356a', '#4b4f8c', '#6a6fae', '#9a9fcc', '#cfd3ea', '#f2f0ff', '#1b3150', '#2f5684', '#6f9ad0', '#3a5a64', '#e88a9a', '#f6b8bc', '#e6d6a8'],
     tintLo: [.96, .97, 1.05], tintHi: [1.02, 1.0, 1.05],
-    light: { sky: 0x8a90d0, ground: 0x141830, hemi: .3, moon: 0xb8c4ff, moonK: 1.35, moonDir: [6, -5], orb: 0xffe6c8, halo: 0xffd9a8, mote: [1, .9, .75],
+    light: { sky: 0x8a90d0, ground: 0x141830, hemi: .3, moon: 0xb8c4ff, moonK: 1.35, moonDir: [6, -5], orb: 0xffd88e, halo: 0xffc878, mote: [1, .86, .55],
       env: [0x3a4070, 0x080a18, [[6, 6, -3, 0xdfe6ff, 1.8], [-4, 3, 4, 0xe88a9a, .5], [0, 8, 0, 0x8a90d0, 2]]] },
     endCard: { title: '满月照影', line: '第二幕　月　完<br>下一幕　太阳' },
     sockets,
@@ -819,6 +819,7 @@ export function buildMoon(ctx) {
     finaleCam: () => [altar.x - .5, altar.z - 1.8],
     finaleOrb: () => [altar.x - 1.6, altar.z + 1.2],
     progress: () => `${S.phases}${S.gotCard ? 1 : 0}${qA.on ? 1 : 0}${S.solvedB ? 1 : 0}${qC.on ? 1 : 0}${orb.lock ? 1 : 0}${P.x > 18 ? 1 : 0}${P.x > 25 ? 1 : 0}${P.x > 40.5 ? 1 : 0}${qD.on ? 1 : 0}${P.x > 48.5 ? 1 : 0}${P.x > 55 ? 1 : 0}${qE.on ? 1 : 0}${S.tide > .85 ? 1 : 0}${P.x > 84 ? 1 : 0}`,
+    MW, MH, mapMarks: () => [...[qA, qB, qD, qC, qE].map(q => ({ x: q.x, z: q.z, kind: 'lamp', done: q.on })), { x: card.x, z: card.z, kind: 'card', done: card.taken }, { x: altar.x, z: altar.z, kind: 'goal', done: S.done }],
     hud: () => ({ label: '月相', dots: [qA.on, qB.on, qD.on, qC.on, qE.on], have: S.gotCard, line: S.done ? '牌已归位' : S.gotCard ? '持有　XVIII 月' : '水底之牌　未寻得' }),
     _: { L, S, litAt, shadowedAt, occluded, qA, qB, qC, qD, qE, dog, wolf, gate, card, altar, ill, pillars, tideStones, rafts, get armA() { return armA; }, set armA(v) { armA = v; } }
   };

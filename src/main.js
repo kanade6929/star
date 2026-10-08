@@ -87,8 +87,11 @@ const P = { x: 2.5, z: 7.5, dir: 'down', vx: 0, vz: 0, run: 0, moving: false, fa
 
 /* ================= 光点（鼠标即光源） ================= */
 const ORB_Y = 1.6;
+// 光点浮在半空：俯视镜头下，它「看起来」盖住的是更北边一点的地面。机关判定按画面上的重合来算
+const VIS_K = 1 / Math.tan(ELEV0);
+function orbNear(x, z, y = 0) { return Math.hypot(orb.x - x, (orb.z - ORB_Y * VIS_K) - (z - y * VIS_K)); }
 const orb = { x: 6, z: 6, tx: 6, tz: 6, y: ORB_Y, g: new THREE.Group(), lift: 0, lock: null, k: 1, held: 0, px: 6, pz: 6 };
-const orbLight = new THREE.PointLight(0xd6e6ff, 7, 12, 1.6);
+const orbLight = new THREE.PointLight(0xffd88e, 7, 12, 1.6);
 orbLight.castShadow = true; orbLight.shadow.mapSize.set(1024, 1024); orbLight.shadow.bias = -.0006; orbLight.shadow.normalBias = .025;
 orbLight.shadow.camera.near = .05; orbLight.shadow.camera.far = 11;
 orbLight.shadow.camera.layers.set(0); orbLight.shadow.camera.layers.enable(LAYER_SH_ORB);
@@ -180,7 +183,7 @@ function cine(steps) { S.cine = { steps, i: 0, t: 0, started: false }; setBars(t
 
 /* ================= 关卡装载 ================= */
 let LV = null, root = null;
-const ctx = { THREE, camQuat, P, orb, S, fx, AU, toast, holdToast, cine, shake, flash, hemi, moon, renderer, pipe, get T() { return T; }, updateHud };
+const ctx = { THREE, camQuat, P, orb, orbNear, S, fx, AU, toast, holdToast, cine, shake, flash, hemi, moon, renderer, pipe, get T() { return T; }, updateHud };
 const BUILDERS = { 1: buildStar, 2: buildMoon, 3: buildSun };
 function loadLevel(n) {
   if (root) disposeGroup(root);
@@ -190,7 +193,7 @@ function loadLevel(n) {
   S.level = n;
   const lg = LV.light;
   hemi.color.set(lg.sky); hemi.groundColor.set(lg.ground); hemi.intensity = lg.hemi;
-  moon.color.set(lg.moon); orbLight.color.set(lg.orb); orbStar.setColor(lg.orb);
+  moon.color.set(lg.moon); orbLight.color.set(lg.orb); orbStar.setColor(0xffc45a);
   if (scene.environment) scene.environment.dispose();
   scene.environment = makeEnv(renderer, ...lg.env);
   pipe.setPalette(LV.palette, LV.tintLo, LV.tintHi);
@@ -255,8 +258,10 @@ addEventListener('keydown', e => {
   if (S.mode === 'menu') { menuKey(e, k); return; }
   keys[k] = true;
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
-  if (k === 'escape' || k === 'p') { if (S.mode === 'play' || S.mode === 'intro') pause(); else if (S.mode === 'paused') resume(); }
+  if ((k === 'escape' && !mapOn || k === 'p') && k !== 'tab') { if (S.mode === 'play' || S.mode === 'intro') pause(); else if (S.mode === 'paused') resume(); }
   if (k === 'm' && !e.repeat) AU.toggle();
+  if (k === 'tab') { e.preventDefault(); if (!e.repeat) toggleMap(); }
+  if (k === 'escape' && mapOn) { toggleMap(false); return; }
   if ((k === 'e' || k === ' ' || k === 'enter') && !e.repeat) { if (S.mode === 'play' && !S.cine) interact(); else if (S.mode === 'intro' && S.introT > .6) skipIntro(); }
 });
 addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
@@ -326,6 +331,49 @@ addEventListener('pointerdown', () => {
 }, { once: true, capture: true });
 $('tE').addEventListener('pointerdown', e => { e.preventDefault(); if (S.mode === 'play' && !S.cine) interact(); else if (S.mode === 'intro') skipIntro(); });
 $('tP').addEventListener('pointerdown', e => { e.preventDefault(); if (S.mode === 'play') pause(); });
+$('tM').addEventListener('pointerdown', e => { e.preventDefault(); toggleMap(); });
+$('map').addEventListener('pointerdown', e => { e.preventDefault(); toggleMap(false); });
+
+/* ================= 地图：Tab 打开，简约的俯视平面图 + 人物实时位置 + 还没拿到的牌和灯 ================= */
+const mapEl = $('map'), mapC = $('mapc'), mapG = mapC.getContext('2d');
+let mapOn = false, mapCS = 8, mapBase = null;
+function toggleMap(on = !mapOn) {
+  if (on && (S.mode !== 'play' || S.cine || !LV)) return;
+  mapOn = on; mapEl.classList.toggle('on', on); mapEl.setAttribute('aria-hidden', on ? 'false' : 'true');
+  if (on) { AU.hover && AU.hover(4); $('mapTitle').textContent = LV.name; $('mapLamp').textContent = LV.hud().label; mapBase = null; drawMap(); }
+}
+function drawMap() {
+  const MW = LV.MW, MH = LV.MH;
+  mapCS = Math.max(4, Math.floor(Math.min(view.w * .86 / MW, view.h * .5 / MH)));
+  const cs = mapCS, W = MW * cs, H = MH * cs;
+  if (mapC.width !== W || mapC.height !== H) { mapC.width = W; mapC.height = H; mapBase = null; }
+  // 地形每 0.5 秒重算一次（门、桥、花海这些会变）
+  if (!mapBase || T - mapBase.t > .5) {
+    const c = mapBase && mapBase.c.width === W ? mapBase.c : Object.assign(document.createElement('canvas'), { width: W, height: H }), g = c.getContext('2d');
+    g.clearRect(0, 0, W, H);
+    for (let z = 0; z < MH; z++) for (let x = 0; x < MW; x++) {
+      const solid = LV.solid(x + .5, z + .5), gr = !LV.hole(x + .5, z + .5) && LV.ground(x + .5, z + .5);
+      if (solid) { g.fillStyle = 'rgba(232,201,142,.45)'; g.fillRect(x * cs, z * cs, cs, cs); }
+      else if (gr) { g.fillStyle = 'rgba(239,232,220,.26)'; g.fillRect(x * cs, z * cs, cs, cs); }
+    }
+    mapBase = { c, t: T };
+  }
+  mapG.clearRect(0, 0, W, H); mapG.drawImage(mapBase.c, 0, 0);
+  const pulse = .6 + .4 * Math.sin(T * 4);
+  (LV.mapMarks ? LV.mapMarks() : []).forEach(m => {
+    const x = m.x * cs, y = m.z * cs, r = Math.max(3, cs * .45);
+    mapG.globalAlpha = m.done ? .35 : 1;
+    if (m.kind === 'lamp') { mapG.fillStyle = m.done ? '#b8a070' : '#ffcf6a'; if (!m.done) { mapG.shadowColor = '#ffb84a'; mapG.shadowBlur = 8 * pulse; } mapG.beginPath(); mapG.arc(x, y, r * (m.done ? .6 : .8), 0, 7); mapG.fill(); }
+    else if (m.kind === 'card') { if (m.done) return; mapG.fillStyle = '#f4ead8'; mapG.shadowColor = '#fff'; mapG.shadowBlur = 6 * pulse; mapG.save(); mapG.translate(x, y); mapG.rotate(Math.PI / 4); mapG.fillRect(-r * .7, -r * .7, r * 1.4, r * 1.4); mapG.restore(); }
+    else if (m.kind === 'goal') { mapG.strokeStyle = '#e8c98e'; mapG.lineWidth = 1.5; mapG.beginPath(); mapG.arc(x, y, r * 1.3, 0, 7); mapG.stroke(); }
+    mapG.shadowBlur = 0; mapG.globalAlpha = 1;
+  });
+  // 光点与人物
+  mapG.fillStyle = 'rgba(255,200,110,.85)'; mapG.beginPath(); mapG.arc(orb.x * cs, orb.z * cs, Math.max(2, cs * .25), 0, 7); mapG.fill();
+  const px = P.x * cs, py = P.z * cs;
+  mapG.fillStyle = 'rgba(232,106,74,.35)'; mapG.beginPath(); mapG.arc(px, py, Math.max(5, cs * .9) * (1 + .25 * pulse), 0, 7); mapG.fill();
+  mapG.fillStyle = '#fff'; mapG.strokeStyle = '#e86a4a'; mapG.lineWidth = 2; mapG.beginPath(); mapG.arc(px, py, Math.max(3, cs * .45), 0, 7); mapG.fill(); mapG.stroke();
+}
 
 /* ================= 互动 ================= */
 function nearest() {
@@ -437,6 +485,7 @@ let camFocus = new THREE.Vector3(6, 0, 7); const camVel = new THREE.Vector3(), c
 const focusUV = new THREE.Vector2(.5, .47);
 let dofK = 1, vig = .55;
 function update(dt) {
+  if (mapOn) { if (S.mode !== 'play' || S.cine) toggleMap(false); else drawMap(); }
   T += dt; S.t += dt; SHAFT_T.value = T;
   const play = S.mode === 'play';
   const intro = S.mode === 'intro';
@@ -474,7 +523,7 @@ function update(dt) {
   // 机关插槽（可以是会动的）：光点停在附近就被挂走，之后跟着插槽走，直到鼠标/右摇杆把它取下
   if (play || S.mode === 'cut') {
     if (orb.lock) { orb.tx = orb.lock.x; orb.tz = orb.lock.z; }
-    else if (!orb.unlockT && Math.hypot(orb.tx - orb.x, orb.tz - orb.z) < .3) (LV.sockets || []).forEach(s => { if (!orb.lock && Math.hypot(orb.x - s.x, orb.z - s.z) < (s.r || .5) && s.active()) { orb.lock = s; orb.lockM = [mouse ? mouse.nx : 0, mouse ? mouse.ny : 0]; s.onLock && s.onLock(); } });
+    else if (!orb.unlockT && Math.hypot(orb.tx - orb.x, orb.tz - orb.z) < .3) (LV.sockets || []).forEach(s => { if (!orb.lock && orbNear(s.x, s.z, s.y || 0) < (s.r || .5) && s.active()) { orb.lock = s; orb.lockM = [mouse ? mouse.nx : 0, mouse ? mouse.ny : 0]; s.onLock && s.onLock(); } });
   }
   if (S.mode === 'cut' && LV.finaleOrb) { const f = LV.finaleOrb(S.ev); orb.tx = lerp(orb.tx, f[0], .03); orb.tz = lerp(orb.tz, f[1], .03); }
   const k = 1 - Math.exp(-dt * 11);

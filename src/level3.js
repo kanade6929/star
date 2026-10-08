@@ -1137,7 +1137,7 @@ export function buildSun(ctx) {
     hideInReflection: L.hide, voidMat: sea, mirrorY: CLOUD_Y,
     palette: ['#1c1024', '#2e1a36', '#4a2440', '#6e3448', '#9a4a4e', '#c46a4e', '#e48e52', '#f4b45e', '#fbd68a', '#fff1cf', '#f6c6a0', '#e89a8c', '#8a5a7a', '#5a3a6a', '#5a8a3a', '#a8c070'],
     tintLo: [1.05, .96, .98], tintHi: [1.04, 1.0, .93],
-    light: { sky: 0xb07aa8, ground: 0x2a1424, hemi: .3, moon: 0xff9a7a, moonK: 1, moonDir: [9, -5], orb: 0xfff0d0, halo: 0xffd9a8, mote: [1, .88, .6],
+    light: { sky: 0xb07aa8, ground: 0x2a1424, hemi: .3, moon: 0xff9a7a, moonK: 1, moonDir: [9, -5], orb: 0xffd88e, halo: 0xffc878, mote: [1, .86, .55],
       env: [0x8a5a7a, 0x1a0c18, [[6, 6, -3, 0xffd0a0, 1.8], [-4, 3, 4, 0xe89a8c, .6], [0, 8, 0, 0xb07aa8, 2]]] },
     endCard: { title: '正午', line: '第三幕　太阳　完<br>星、月、日，都已归位' },
     constrainOrb(o) {
@@ -1173,6 +1173,7 @@ export function buildSun(ctx) {
     finaleCam: () => [altar.x - .5, altar.z - 3.4],
     finaleOrb: () => [altar.x - 1.8, altar.z + 1.2],
     progress: () => `${S.rays}${S.gotCard ? 1 : 0}${R1.on ? 1 : 0}${R2.on ? 1 : 0}${gate2.opening ? 1 : 0}${S.twins ? 1 : 0}${S.bridgeDown ? 1 : 0}${S.bridgeList.length}${R4.on ? 1 : 0}${RN.on ? 1 : 0}${RE.on ? 1 : 0}${S.wheel ? 1 : 0}${DISC.k % 8}`,
+    MW, MH, mapMarks: () => [...[R1, R2, R3a, R3b, R4, RN, RE].map(r => ({ x: r.cx, z: r.cz, kind: 'lamp', done: r.on })), { x: card.x, z: card.z, kind: 'card', done: card.taken }, { x: altar.x, z: altar.z, kind: 'goal', done: S.done }],
     hud: () => ({ label: '日光', dots: [R1.on, R2.on, S.twins, R4.on, S.wheel], have: S.gotCard, line: S.done ? '牌已归位' : S.gotCard ? '持有　XIX 太阳' : '太阳之牌　未寻得' }),
     _: { L, S, LA, MA1, MA2, LB, MB1, MC1, MC2, MD, ME, R1, R2, R3a, R3b, prism, gate, gate2, gate3, card, altar, machine, unlock, get segs() { return segs; }, onBridge, mirrorAt,
       LF, F1, F2, F3, F4, LW, LS, DM, R4, RN, RE, DISC, field, fieldAt, crankPos, turnDisc, pierAt }

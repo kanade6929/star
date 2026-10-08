@@ -24,7 +24,7 @@
 html,body{margin:0;height:100%;background:var(--night);overflow:hidden;color:var(--bone);font-family:var(--serif);-webkit-user-select:none;user-select:none;touch-action:none}
 #c{position:fixed;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated}
 body.playing #c{cursor:none}
-#ptr{position:fixed;left:-5px;top:-5px;width:10px;height:10px;border:1px solid rgba(220,228,255,.45);border-radius:50%;pointer-events:none;z-index:5;opacity:0;transition:opacity .4s}
+#ptr{position:fixed;left:-5px;top:-5px;width:10px;height:10px;border:1px solid rgba(255,214,140,.5);border-radius:50%;pointer-events:none;z-index:5;opacity:0;transition:opacity .4s}
 body.playing:not(.paused):not(.touchdev) #ptr{opacity:1}
 #nogl[hidden]{display:none}
 #nogl{position:fixed;inset:0;display:grid;place-items:center;text-align:center;padding:0 16px;line-height:2;letter-spacing:.1em}
@@ -188,12 +188,25 @@ body.touchdev.playing #touch{display:block}
 #touch .stk{position:fixed;width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:50%;border:1px solid var(--gold-dim);background:rgba(10,8,26,.3);opacity:.32;transition:opacity .2s}
 #touch .stk.on{opacity:1}
 #touch .knb{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:rgba(232,201,142,.35)}
-#stick2 .knb{background:rgba(190,215,255,.4);box-shadow:0 0 12px rgba(190,215,255,.5)}
-#stick2 span{position:absolute;left:50%;top:100%;transform:translate(-50%,6px);font-size:11px;letter-spacing:.2em;color:rgba(207,227,255,.6);white-space:nowrap}
+#stick2 .knb{background:rgba(255,206,120,.42);box-shadow:0 0 12px rgba(255,196,100,.5)}
+#stick2 span{position:absolute;left:50%;top:100%;transform:translate(-50%,6px);font-size:11px;letter-spacing:.2em;color:rgba(255,222,160,.65);white-space:nowrap}
 /* 竖着拿手机：整页旋转成横屏 */
 body.rot{position:fixed;left:0;top:0;transform-origin:0 0;transform:translateX(var(--W,100vw)) rotate(90deg)}
 #touch button{position:fixed;width:64px;height:64px;border-radius:50%;border:1px solid var(--gold-dim);background:rgba(10,8,26,.4);color:var(--gold);font:inherit;font-size:16px;pointer-events:auto}
 #tE{right:max(16px,calc(4*var(--vw)),calc(env(safe-area-inset-right) + 10px));bottom:max(24px,calc(6*var(--vh)))}
+#tM{right:max(16px,calc(4*var(--vw)),calc(env(safe-area-inset-right) + 10px));top:calc(max(16px,calc(3*var(--vh))) + 54px);width:44px!important;height:44px!important;font-size:13px!important}
+#map{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(5,4,15,.55);opacity:0;pointer-events:none;transition:opacity .35s;z-index:8}
+#map.on{opacity:1;pointer-events:auto}
+#map .mwrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding:22px 26px;border:1px solid var(--gold-dim);background:rgba(10,8,26,.72);max-width:94%}
+#map .mtitle{font-family:var(--title);color:var(--gold);letter-spacing:.5em;font-size:18px}
+#mapc{image-rendering:pixelated;max-width:100%;display:block}
+#map .mleg{display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:center;font-size:13px;letter-spacing:.12em;color:rgba(239,232,220,.75)}
+#map .mleg span{display:inline-flex;align-items:center;gap:6px}
+#map .lg{display:inline-block;width:10px;height:10px}
+#map .lg.lamp{border-radius:50%;background:#ffcf6a;box-shadow:0 0 6px #ffb84a}
+#map .lg.card{background:#f4ead8;transform:rotate(45deg);width:8px;height:8px}
+#map .lg.goal{border:1.5px solid #e8c98e;border-radius:50%}
+#map .lg.me{border-radius:50%;background:#fff;box-shadow:0 0 0 2px #e86a4a}
 #tP{right:max(16px,calc(4*var(--vw)),calc(env(safe-area-inset-right) + 10px));top:max(16px,calc(3*var(--vh)));width:44px!important;height:44px!important;font-size:13px!important}
 #touchTip{position:fixed;left:50%;top:max(16px,calc(3*var(--vh)));transform:translateX(-50%);width:max-content;max-width:calc(100% - 2*max(240px,calc(26*var(--vw))));font-size:12px;line-height:1.7;letter-spacing:.1em;color:rgba(239,232,220,.55);text-align:center;text-wrap:balance;text-shadow:0 0 6px #000}
 /* 触屏：提示文字避开两侧的摇杆和按钮 */
@@ -222,12 +235,13 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
     <div id="cardline" class="dim">遗失的牌　未寻得</div>
   </div>
 </div>
-<div id="help"><div><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> 移动　<span class="key">Shift</span> 奔跑　<span class="key">E</span> 互动</div><div>鼠标 引导星光　<span class="key">M</span> 琴声　<span class="key">Esc</span> 暂停</div></div>
+<div id="help"><div><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> 移动　<span class="key">Shift</span> 奔跑　<span class="key">E</span> 互动</div><div>鼠标 引导星光　<span class="key">M</span> 琴声　<span class="key">Esc</span> 暂停　<span class="key">Tab</span> 地图</div></div>
+<div id="map" aria-hidden="true"><div class="mwrap"><div class="mtitle" id="mapTitle">星</div><canvas id="mapc"></canvas><div class="mleg"><span><i class="lg lamp"></i><b id="mapLamp">星灯</b></span><span><i class="lg card"></i>牌</span><span><i class="lg goal"></i>终点</span><span><i class="lg me"></i>你</span><span class="dim"><span class="key">Tab</span> 关闭</span></div></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="bars" aria-hidden="true"><i></i><i></i></div>
 <div id="skip"><span class="key">E</span> 跳过</div>
 <div id="chapter"><div><div class="num">XVII</div><div class="name">星</div><div class="line">在无光之处，星辰等待被唤醒</div></div></div>
-<div id="touch"><div id="stick" class="stk"><div id="knob" class="knb"></div></div><div id="stick2" class="stk"><div id="knob2" class="knb"></div><span>星光</span></div><button id="tE" aria-label="互动">E</button><button id="tP" aria-label="暂停">Ⅱ</button><div id="touchTip"><i>左边摇杆行走</i>　<i>右边摇杆移动星光</i></div></div>
+<div id="touch"><div id="stick" class="stk"><div id="knob" class="knb"></div></div><div id="stick2" class="stk"><div id="knob2" class="knb"></div><span>星光</span></div><button id="tE" aria-label="互动">E</button><button id="tP" aria-label="暂停">Ⅱ</button><button id="tM" aria-label="地图">图</button><div id="touchTip"><i>左边摇杆行走</i>　<i>右边摇杆移动星光</i></div></div>
 <div id="end"><div class="card">
   <div class="roman" id="endRoman">XVII</div>
   <h2 id="endTitle">星光归位</h2>

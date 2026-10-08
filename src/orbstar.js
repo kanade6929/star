@@ -20,7 +20,7 @@ function starGeo(R = 1, r = .42, depth = .45) {
 
 export function makeOrbStar(layerFx) {
   const g = new THREE.Group();
-  const col = { value: new THREE.Color(0xd6e6ff) }, k = { value: 1 }, time = { value: 0 };
+  const col = { value: new THREE.Color(0xffc45a) }, k = { value: 1 }, time = { value: 0 };
   // 星体：自发光，切面按朝向分出明暗（像宝石），中心更亮
   const starM = new THREE.ShaderMaterial({
     uniforms: { col, k, time },
@@ -33,8 +33,8 @@ export function makeOrbStar(layerFx) {
         vec3 L = normalize(vec3(-.55, .6, .58));
         float f = .38 + .72 * max(dot(vN, L), 0.);
         float core = 1. - smoothstep(0., .32, vR);
-        vec3 tint = mix(col, vec3(1., .97, .9), .35);
-        vec3 c = mix(tint * f, vec3(1.15), core * .8) * k;
+        vec3 tint = mix(col, vec3(1., .9, .62), .25);
+        vec3 c = mix(tint * f, vec3(1.15, 1.0, .72), core * .75) * k;
         gl_FragColor = vec4(c, 1.);
       }`
   });
