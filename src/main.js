@@ -362,9 +362,10 @@ function drawMap() {
   const pulse = .6 + .4 * Math.sin(T * 4);
   (LV.mapMarks ? LV.mapMarks() : []).forEach(m => {
     const x = m.x * cs, y = m.z * cs, r = Math.max(3, cs * .45);
+    if (m.kind === 'card' && m.done) return;
     mapG.globalAlpha = m.done ? .35 : 1;
     if (m.kind === 'lamp') { mapG.fillStyle = m.done ? '#b8a070' : '#ffcf6a'; if (!m.done) { mapG.shadowColor = '#ffb84a'; mapG.shadowBlur = 8 * pulse; } mapG.beginPath(); mapG.arc(x, y, r * (m.done ? .6 : .8), 0, 7); mapG.fill(); }
-    else if (m.kind === 'card') { if (m.done) return; mapG.fillStyle = '#f4ead8'; mapG.shadowColor = '#fff'; mapG.shadowBlur = 6 * pulse; mapG.save(); mapG.translate(x, y); mapG.rotate(Math.PI / 4); mapG.fillRect(-r * .7, -r * .7, r * 1.4, r * 1.4); mapG.restore(); }
+    else if (m.kind === 'card') { mapG.fillStyle = '#f4ead8'; mapG.shadowColor = '#fff'; mapG.shadowBlur = 6 * pulse; mapG.save(); mapG.translate(x, y); mapG.rotate(Math.PI / 4); mapG.fillRect(-r * .7, -r * .7, r * 1.4, r * 1.4); mapG.restore(); }
     else if (m.kind === 'goal') { mapG.strokeStyle = '#e8c98e'; mapG.lineWidth = 1.5; mapG.beginPath(); mapG.arc(x, y, r * 1.3, 0, 7); mapG.stroke(); }
     mapG.shadowBlur = 0; mapG.globalAlpha = 1;
   });
@@ -473,7 +474,7 @@ function updatePlayer(dt, canMove) {
 const INTRO = { lie: 2.6, sit: 3.1, rub: 4.7, look: 6.5, stand: 7.1, cam: 8.3 };
 function skipIntro() { if (S.introT < INTRO.stand) { S.introT = INTRO.stand; P.lie = false; P.act = null; P.crouch = 0; } }
 function updateIntro(dt) {
-  S.introT += dt; const t = S.introT;
+  if (!S.loading) S.introT += dt; const t = S.introT;
   P.vx = P.vz = 0; P.moving = false; P.dir = 'down';
   if (t < INTRO.lie) { P.lie = true; P.crouch = 7; P.act = null; }
   else if (t < INTRO.sit) { if (P.lie) { P.lie = false; fx.burst(P.x, .3, P.z, 14, { c: [.75, .8, 1], sp: .8, life: .9, g: .2, up: .4 }); } P.crouch = 7; P.act = null; }
@@ -669,9 +670,32 @@ $('back').addEventListener('click', () => { AU.back(); showView('main'); });
 function menuKey(e, k) {
   if (k === 'escape' && !$('vChap').classList.contains('off')) { AU.back(); showView('main'); }
 }
+// 进关卡的黑屏加载：章节徽记缓缓画出，UI 一起隐去；预热完再淡出
+const LOAD_INFO = {
+  1: { num: 'XVII', name: '星', line: '星辰正在苏醒', c: '#cfe3ff', g: 'M0-34L7.5-11.5 24-24 11.5-7.5 34 0 11.5 7.5 24 24 7.5 11.5 0 34-7.5 11.5-24 24-11.5 7.5-34 0-11.5-7.5-24-24-7.5-11.5Z M0-7A7 7 0 1 1 0 7A7 7 0 1 1 0-7' },
+  2: { num: 'XVIII', name: '月', line: '月影正在升起', c: '#cdb8ff', g: 'M8-31A32 32 0 1 0 8 31A25 25 0 1 1 8-31Z M22-8L24-2 30 0 24 2 22 8 20 2 14 0 20-2Z' },
+  3: { num: 'XIX', name: '太阳', line: '日轮正在燃起', c: '#ffcf7a', g: 'M0-15A15 15 0 1 1 0 15A15 15 0 1 1 0-15 M0-23V-33 M0 23V33 M-23 0H-33 M23 0H33 M16.3-16.3L23.3-23.3 M-16.3 16.3L-23.3 23.3 M16.3 16.3L23.3 23.3 M-16.3-16.3L-23.3-23.3' },
+};
+let loadDone = null;
+function showLoader(n) {
+  const I = LOAD_INFO[n] || LOAD_INFO[1], L = $('loader');
+  L.style.setProperty('--lc', I.c);
+  $('ldNum').textContent = I.num; $('ldName').textContent = I.name; $('ldLine').textContent = I.line;
+  $('ldGlyph').setAttribute('d', I.g);
+  L.classList.remove('on', 'drawn'); void L.offsetWidth; // 重新触发描线动画
+  L.classList.add('on'); L.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('loading');
+}
+function hideLoader() {
+  const L = $('loader'); L.classList.remove('on'); L.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('loading');
+  S.loading = false; S.fadeTo = 0; loadDone = null;
+}
 function begin(n = 1) {
   AU.init();
-  S.fadeTo = 1;
+  if (S.loading) return;
+  S.loading = true; S.fadeTo = 1; showLoader(n);
+  const t0 = performance.now();
   setTimeout(() => {
     if (!LV || S.level !== n) loadLevel(n);
     pipe.setZoom(1); pipe.setupCamera(cam);
@@ -679,17 +703,21 @@ function begin(n = 1) {
     resetLevel(); needWarm = 2; // 黑屏时以游戏镜头再预热一遍
     menu.classList.add('hide'); document.body.classList.add('playing'); $('end').classList.remove('on');
     $('deck').classList.remove('picking'); document.querySelectorAll('.tcard').forEach(c => c.classList.remove('chosen'));
-    S.mode = 'intro'; S.introT = 0; S.chShown = false; S.fadeTo = 0; camFocus.set(P.x, 0, P.z); camVel.set(0, 0, 0);
+    S.mode = 'intro'; S.introT = 0; S.chShown = false; camFocus.set(P.x, 0, P.z); camVel.set(0, 0, 0);
     P.lie = true; P.crouch = 7;
     setBars(true);
     $('hud').classList.remove('on');
     $('skip').classList.toggle('on', prog.done.includes(n));
     AU.setMood(LV.mood);
-  }, 700);
+    // 预热完成、徽记至少停留一会儿后再揭开
+    loadDone = () => hideLoader();
+    const wait = () => { if (!loadDone) return; if (needWarm || performance.now() - t0 < 2800) return setTimeout(wait, 80); loadDone(); };
+    setTimeout(wait, 80);
+  }, 1000);
 }
 const pauseEl = $('pause');
 let pausedFrom = 'play';
-function pause() { pausedFrom = S.mode; S.mode = 'paused'; pauseEl.classList.remove('off'); document.body.classList.add('paused'); setTimeout(() => pauseEl.querySelector('.vbtn').focus(), 50); }
+function pause() { if (S.loading) return; pausedFrom = S.mode; S.mode = 'paused'; pauseEl.classList.remove('off'); document.body.classList.add('paused'); setTimeout(() => pauseEl.querySelector('.vbtn').focus(), 50); }
 function resume() { S.mode = pausedFrom; pauseEl.classList.add('off'); document.body.classList.remove('paused'); document.activeElement && document.activeElement.blur(); }
 function pauseAct(a) { if (a === 'resume') resume(); else if (a === 'menu') toMenu(); else if (a === 'sound') AU.toggle(); }
 // 主界面：她躺在星空里的石台上熟睡，镜头更近
@@ -738,7 +766,7 @@ setTimeout(() => document.querySelector('#mainNav .vbtn').focus({ preventScroll:
 
 // 调试/测试钩子
 window.__G = { scene, AU,
-  sim(sec) { for (let t = 0; t < sec; t += 1 / 30) update(1 / 30); return [S.mode, LV.progress(), P.x.toFixed(1), P.z.toFixed(1), P.falling]; },
+  sim(sec) { if (loadDone) loadDone(); for (let t = 0; t < sec; t += 1 / 30) update(1 / 30); return [S.mode, LV.progress(), P.x.toFixed(1), P.z.toFixed(1), P.falling]; },
   S, P, orb, get LV() { return LV; }, get mouse() { return mouse; }, set mouse(v) { mouse.seen = false; },
   begin, toMenu, interact, setMouse, mouseWorld, keys, update, pipe, cam, loadLevel, skipIntro, nearest, warmup, render() { pipe.render(scene, cam, { time: T, fade: S.fade, focus: focusUV, dofK, flash: S.flash, vig }); }
 };

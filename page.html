@@ -69,6 +69,36 @@ body.cine #help,body.cine #hud{opacity:0!important}
 #skip{position:fixed;right:max(16px,calc(2.2*var(--vw)));bottom:calc(calc(9*var(--vh)) + 14px);font-size:clamp(11px,calc(.9*var(--vw)),12px);color:rgba(239,232,220,.5);letter-spacing:.1em;opacity:0;transition:opacity 1s;pointer-events:none;z-index:2}
 #skip.on{opacity:1}
 #toast{z-index:2}
+#loader{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:0 16px;background:radial-gradient(60% 55% at 50% 46%,color-mix(in srgb,var(--lc) 7%,transparent),transparent 70%),var(--night);
+  opacity:0;pointer-events:none;transition:opacity 1.1s cubic-bezier(.45,0,.25,1);--lc:#cfe3ff}
+#loader.on{opacity:1;pointer-events:auto;transition-duration:.95s}
+#loader .lwrap{display:flex;flex-direction:column;align-items:center;text-align:center}
+#loader .sig{position:relative;width:min(140px,30vh);aspect-ratio:1;margin-bottom:18px}
+#loader .sig>*{position:absolute;inset:0;width:100%;height:100%}
+#loader .ring{animation:ldSpin 16s linear infinite;opacity:0;transition:opacity 1.4s .5s}
+#loader.on .ring{opacity:1}
+#loader .ring circle{fill:none;stroke:var(--lc);stroke-opacity:.22;stroke-width:.6;stroke-dasharray:1.2 3.4}
+#loader .ring .mote{fill:var(--lc);fill-opacity:.9;stroke:none}
+#loader .gw{filter:drop-shadow(0 0 6px color-mix(in srgb,var(--lc) 55%,transparent))}
+#loader.on .gw{animation:ldBreath 3.2s 1.4s ease-in-out infinite}
+#loader .gw path{fill:none;stroke:var(--lc);stroke-width:1.3;stroke-linejoin:round;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1}
+#loader.on .gw path{animation:ldDraw 1.15s .2s cubic-bezier(.55,0,.25,1) forwards}
+#loader .lnum{font-weight:300;color:var(--gold);letter-spacing:.6em;padding-left:.6em;font-size:13px}
+#loader .lname{font-family:var(--title);font-size:clamp(26px,5vh,34px);letter-spacing:.35em;padding-left:.35em;margin-top:.35em;color:#efe8dc;text-shadow:0 0 18px color-mix(in srgb,var(--lc) 45%,transparent)}
+#loader .lline{margin-top:1.1em;font-size:12px;letter-spacing:.3em;padding-left:.3em;color:rgba(239,232,220,.5)}
+#loader .lline i{display:inline-block;width:3px;height:3px;margin-left:5px;border-radius:50%;background:var(--lc);vertical-align:middle;opacity:.2;animation:ldDot 1.5s ease-in-out infinite}
+#loader .lline i:nth-child(2){animation-delay:.25s}#loader .lline i:nth-child(3){animation-delay:.5s}
+#loader .lnum,#loader .lname,#loader .lline{opacity:0;transform:translateY(6px)}
+#loader.on .lnum,#loader.on .lname,#loader.on .lline{animation:ldUp 1s cubic-bezier(.3,0,.2,1) forwards}
+#loader.on .lnum{animation-delay:.55s}#loader.on .lname{animation-delay:.75s}#loader.on .lline{animation-delay:1.05s}
+@keyframes ldSpin{to{transform:rotate(360deg)}}
+@keyframes ldDraw{to{stroke-dashoffset:0}}
+@keyframes ldBreath{0%,100%{opacity:1}50%{opacity:.62}}
+@keyframes ldDot{0%,100%{opacity:.2}50%{opacity:1}}
+@keyframes ldUp{to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){#loader .ring{animation:none}}
+#touch{transition:opacity .5s}
+body.loading #hud,body.loading #help,body.loading #toast,body.loading #prompt,body.loading #skip,body.loading #chapter,body.loading #ptr,body.loading #touch,body.loading #map{opacity:0!important;transition:opacity .5s}
 #fadeTop{position:fixed;inset:0;pointer-events:none;background:radial-gradient(120% 95% at 50% 45%,transparent 60%,rgba(3,2,12,.5) 100%)}
 
 /* 主界面 */
@@ -204,7 +234,7 @@ body.rot{position:fixed;left:0;top:0;transform-origin:0 0;transform:translateX(v
 #map .mleg span{display:inline-flex;align-items:center;gap:6px}
 #map .lg{display:inline-block;width:10px;height:10px}
 #map .lg.lamp{border-radius:50%;background:#ffcf6a;box-shadow:0 0 6px #ffb84a}
-#map .lg.card{background:#f4ead8;transform:rotate(45deg);width:8px;height:8px}
+#map .lg.pcard{background:#f4ead8;transform:rotate(45deg);width:8px;height:8px;box-shadow:0 0 5px rgba(255,255,255,.6)}
 #map .lg.goal{border:1.5px solid #e8c98e;border-radius:50%}
 #map .lg.me{border-radius:50%;background:#fff;box-shadow:0 0 0 2px #e86a4a}
 #tP{right:max(16px,calc(4*var(--vw)),calc(env(safe-area-inset-right) + 10px));top:max(16px,calc(3*var(--vh)));width:44px!important;height:44px!important;font-size:13px!important}
@@ -227,6 +257,10 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
 <script>addEventListener('error',function(e){var o=document.getElementById('oops');if(!o)return;o.hidden=false;o.textContent='出错了，请把这段文字发给我：\n'+(e.message||e)+(e.filename?'\n'+e.lineno+':'+e.colno:'');});</script>
 <div id="nogl" hidden>这个浏览器没有开启 WebGL，游戏画面无法显示。<br>请换用新版 Chrome、Edge、Safari 或 Firefox 打开。</div>
 <div id="fadeTop"></div>
+<div id="loader" aria-hidden="true"><div class="lwrap"><div class="sig">
+<svg class="ring" viewBox="-60 -60 120 120"><circle r="52"/><circle r="44" style="stroke-opacity:.12"/><circle class="mote" cx="52" cy="0" r="1.8"/><circle class="mote" cx="-36.8" cy="36.8" r="1.1"/><circle class="mote" cx="0" cy="-44" r="1.2"/></svg>
+<svg class="gw" viewBox="-60 -60 120 120"><path id="ldGlyph" pathLength="1" d=""/></svg>
+</div><div class="lnum" id="ldNum">XVII</div><div class="lname" id="ldName">星</div><div class="lline"><span id="ldLine">星辰正在苏醒</span><i></i><i></i><i></i></div></div></div>
 <div id="prompt"></div>
 <div id="hud">
   <div class="mini" id="hudcard">XVII</div>
@@ -236,7 +270,7 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
   </div>
 </div>
 <div id="help"><div><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> 移动　<span class="key">Shift</span> 奔跑　<span class="key">E</span> 互动</div><div>鼠标 引导星光　<span class="key">M</span> 琴声　<span class="key">Esc</span> 暂停　<span class="key">Tab</span> 地图</div></div>
-<div id="map" aria-hidden="true"><div class="mwrap"><div class="mtitle" id="mapTitle">星</div><canvas id="mapc"></canvas><div class="mleg"><span><i class="lg lamp"></i><b id="mapLamp">星灯</b></span><span><i class="lg card"></i>牌</span><span><i class="lg goal"></i>终点</span><span><i class="lg me"></i>你</span><span class="dim"><span class="key">Tab</span> 关闭</span></div></div></div>
+<div id="map" aria-hidden="true"><div class="mwrap"><div class="mtitle" id="mapTitle">星</div><canvas id="mapc"></canvas><div class="mleg"><span><i class="lg lamp"></i><b id="mapLamp">星灯</b></span><span><i class="lg pcard"></i>牌</span><span><i class="lg goal"></i>终点</span><span><i class="lg me"></i>你</span><span class="dim"><span class="key">Tab</span> 关闭</span></div></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="bars" aria-hidden="true"><i></i><i></i></div>
 <div id="skip"><span class="key">E</span> 跳过</div>
