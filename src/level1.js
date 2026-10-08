@@ -16,7 +16,7 @@ const easeBack = t => { const c = 1.6; return 1 + (c + 1) * Math.pow(t - 1, 3) +
 /* ---------- 地图 ----------
   #墙  .石板  ,草地（只留在花坛里）  空格=虚空  *光之桥  L星灯  O石碑  R星纹  G石门  K塔罗牌  A祭坛  W水  J水瓶  T树  C柱  c断柱
   F 七星浮岛：虚空里的锚星与浮岛（见 ANCH）
-  G 双瓶水渠：w 深池  p 池中莲台（水满才浮上来）  H 双瓶下的承水台  V 泉心（第五盏星灯） */
+  G 宝瓶星海：H 双瓶女神像下的承水台；海上的宝瓶座要一笔画完，连好后化成光桥（见 CONST） */
 export const ANCH = [[52, 8], [55, 7], [58, 6], [61, 5], [61, 8], [64, 9], [64, 6]];   // 北斗七星的锚位（3×3 浮岛的左上角）
 function buildMap() {
   const g = Array.from({ length: MH }, () => Array(MW).fill(' '));
@@ -56,12 +56,11 @@ function buildMap() {
   fill(49, 6, 49, 8, '.');
   // F：七星浮岛。两头是观星台，中间是虚空
   fill(50, 5, 51, 9, '.'); fill(67, 5, 69, 9, '.');
-  // G：双瓶水渠
+  // G：宝瓶星海。北边是女神像前的长廊，西、南各一条窄道，中间是一片星海；东边的出口只能从星座化成的光桥过去
   fill(70, 6, 70, 8, '.');
-  fill(73, 2, 75, 12, 'w'); fill(73, 6, 75, 8, 'p');
-  fill(84, 2, 86, 12, 'w'); fill(84, 6, 86, 8, 'p');
-  fill(78, 1, 81, 3, 'H'); fill(78, 7, 81, 10, 'V');
-  [[71, 2], [71, 12], [87, 2], [87, 12], [77, 12], [82, 12]].forEach(([x, z]) => set(x, z, 'C'));
+  fill(72, 5, 86, 11, ' '); fill(85, 12, 86, 12, ' '); fill(86, 2, 87, 4, ' ');
+  fill(78, 1, 81, 3, 'H');
+  [[71, 2], [71, 12], [84, 12], [77, 2], [82, 2]].forEach(([x, z]) => set(x, z, 'C'));
   fill(88, 6, 88, 8, '.');
   // E：星之泉
   fill(89, 2, 99, 3, ','); fill(89, 11, 99, 12, ','); fill(99, 6, 99, 8, ',');
@@ -72,7 +71,7 @@ function buildMap() {
   [[91, 2], [98, 2], [91, 12], [98, 12], [99, 7], [95, 2], [95, 12]].forEach(([x, z]) => set(x, z, 'T'));
   return g;
 }
-const SOLID = new Set(['#', 'L', 'O', 'A', 'W', 'J', 'T', 'C', 'c', 'G', 'H', 'V']);
+const SOLID = new Set(['#', 'L', 'O', 'A', 'W', 'J', 'T', 'C', 'c', 'G', 'H']);
 
 // 一簇草：几根像素草叶（挤出厚度后就是立体的草丛）
 function tuftCanvas(seed, cols) {
@@ -90,7 +89,6 @@ export function buildStar(ctx) {
   const grid = buildMap();
   const cell = (x, z) => (x < 0 || z < 0 || x >= MW || z >= MH) ? ' ' : grid[z][x];
   const isVoid = c => c === ' ' || c === '*';
-  const isBasin = c => c === 'w' || c === 'p';
   const L = { lamps: [], bridges: [], sway: [], shards: [], jugs: [], hide: [] };
 
   /* ================= 材质 ================= */
@@ -105,22 +103,18 @@ export function buildStar(ctx) {
   const goldM = toon({ color: 0xd1b072, roughness: .28, metalness: .85 });
 
   /* ================= 地面 / 崖壁 / 墙 ================= */
-  const floors = { '.': [], ',': [] }, cliffs = [], poolCliffs = [], poolCells = [];
+  const floors = { '.': [], ',': [] }, cliffs = [];
   for (let z = 0; z < MH; z++) for (let x = 0; x < MW; x++) {
     const c = grid[z][x]; if (isVoid(c)) continue;
-    if (isBasin(c)) { poolCells.push([x, z]); continue; }
     const kind = (c === ',' || c === 'T' && (x < 13 || x > 88 || (x > 15 && x < 18))) ? ',' : '.';
     if (c !== 'W') floors[kind].push([x, z]);
-    [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dx, dz]) => { const n = cell(x + dx, z + dz); if (isVoid(n)) cliffs.push([x, z, dx, dz]); else if (isBasin(n)) poolCliffs.push([x, z, dx, dz]); });
+    [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dx, dz]) => { const n = cell(x + dx, z + dz); if (isVoid(n)) cliffs.push([x, z, dx, dz]); });
   }
   // 大理石地面：一格一块有厚度、倒角的石板，缝里是暗的
   root.add(slabFloor(floors['.'], matStone, { seed: 1, tile: 4 }));
   const fg = new THREE.Mesh(quadGeo(floors[',']), matGrass); fg.receiveShadow = true; root.add(fg);
   const cliffM = toon({ map: tex(cCliff), normalMap: ntex(cCliff, 4), side: THREE.DoubleSide });
   root.add(cliffMesh(cliffs, cliffM));
-  // 水渠的深池：池壁 + 池底
-  root.add(cliffMesh(poolCliffs, toon({ map: tex(cCliff), normalMap: ntex(cCliff, 4), color: 0x8f8cc0, side: THREE.DoubleSide }), 1.05));
-  { const m = new THREE.Mesh(quadGeo(poolCells, -1.02), toon({ color: 0x1c1f44, roughness: .6 })); m.receiveShadow = true; root.add(m); }
   const tall = [], low = [];
   for (let z = 0; z < MH; z++) for (let x = 0; x < MW; x++) if (grid[z][x] === '#') (z === 13 ? low : tall).push([x, z]);
   const wallMats = [ws, wt];
@@ -430,66 +424,12 @@ export function buildStar(ctx) {
   });
   addPylons(50.5, 5.4, 9.6); addPylons(68.5, 5.4, 9.6);
 
-  /* ================= G · 双瓶水渠 =================
-     星之女神手里的两只瓶子一直往石渠里倒发光的泉水。岔口上有星闸：光点靠近星闸，闸门就转向光点那一边，水跟着星光走。
-     水灌满两侧的深池，池里的莲台浮起来变成路；中间的泉心要两股水同时注入才会满，满了点亮第五盏星灯 */
+  /* ================= G · 宝瓶星海 =================
+     双瓶女神像前是一片星海，海面上空悬着宝瓶座的九颗星，星与星之间的虚线是星座的轮廓。
+     光点停到一颗星上会被它挂住：第一颗是起笔，之后挂到相邻的星上就连出一条星线。十条线要一笔画完，每条只能画一次。
+     起笔的星选错了，画到最后一定会断笔，星图散开重来。连成之后，整座星座降到海面上化成光桥，中心升起第五盏星灯 */
   const waterT = tex(TX.waterTex()), waterN = ntex(TX.waterTex(), 2.2);
-  const flowM = toon({ map: waterT, color: 0x9fc4ff, transparent: true, opacity: .9, emissive: 0x6fa8ff, emissiveIntensity: .9, roughness: .15 });
   const poolM = toon({ map: waterT, normalMap: waterN, color: 0x7f9ce8, transparent: true, opacity: .8, emissive: 0x2a4a9a, emissiveIntensity: .38, roughness: .15 });
-  const curbGeo = bevelBox(1, .14, .16, .03), curbM = colM;
-  // 水路：每条都是一串格子（从上游到下游）
-  const CH = {
-    w0: { cells: [[77, 3], [76, 3]], to: 's1' },
-    e0: { cells: [[82, 3], [83, 3]], to: 's2' },
-    s1w: { cells: [], to: 'B1', dir: [-1, 0] },
-    s1s: { cells: [[76, 4], [76, 5], [76, 6], [76, 7], [76, 8], [77, 8]], to: 'well', dir: [0, 1] },
-    s2e: { cells: [], to: 'B2', dir: [1, 0] },
-    s2s: { cells: [[83, 4], [83, 5], [83, 6], [83, 7], [83, 8], [82, 8]], to: 'well', dir: [0, 1] }
-  };
-  const links = new Set(), lk = (a, b) => { links.add(a + '|' + b); links.add(b + '|' + a); };
-  Object.values(CH).forEach(ch => ch.cells.forEach((c, i) => { if (i) lk(ch.cells[i - 1].join(','), c.join(',')); }));
-  [[[77, 3], [78, 3]], [[76, 3], [75, 3]], [[76, 3], [76, 4]], [[82, 3], [81, 3]], [[83, 3], [84, 3]], [[83, 3], [83, 4]], [[77, 8], [78, 8]], [[82, 8], [81, 8]]].forEach(([a, b]) => lk(a.join(','), b.join(',')));
-  Object.entries(CH).forEach(([key, ch]) => { ch.key = key; ch.f = 0; ch.segs = []; });
-  // 每格水渠：两侧矮石沿 + 中间一条发光的水
-  Object.values(CH).forEach(ch => ch.cells.forEach(([x, z]) => {
-    const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]], nb = D4.filter(([dx, dz]) => links.has(`${x},${z}|${x + dx},${z + dz}`));
-    D4.forEach(([dx, dz]) => {
-      if (nb.some(([a, b]) => a === dx && b === dz)) return;
-      const c = new THREE.Mesh(curbGeo, curbM); c.position.set(x + .5 + dx * .38, 0, z + .5 + dz * .38); if (dx) c.rotation.y = Math.PI / 2; c.castShadow = c.receiveShadow = true; root.add(c);
-    });
-    const seg = new THREE.Group(); seg.position.set(x + .5, .035, z + .5); root.add(seg);
-    nb.forEach(([dx, dz]) => { const w = new THREE.Mesh(new THREE.PlaneGeometry(dx ? .5 : .44, dx ? .44 : .5), flowM); w.rotation.x = -Math.PI / 2; w.position.set(dx * .25, 0, dz * .25); seg.add(w); });
-    const mid = new THREE.Mesh(new THREE.PlaneGeometry(.44, .44), flowM); mid.rotation.x = -Math.PI / 2; seg.add(mid);
-    seg.scale.setScalar(.001); ch.segs.push(seg);
-  }));
-  // 星闸：岔口上的一扇金闸门 + 悬着的一颗星
-  const addSluice = (x, z, branches, init) => {
-    const g0 = new THREE.Group(); g0.position.set(x + .5, 0, z + .5); root.add(g0);
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, .9, 6), goldM); post.position.y = .45; g0.add(post);
-    const gate = new THREE.Group(); g0.add(gate);
-    const plate = new THREE.Mesh(new THREE.BoxGeometry(.06, .34, .5), goldM); plate.position.set(0, .2, .25); gate.add(plate);
-    const sm = new THREE.MeshStandardMaterial({ color: 0x9a94d0, roughness: .3, emissive: 0x9fe6ff, emissiveIntensity: .3 });
-    const star = new THREE.Mesh(new THREE.OctahedronGeometry(.17, 0), sm); star.position.y = 1.15; g0.add(star);
-    const rm = new THREE.MeshBasicMaterial({ color: 0x9fe6ff, transparent: true, opacity: .1, blending: THREE.AdditiveBlending, depthWrite: false });
-    const ring = new THREE.Mesh(new THREE.RingGeometry(1.5, 1.58, 40), rm); ring.rotation.x = -Math.PI / 2; ring.position.y = .03; ring.layers.set(LAYER_FX); g0.add(ring);
-    shadowAll(g0); star.castShadow = false;
-    return { x: x + .5, z: z + .5, g: g0, gate, star, sm, rm, branches, cur: init, init, hold: 0, ang: 0 };
-  };
-  const sluices = { s1: addSluice(76, 3, ['s1w', 's1s'], 's1s'), s2: addSluice(83, 3, ['s2e', 's2s'], 's2e') };
-  // 深池与莲台
-  const addPool = (x0, x1, padZ0, padZ1) => {
-    const cells = []; for (let z = 2; z <= 12; z++) for (let x = x0; x <= x1; x++) cells.push([x, z]);
-    const w = new THREE.Mesh(quadGeo(cells, 0, 2), poolM); w.position.y = -.95; root.add(w);
-    const pads = [];
-    for (let z = padZ0; z <= padZ1; z++) for (let x = x0; x <= x1; x++) {
-      const g0 = new THREE.Group(); g0.position.set(x + .5, -.9, z + .5); root.add(g0);
-      const disc = new THREE.Mesh(new THREE.CylinderGeometry(.5, .44, .16, 8), stoneM); disc.position.y = -.08; disc.rotation.y = Math.PI / 8; g0.add(disc);
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(.47, .025, 4, 8), goldM); rim.rotation.set(Math.PI / 2, 0, Math.PI / 8); rim.position.y = -.01; g0.add(rim);
-      shadowAll(g0); pads.push({ g: g0, ph: hashv(x, z) * 6 });
-    }
-    return { w, pads, lvl: 0, x0, x1, feed: 0 };
-  };
-  const pools = { B1: addPool(73, 75, 6, 8), B2: addPool(84, 86, 6, 8) };
   // 承水台与双瓶像
   const headWater = new THREE.Mesh(new THREE.PlaneGeometry(3.7, 1.7), poolM); headWater.rotation.x = -Math.PI / 2; headWater.position.set(80, .345, 3); root.add(headWater);
   { const rimB = new THREE.Mesh(bevelBox(4, .34, 2, .05), stoneM); rimB.position.set(80, 0, 3); rimB.castShadow = rimB.receiveShadow = true; root.add(rimB);
@@ -517,25 +457,65 @@ export function buildStar(ctx) {
   }
   const streamM = new THREE.MeshBasicMaterial({ color: 0xbfe0ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
   const streams = [-1, 1].map(s => { const m = new THREE.Mesh(new THREE.CylinderGeometry(.05, .09, 1, 6, 1, true), streamM); m.layers.set(LAYER_FX); root.add(m); L.hide.push(m); return m; });
-  // 泉心
-  const well = { lvl: 0, x: 80, z: 9 };
-  {
-    const rimW = new THREE.Mesh(new THREE.CylinderGeometry(2.05, 2.15, .4, 32, 1, true), stoneM); rimW.position.set(80, .2, 9); root.add(rimW);
-    const rimT = new THREE.Mesh(new THREE.TorusGeometry(2.05, .08, 5, 40), goldM); rimT.rotation.x = Math.PI / 2; rimT.position.set(80, .4, 9); root.add(rimT);
-    const floorW = new THREE.Mesh(new THREE.CircleGeometry(2.0, 32), toon({ color: 0x23264e, roughness: .5 })); floorW.rotation.x = -Math.PI / 2; floorW.position.set(80, .02, 9); root.add(floorW);
-    shadowAll(rimW); rimT.castShadow = true;
-    well.w = new THREE.Mesh(new THREE.CircleGeometry(2.0, 32), poolM); well.w.rotation.x = -Math.PI / 2; well.w.position.set(80, .03, 9); root.add(well.w);
-  }
-  addLamp(79.5, 8.5);
+  // 宝瓶座：九颗星、十条线。只有 H、I 连着单数条线，一笔画必须从这两颗之一起笔
+  const SY = 1.6;
+  const CN = { A: [74.5, 9.5], B: [75.6, 6.3], C: [77.4, 11], D: [78.5, 8.5], E: [80, 5.5], F: [82, 11], G: [83, 6.3], H: [84.6, 9.3], I: [87.5, 8.5] };
+  const CE = ['AB', 'AC', 'BD', 'CD', 'DE', 'EG', 'DF', 'FH', 'GH', 'HI'];
+  const skyG = new THREE.Group(); root.add(skyG);          // 悬在空中的星与星线，连成后整体降到海面
+  const plankG = new THREE.Group(); plankG.visible = false; root.add(plankG);   // 光桥与星台
+  const threadM = new THREE.MeshBasicMaterial({ color: 0xffd89a, transparent: true, opacity: .14, blending: THREE.AdditiveBlending, depthWrite: false });
+  const plankM = toon({ map: bridgeT, color: 0x9a94c0, emissive: 0xffc86a, emissiveIntensity: .12, roughness: .3 });
+  const platDM = toon({ color: 0x44427a, roughness: .55 });   // 中心星台放灯，用深色石头，免得被灯照得发白
+  const platInM = new THREE.MeshStandardMaterial({ map: inlayT, transparent: true, alphaTest: .4, color: 0xd8c08a, roughness: .25, metalness: .7, emissive: 0xffd89a, emissiveMap: inlayT, emissiveIntensity: .8 });
+  const nodes = Object.entries(CN).map(([id, [x, z]], i) => {
+    const sm = new THREE.MeshStandardMaterial({ color: 0xb8a878, roughness: .3, emissive: 0xffd89a, emissiveIntensity: 0 });
+    const star = new THREE.Mesh(new THREE.OctahedronGeometry(.2, 0), sm); star.scale.set(.75, 1.25, .75); star.position.set(x, SY, z); skyG.add(star);
+    const halo = billboard(haloT, 1.6, 1.6, true, camQuat); halo.material.color.set(0xffd89a); halo.material.opacity = 0; halo.position.set(x, SY, z); skyG.add(halo); L.hide.push(halo);
+    const thread = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, SY + .25, 4, 1, true), threadM); thread.position.set(x, (SY - .25) / 2, z); thread.layers.set(LAYER_FX); root.add(thread); L.hide.push(thread);
+    const rm = new THREE.MeshBasicMaterial({ color: 0xffd89a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+    const ring = new THREE.Mesh(new THREE.RingGeometry(.5, .58, 32), rm); ring.rotation.x = -Math.PI / 2; ring.position.set(x, -.04, z); ring.layers.set(LAYER_FX); root.add(ring);
+    const n = { id, i, x, z, sm, star, halo, thread, rm, ring, wake: 0, hot: 0, pr: id === 'D' ? 1.05 : .68 };
+    if (id !== 'I') {   // I 在东边的窄道上，不需要星台
+      const g0 = new THREE.Group(); g0.position.set(x, 0, z); plankG.add(g0);
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(n.pr, n.pr * .9, .3, 16), id === 'D' ? platDM : stoneM); top.position.y = -.15; g0.add(top);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(n.pr - .02, .035, 4, 24), goldM); rim.rotation.x = Math.PI / 2; rim.position.y = -.005; g0.add(rim);
+      const rock = new THREE.Mesh(new THREE.ConeGeometry(n.pr * .8, 1.6, 6, 1), isleRockM); rock.rotation.x = Math.PI; rock.position.y = -1.1; g0.add(rock);
+      if (id !== 'D') { const inl = new THREE.Mesh(new THREE.PlaneGeometry(.9, .9), platInM); inl.rotation.x = -Math.PI / 2; inl.position.y = .006; g0.add(inl); }
+      shadowAll(g0); g0.children.forEach(m => { if (m.material === platInM) m.castShadow = false; });
+    }
+    return n;
+  });
+  const NODE = Object.fromEntries(nodes.map(n => [n.id, n]));
+  const Y_AXIS = new THREE.Vector3(0, 1, 0);
+  const edges = CE.map(([a, b], i) => {
+    const A = NODE[a], Bn = NODE[b], dx = Bn.x - A.x, dz = Bn.z - A.z, len = Math.hypot(dx, dz);
+    // 星座轮廓：一串小星点
+    const dm = new THREE.MeshBasicMaterial({ color: 0xffe2a8, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+    const nd = Math.max(2, Math.floor(len / .42)), dots = new THREE.InstancedMesh(new THREE.OctahedronGeometry(.065, 0), dm, nd - 1);
+    const M = new THREE.Matrix4(); for (let k = 1; k < nd; k++) { M.makeTranslation(A.x + dx * k / nd, SY, A.z + dz * k / nd); dots.setMatrixAt(k - 1, M); }
+    dots.layers.set(LAYER_FX); skyG.add(dots); L.hide.push(dots);
+    // 画出来的星线：一束金光
+    const bm = new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, 1, 6, 1, true), bm); beam.layers.set(LAYER_FX); beam.visible = false; skyG.add(beam); L.hide.push(beam);
+    // 连成后的光桥
+    const pl = new THREE.Mesh(bevelBox(.82, .12, len, .03), plankM); pl.position.set((A.x + Bn.x) / 2, -.14, (A.z + Bn.z) / 2); pl.rotation.y = Math.atan2(dx, dz); pl.receiveShadow = pl.castShadow = true; plankG.add(pl);
+    return { i, a: A, b: Bn, len, dm, dots, bm, beam, drawn: false, k: 0, from: A };
+  });
+  const C = { pen: null, done: false, breakT: 0, finT: 0, breaks: 0, desc: 0, rise: 0, wakeK: 0 };
+  // 每颗星都是一个光点插槽：光点停在星上（和看到的位置一致）就被挂住
+  const sockets = nodes.map(n => ({ x: n.x, z: n.z, y: SY, r: .62, node: n, active: () => S.constOn && !C.done && C.breakT <= 0 && C.finT <= 0, onLock() { touchNode(n); } }));
+  addLamp(78, 8);
   const polarisLamp = (addLamp(POLE[0], POLE[1]), L.lamps[L.lamps.length - 1]);
-  const wellLamp = L.lamps[L.lamps.length - 2];
-  wellLamp.auto = polarisLamp.auto = true;
-
-  /* ---------- 浮岛与水渠的运行逻辑 ---------- */
-  const PAD_OK = .9;
+  const constLamp = L.lamps[L.lamps.length - 2];
+  constLamp.auto = polarisLamp.auto = true; constLamp.dim = .35;   // 站在浅色光桥中央，灯光收一些，免得过曝
+  // 第五盏星灯先沉在星海下面，星座连成后才升上来（灯光本身一直在，只藏起灯身，避免灯光数量变化导致着色器重编）
+  const showConstLamp = v => constLamp.g.children.forEach(m => { if (!m.isLight) m.visible = v; });
+  /* ---------- 浮岛与星座的运行逻辑 ---------- */
   const inIsle = (il, x, z, m = 0) => x > il.x - m && x < il.x + 3 + m && z > il.z - m && z < il.z + 3 + m;
   const occupied = il => inIsle(il, P.x, P.z, .4) || (P.falling && inIsle(il, P.safe[0], P.safe[1], .4));
   const onIsle = (x, z) => isles.some(il => il.state === 'dock' && inIsle(il, x, z));
+  const segD = (x, z, e) => { const ax = e.a.x, az = e.a.z, dx = e.b.x - ax, dz = e.b.z - az, t = clamp(((x - ax) * dx + (z - az) * dz) / (e.len * e.len), 0, 1); return Math.hypot(x - ax - dx * t, z - az - dz * t); };
+  const onConst = (x, z) => C.desc > .97 && (nodes.some(n => n.id !== 'I' && Math.hypot(x - n.x, z - n.z) < n.pr) || edges.some(e => segD(x, z, e) < .44));
   // 飞行路线：绕开人和别的浮岛，从旁边弧线飞过去（不从头顶穿过）
   function planFlight(il, a) {
     const sx = il.x, sz = il.z, ex = a.x, ez = a.z, dx = ex - sx, dz = ez - sz, L = Math.hypot(dx, dz) || 1, nx = -dz / L, nz = dx / L;
@@ -627,68 +607,92 @@ export function buildStar(ctx) {
     bigStarM.emissiveIntensity = .03 + S.dipper * .025 + (S.dipDone ? .1 : 0);
     pointerM.opacity = S.dipDone ? .45 + Math.sin(T * 3) * .15 : 0;
   }
-  function awakenJugs() {
+  // 走进星海：女神像的光环转动，宝瓶座的九颗星一颗颗亮起来
+  function wakeConst() {
     S.waking = true;
     cine([
-      { dur: 1.3, focus: [80, 5], start() { AU.stone(); shake(.07, .5); fx.sigil(80, .4, 3, 0xbfe0ff, 'star', 3.4, 2); flash(.12); } },
-      { dur: 2.2, focus: [80, 5], start() { S.pour = true; AU.lamp(1); }, run(k, dt) { if (Math.random() < dt * 20) fx.emit(80 + (Math.random() - .5) * 3, 3.8, 1.6, { vy: .4, life: 1, c: [.7, .85, 1], tw: 6 }); } },
-      { dur: 1.6, focus: [77.5, 6], start() { toast('双瓶倾倒，泉水流进石渠。水会流向星光照着的那一边', 4.6); } }
+      { dur: 1.2, focus: [80, 6], start() { AU.stone(); shake(.06, .5); fx.sigil(80, .4, 3, 0xffd89a, 'star', 3.4, 2); flash(.1); } },
+      { dur: 2.6, focus: [80, 8], start() { toast('女神像前的星海上空，悬着宝瓶座', 3.4); },
+        run(k) { const pv = C.wakeK; C.wakeK = k; nodes.forEach((n, i) => { const t0 = i * .08; if (pv < t0 && k >= t0) { AU.hover(i); fx.burst(n.x, SY, n.z, 10, { c: GOLD, sp: .6, life: .8 }); } }); } },
+      { dur: 1.4, focus: [80, 8], start() { C.wakeK = 1; S.constOn = true; toast('把光点停到一颗星上起笔，再移到相邻的星上连线。要一笔画完，每条线只走一次', 6); } }
     ]);
   }
-  function flowCh(ch, on, dt) {
-    const len = Math.max(1, ch.cells.length);
-    ch.f = clamp(ch.f + (on ? 7 : -7) * dt, 0, len);
-    ch.out = on && ch.f >= len - .001;
-    ch.segs.forEach((sg, i) => { const k = clamp(ch.f - i, 0, 1); sg.scale.set(Math.max(.001, k), 1, Math.max(.001, k)); sg.visible = k > .01; });
+  function touchNode(n) {
+    if (C.pen === n || C.breakT > 0) return;
+    fx.ring(n.x, -.02, n.z, 0xffd89a, 1.7, .7);
+    if (!C.pen) {
+      C.pen = n; AU.hover(0); fx.burst(n.x, SY, n.z, 14, { c: GOLD, sp: .9, life: .8 });
+      if (!S.hints.pen) { S.hints.pen = 1; toast('起笔。把光点移到相邻的星上，连出星线', 3.4); }
+      return;
+    }
+    const e = edges.find(e => (e.a === C.pen && e.b === n) || (e.b === C.pen && e.a === n));
+    if (!e) { AU.wrong(); toast('这两颗星之间没有星线', 2.2); return; }
+    if (e.drawn) { AU.wrong(); toast('这条星线已经画过了。一笔画，每条线只能走一次', 2.8); return; }
+    e.drawn = true; e.from = C.pen; e.k = 0; e.beam.visible = true; C.pen = n;
+    const nd = edges.filter(x => x.drawn).length;
+    AU.hover(nd); fx.burst(n.x, SY, n.z, 12, { c: GOLD, sp: .8, life: .7 });
+    if (nd === edges.length) { C.finT = .45; return; }
+    if (!edges.some(x => !x.drawn && (x.a === n || x.b === n))) C.breakT = 1.1;   // 走进死胡同：停一下再散
   }
-  function updateWater(dt, T) {
+  // 断笔 / 重画：画好的星线化成光尘散掉
+  function scatter(msg) {
+    edges.forEach(e => { if (!e.drawn) return; for (let k = 0; k < 8; k++) { const t = Math.random(); fx.emit(e.a.x + (e.b.x - e.a.x) * t, SY, e.a.z + (e.b.z - e.a.z) * t, { vy: -.6, vx: (Math.random() - .5) * .6, life: 1.1, c: GOLD, tw: 6 }); } e.drawn = false; });
+    C.pen = null; C.breakT = 0; AU.fall(); if (msg) toast(msg, 4);
+  }
+  function completeConst() {
+    C.done = true; orb.lock = null; S.pour = true;
+    cine([
+      { dur: 1.5, focus: [80, 8], start() { flash(.25); AU.lamp(1); toast('宝瓶座连成了。女神倾倒双瓶', 3.6); edges.forEach((e, i) => setTimeout(() => fx.burst((e.a.x + e.b.x) / 2, SY, (e.a.z + e.b.z) / 2, 12, { c: GOLD, sp: 1, life: .9 }), i * 90)); } },
+      { dur: 2.6, focus: [80, 8.5], start() { AU.stone(); plankG.visible = true; },
+        run(k, dt) { C.desc = k; shake(.04, .15); if (Math.random() < dt * 40) { const n = nodes[Math.random() * nodes.length | 0]; fx.emit(n.x + (Math.random() - .5), SY * (1 - k) + .2, n.z + (Math.random() - .5), { vy: -.5, life: .9, c: GOLD, tw: 8 }); } },
+        end() { C.desc = 1; AU.stone(); shake(.1, .5); nodes.forEach(n => { n.star.visible = false; n.halo.visible = false; fx.bloom(n.x, .3, n.z, 14, GOLD, { w: 1.2, vr: 1, up: .4 }); }); fx.ring(78.5, .04, 8.5, 0xffd89a, 6, 1.4); toast('星座落到星海上，化成了光桥', 3.4); } },
+      { dur: 1.9, focus: [78.5, 8.5], start() { showConstLamp(true); AU.stone(); }, run(k) { C.rise = k; } , end() { C.rise = 1; lightLamp(lamps.indexOf(constLamp)); } },
+      { dur: 1.2, focus: [80, 8] }
+    ]);
+  }
+  function updateConst(dt, T) {
     jugs2.forEach(j => { j.tilt += ((S.pour ? 1 : 0) - j.tilt) * (1 - Math.exp(-dt * 1.2)); j.holder.rotation.x = j.tilt * 2.0; j.arm.rotation.z = j.s * j.tilt * .15; });
-    halo8.rotation.z += dt * (S.pour ? .5 : .05);
+    halo8.rotation.z += dt * (S.pour ? .5 : S.constOn ? .12 : .05);
     const flowing = S.pour && jugs2[0].tilt > .8;
     streamM.opacity = flowing ? .55 + Math.sin(T * 9) * .08 : 0;
     jugs2.forEach((j, i) => {
       const m = streams[i]; m.visible = flowing;
       const mx = 80 + j.s * 1.6, my = 2.72, mz = 1.98, h = my - .35;
       m.position.set(mx, (my + .35) / 2, mz + .1); m.scale.set(1, h, 1);
-      if (flowing && Math.random() < dt * 30) fx.emit(mx + (Math.random() - .5) * .3, .4, mz + .25, { vy: .9, vx: (Math.random() - .5) * .6, vz: Math.random() * .5, g: -5, life: .5, c: [.75, .88, 1], a: .9 });
+      if (flowing && Math.random() < dt * 30) fx.emit(mx + (Math.random() - .5) * .3, .4, mz + .25, { vy: .9, vx: (Math.random() - .5) * .6, vz: Math.random() * .5, g: -5, life: .5, c: [1, .9, .7], a: .9 });
     });
-    flowCh(CH.w0, flowing, dt); flowCh(CH.e0, flowing, dt);
-    // 星闸：光点在旁边停一下，闸门转向光点所在的那一边
-    Object.values(sluices).forEach(sl => {
-      const dx = orb.x - sl.x, dz = orb.z - sl.z, d = Math.hypot(dx, dz), near = d < 1.6 && d > .25;
-      sl.hold = near ? sl.hold + dt : 0;
-      if (near && sl.hold > .3) {
-        let best = sl.cur, bd = -9;
-        sl.branches.forEach(b => { const v = CH[b].dir, dd = (dx * v[0] + dz * v[1]) / d; if (dd > bd) { bd = dd; best = b; } });
-        if (best !== sl.cur && bd > .2) {
-          sl.cur = best; AU.stone(); fx.ring(sl.x, .05, sl.z, 0x9fe6ff, 1.9, .8); fx.burst(sl.x, 1.1, sl.z, 10, { c: [.6, .9, 1], sp: .7, life: .7 });
-          if (!S.hints.sl) { S.hints.sl = 1; toast('星闸转向了光的那一边。水跟着星光走', 3.6); }
-        }
+    if (C.finT > 0) { C.finT -= dt; if (C.finT <= 0) completeConst(); }
+    if (C.breakT > 0) { C.breakT -= dt; if (C.breakT <= 0) { C.breaks++; scatter(C.breaks === 1 ? '断笔了。还有星线没连上，星图散开了。换一颗星起笔试试' : '断笔了，星图散开'); } }
+    const D = C.desc, de = D * D * (3 - 2 * D);
+    skyG.position.y = -(SY - .03) * de;
+    plankG.position.y = -1.8 * (1 - smooth(.25, 1, D));
+    nodes.forEach((n, i) => {
+      n.wake = C.done ? 1 : smooth(i * .08, i * .08 + .25, C.wakeK);
+      const near = !C.done && S.constOn && ctx.orbNear(n.x, n.z, SY) < .9 ? 1 : 0;
+      n.hot += ((C.pen === n ? 1 : 0) - n.hot) * (1 - Math.exp(-dt * 8));
+      n.sm.emissiveIntensity = .08 + n.wake * (.7 + near * .6 + n.hot * (1.4 + Math.sin(T * 6) * .3)) + (C.done ? 1 : 0);
+      n.halo.material.opacity = n.wake * (.16 + near * .12 + n.hot * .3) * (1 - D);
+      n.star.rotation.y += dt * (.6 + n.hot * 4 + near * 2);
+      n.star.position.y = SY + Math.sin(T * 1.5 + i) * .05;
+      threadM.opacity = .14 * (1 - D) * smooth(0, .4, C.wakeK);
+      n.rm.opacity = n.wake * (.12 + near * .2 + n.hot * .25 + Math.sin(T * 2 + i) * .04) * (1 - D);
+      if (n.hot > .5 && Math.random() < dt * 14) fx.emit(n.x + (Math.random() - .5) * .3, SY, n.z + (Math.random() - .5) * .3, { vy: .3, life: .7, c: GOLD, tw: 8 });
+    });
+    edges.forEach((e, i) => {
+      e.k = clamp(e.k + (e.drawn ? dt / .35 : -dt / .5), 0, 1);
+      e.beam.visible = e.k > .005;
+      if (e.beam.visible) {
+        const A = e.drawn ? e.from : e.from, Bn = A === e.a ? e.b : e.a, kk = e.drawn ? e.k : 1, L2 = e.len * kk;
+        const ux = (Bn.x - A.x) / e.len, uz = (Bn.z - A.z) / e.len;
+        e.beam.position.set(A.x + ux * L2 / 2, SY, A.z + uz * L2 / 2); e.beam.scale.set(1, Math.max(.001, L2), 1);
+        e.beam.quaternion.setFromUnitVectors(Y_AXIS, new THREE.Vector3(ux, 0, uz));
+        e.bm.opacity = (e.drawn ? .85 + Math.sin(T * 5 + i) * .1 : e.k * .8) * (C.done ? 1 - D * .4 : 1);
       }
-      const v = CH[sl.cur].dir, ta = Math.atan2(v[0], v[1]);
-      let da = ta - sl.ang; da = Math.atan2(Math.sin(da), Math.cos(da)); sl.ang += da * (1 - Math.exp(-dt * 6)); sl.gate.rotation.y = sl.ang;
-      sl.sm.emissiveIntensity = .35 + (near ? 1.5 : 0) + Math.sin(T * 2.5) * .1; sl.rm.opacity = near ? .4 : .1 + .05 * Math.sin(T * 2);
-      sl.star.rotation.y += dt * (near ? 5 : .8); sl.star.position.y = 1.15 + Math.sin(T * 1.7) * .05;
+      const lw = smooth(.3, 1, C.wakeK);
+      e.dm.opacity = (e.drawn ? 0 : lw * (.6 + Math.sin(T * 2.5 + i) * .15)) * (1 - D);
     });
-    flowCh(CH.s1w, CH.w0.out && sluices.s1.cur === 's1w', dt); flowCh(CH.s1s, CH.w0.out && sluices.s1.cur === 's1s', dt);
-    flowCh(CH.s2e, CH.e0.out && sluices.s2.cur === 's2e', dt); flowCh(CH.s2s, CH.e0.out && sluices.s2.cur === 's2s', dt);
-    const into = t => Object.values(CH).filter(c => c.to === t && c.out).length;
-    // 深池：有水注入就涨，没有就慢慢渗掉；满了莲台浮上来
-    [['B1', pools.B1, [75.2, 3.5]], ['B2', pools.B2, [83.8, 3.5]]].forEach(([k, p, src]) => {
-      const n = into(k), pv = p.lvl;
-      p.lvl = clamp(p.lvl + (n ? .3 : -.1) * dt, 0, 1);
-      if (n && Math.random() < dt * 30) fx.emit(src[0] + (Math.random() - .5) * .3, .05, src[1] + (Math.random() - .5) * .4, { vy: .2, vx: (k === 'B1' ? -1 : 1) * .8, g: 4, life: .5, c: [.7, .85, 1], a: .9 });
-      if (pv < PAD_OK && p.lvl >= PAD_OK) { AU.stone(); fx.ring((p.x0 + p.x1 + 1) / 2, .05, 7.5, 0x9fe6ff, 3.2, 1); if (!S.hints.pool) { S.hints.pool = 1; toast('池水满了，莲台浮了上来', 3); } }
-      const wy = -.95 + p.lvl * .87; p.w.position.y = wy; p.w.visible = p.lvl > .03;
-      p.pads.forEach(pd => { pd.g.position.y = Math.max(-.9, wy + .08 + (p.lvl > .1 && p.lvl < PAD_OK ? Math.sin(T * 2 + pd.ph) * .03 : 0)); });
-    });
-    // 泉心：要两股水同时注入才会满
-    const nW = into('well'), tgt = nW / 2, pvw = well.lvl;
-    well.lvl += clamp(tgt - well.lvl, -.1 * dt, .22 * dt);
-    well.w.position.y = .03 + well.lvl * .3; well.w.visible = well.lvl > .02;
-    if (nW && Math.random() < dt * 24) [[77.9, 8.5], [82.1, 8.5]].forEach(([x, z], i) => { if ((i === 0 && CH.s1s.out) || (i === 1 && CH.s2s.out)) fx.emit(x, .3, z, { vy: .3, vx: i ? -.8 : .8, g: 3, life: .5, c: [.7, .85, 1], a: .9 }); });
-    if (pvw < .5 && well.lvl >= .48 && nW === 1 && !S.hints.half) { S.hints.half = 1; toast('泉心只满了一半。还要另一股水', 3.4); }
-    if (pvw < .97 && well.lvl >= .97 && !wellLamp.lit) lightLamp(lamps.indexOf(wellLamp));
+    plankM.emissiveIntensity = .12 + (1 - smooth(.6, 1, D)) * .6 * (C.done ? 1 : 0);
+    if (C.done) constLamp.g.position.y = -3 * (1 - easeBack(C.rise));
   }
 
   L.lamps.sort((a, b) => a.x - b.x);
@@ -711,12 +715,11 @@ export function buildStar(ctx) {
     rune: fx.beacon(rune.x, .35, rune.z, 0x6fe0cc, 1.4),
     ob: fx.beacon(ob.x, 3.15, ob.z, 0x6fe0cc, 1.0),
     card: fx.beacon(card.x, .9, card.z, 0x8f9cff, 1.0),
-    s1: fx.beacon(sluices.s1.x, 1.15, sluices.s1.z, 0x9fe6ff, 1.0), s2: fx.beacon(sluices.s2.x, 1.15, sluices.s2.z, 0x9fe6ff, 1.0),
     altar: fx.beacon(altar.x, 1.15, altar.z, 0xffd27a, 1.3)
   };
 
   /* ================= 状态 ================= */
-  const S = { lampsLit: 0, gotCard: false, done: false, inC: 0, hints: {}, trail: 0, spin: 0, ev: 0, dipper: 1, dipDone: false, pour: false, waking: false };
+  const S = { lampsLit: 0, gotCard: false, done: false, inC: 0, hints: {}, trail: 0, spin: 0, ev: 0, dipper: 1, dipDone: false, pour: false, waking: false, constOn: false };
 
   function alignRing(i) {
     const R = rings[i]; if (!R || R.aligning) return;
@@ -734,7 +737,7 @@ export function buildStar(ctx) {
     flash(.25); shake(.05, .3);
     B.lamps[i].on = false;
     alignRing(i);
-    toast(S.lampsLit === 5 ? '五盏星灯俱明。去最东边的星之泉吧' : l === polarisLamp ? '北斗指向北极星。第四盏星灯亮了' : l === wellLamp ? '两股泉水汇满泉心。第五盏星灯亮了' : i === 0 ? '第一盏星灯。虚空下，巨大的星仪转动了一环' : `星灯　${S.lampsLit} / 5`, 3.8);
+    toast(S.lampsLit === 5 ? '五盏星灯俱明。去最东边的星之泉吧' : l === polarisLamp ? '北斗指向北极星。第四盏星灯亮了' : l === constLamp ? '宝瓶座的中心升起了第五盏星灯' : i === 0 ? '第一盏星灯。虚空下，巨大的星仪转动了一环' : `星灯　${S.lampsLit} / 5`, 3.8);
     ctx.updateHud();
   }
 
@@ -754,13 +757,14 @@ export function buildStar(ctx) {
   }
 
   function reset() {
-    Object.assign(S, { lampsLit: 0, gotCard: false, done: false, inC: 0, hints: {}, trail: 0, spin: 0, dipper: 1, dipDone: false, pour: false, waking: false });
+    Object.assign(S, { lampsLit: 0, gotCard: false, done: false, inC: 0, hints: {}, trail: 0, spin: 0, dipper: 1, dipDone: false, pour: false, waking: false, constOn: false });
     anchors.forEach(a => Object.assign(a, { isle: null, visited: false, charge: 0 }));
     isles.forEach(il => Object.assign(il, { state: 'free', anchor: null, fly: null, land: undefined, glow: 0, x: il.home[0] - 1.5, z: il.home[1] - 1.5, y: -.55 }));
     dock(isles[0], anchors[0]); isles[0].glow = 1;
-    Object.values(CH).forEach(c => { c.f = 0; c.out = false; c.segs.forEach(sg => { sg.scale.setScalar(.001); sg.visible = false; }); });
-    Object.values(sluices).forEach(sl => { sl.cur = sl.init; sl.hold = 0; const v = CH[sl.cur].dir; sl.ang = Math.atan2(v[0], v[1]); });
-    Object.values(pools).forEach(p => { p.lvl = 0; }); well.lvl = 0;
+    Object.assign(C, { pen: null, done: false, breakT: 0, finT: 0, breaks: 0, desc: 0, rise: 0, wakeK: 0 });
+    edges.forEach(e => { e.drawn = false; e.k = 0; e.beam.visible = false; });
+    nodes.forEach(n => { n.star.visible = n.halo.visible = true; n.hot = 0; });
+    plankG.visible = false; showConstLamp(false); constLamp.g.position.y = -3;
     jugs2.forEach(j => { j.tilt = 0; });
     lamps.forEach(l => { l.lit = false; l.t = 0; });
     bridges.forEach(b => { b.lit = 0; });
@@ -770,7 +774,7 @@ export function buildStar(ctx) {
     altar.star.visible = false; altar.cardM.opacity = 0; altar.light.intensity = 0; altar.halo.material.opacity = 0; altar.crown.visible = false; altar.crown.position.y = 11;
     lines.forEach(l => l.material.opacity = 0);
     rings.forEach(R => { R.align = 0; R.aligning = false; });
-    B.lamps.forEach((b, i) => b.on = !lamps[i].auto); B.rune.on = B.ob.on = B.card.on = B.altar.on = true; B.s1.on = B.s2.on = true;
+    B.lamps.forEach((b, i) => b.on = !lamps[i].auto); B.rune.on = B.ob.on = B.card.on = B.altar.on = true;
     ctx.hemi.color.set(0x7470b0);
     voidMat.uniforms.trail.value = 0; voidMat.uniforms.spin.value = 0;
   }
@@ -792,8 +796,8 @@ export function buildStar(ctx) {
       if (l.lit) l.t = Math.min(1, l.t + dt * .7);
       const kk = smooth(0, 1, l.t), near = ctx.orbNear(l.x, l.z, 1.28) < 1.7 ? 1 : 0;
       l.cm.emissiveIntensity = kk * 2.2 + near * .5 + .15;
-      l.light.intensity = kk * (8 + Math.sin(T * 3 + i) * .4); l.shaft.set(kk);
-      l.halo.material.opacity = kk * .55 + near * .12;
+      l.light.intensity = kk * (8 + Math.sin(T * 3 + i) * .4) * (l.dim || 1); l.shaft.set(kk * (l.dim ? .6 : 1));
+      l.halo.material.opacity = kk * .55 * (l.dim ? .55 : 1) + near * .12;
       l.crystal.rotation.y += dt * (.6 + kk * 2.5 * (1 - kk * .6));
       l.crystal.position.y = 1.28 + Math.sin(T * 1.6 + i) * .05;
       if (kk > .5 && Math.random() < dt * 6) fx.emit(l.x + (Math.random() - .5) * .3, 1.3, l.z + (Math.random() - .5) * .3, { vy: .5, life: 1.6, c: [1, .82, .5], tw: 6 });
@@ -840,9 +844,8 @@ export function buildStar(ctx) {
     const cf = ctx.pipe ? null : null;
     if (Math.random() < dt * 30) emitDust();
     updateIsles(dt, T);
-    updateWater(dt, T);
+    updateConst(dt, T);
     // 引导微光
-    B.s1.on = S.pour && !S.hints.sl; B.s2.on = S.pour && !wellLamp.lit && sluices.s2.cur === 's2e';
     B.card.on = !card.taken && card.vis < .5;
     B.altar.on = !S.done;
   }
@@ -860,7 +863,7 @@ export function buildStar(ctx) {
     if (!h.c && P.x > 25) { h.c = 1; toast('石碑静静立着。地上的星纹，在等它的影子', 4.2); }
     if (!h.d && P.x > 37.2) { h.d = 1; toast('暗厅。只有星光照到的地方，才看得见', 4); }
     if (!h.f && P.x > 49.6) { h.f = 1; toast('七星浮岛。把星光停在空着的锚星上，最近的浮岛会被牵过来', 5); }
-    if (!S.pour && !S.waking && P.x > 70.6) awakenJugs();
+    if (!S.waking && P.x > 70.6) wakeConst();
     if (!h.e && P.x > 88.5) { h.e = 1; toast('星之泉。祭坛静候', 3.6); }
     // 日晷：光、石碑、星纹三点一线时，影子落在星纹上
     if (!rune.solved) {
@@ -879,6 +882,7 @@ export function buildStar(ctx) {
     const out = [];
     lamps.forEach((l, i) => { if (!l.lit && !l.auto) out.push({ type: 'lamp', i, x: l.x, y: 1.9, z: l.z, label: '点燃星灯' }); });
     if (!card.taken && card.vis > .5) out.push({ type: 'card', x: card.x, y: 1.8, z: card.z, label: '拾起塔罗牌' });
+    if (C.pen && !C.done && C.breakT <= 0) out.push({ type: 'redraw', x: 80, y: 2.2, z: 4.5, r: 1.8, label: '重画星图' });
     if (!S.done) out.push(S.gotCard && S.lampsLit === 5 ? { type: 'finale', x: altar.x, y: 1.6, z: altar.z, r: 2, label: '放入　XVII 星' } : { type: 'altar', x: altar.x, y: 1.6, z: altar.z, r: 2, label: '查看祭坛' });
     return out;
   }
@@ -887,6 +891,8 @@ export function buildStar(ctx) {
       const l = lamps[n.i];
       if (ctx.orbNear(l.x, l.z, 1.28) > 1.7) { toast('把星光引到灯碗上，再点燃它', 2.6); AU.wrong(); return; }
       lightLamp(n.i);
+    } else if (n.type === 'redraw') {
+      scatter('星图散开了。重新起笔吧');
     } else if (n.type === 'card') {
       card.taken = true; S.gotCard = true; AU.card();
       fx.bloom(card.x, 1, card.z, 50, BLUE, { w: 3, vr: 2 }); fx.sigil(card.x, .04, card.z, 0xbfd0ff, 'star', 3, 2); fx.ring(card.x, .04, card.z, 0x9fb4ff, 3, 1.1); flash(.2);
@@ -938,13 +944,14 @@ export function buildStar(ctx) {
       if (P.x < 67) return ['浮岛只会飞向光点停留的、空着的锚星；站着人的那座不会动', '把光点停在前方空着的锚星上一会儿，等身后的浮岛飞过来再走上去。北斗的七颗星，每颗都要接一次浮岛'];
       return ['北斗还没连全，回头看看哪颗星还暗着', '回到浮岛上，把浮岛召到还暗着的锚星上（北斗的斗口在南边）'];
     }
-    if (P.x < 70.5) return ['北斗指向了北极星。往东走，去双瓶水渠', '从浮岛东边的观星台继续往东'];
-    if (!wellLamp.lit) {
-      if (P.x < 75.5 && pools.B1.lvl < PAD_OK) return ['水跟着星光走。把光点移到左边星闸的西侧', '把光点放到左上角星闸的左边停一下，闸门转向西，水流进深池，莲台就浮起来了'];
-      return ['泉心要两股水一起注入才会满', '两个星闸都要拨向南边：把光点放在每个星闸的下方各停一下'];
+    if (P.x < 70.5) return ['北斗指向了北极星。往东走，去宝瓶星海', '从浮岛东边的观星台继续往东'];
+    if (!C.done) {
+      if (C.breaks >= 2) return ['一笔画的诀窍：连着单数条星线的星，只能做起点或终点', '数一数每颗星连着几条线。只有东边的两颗是单数，从最东边那颗星（或它旁边连着三条线的星）起笔'];
+      if (C.pen) return ['顺着虚线，把光点移到相邻的星上。每条线只能走一次', '画乱了可以走到女神像前按 E 重画星图'];
+      return ['把光点停在一颗星上就是起笔', '星海上空悬着九颗星：先把光点停在其中一颗上，再沿着虚线一颗颗连过去，一笔画完'];
     }
     if (!card.taken) return ['牌还落在暗厅里', '回到暗厅，把光点带到右下角，牌会显出来'];
-    if (P.x < 87.5) return ['五盏星灯都亮了。东边的深池还缺水', '把右边的星闸拨回东边，等莲台浮起，过池去星之泉'];
+    if (P.x < 87.5) return ['光桥已经铺好了。走过星海去东边', '从女神像前的长廊走上光桥，经过最东边的星，去星之泉'];
     return ['五盏星灯与牌都齐了。在祭坛前按 E', '走到星之泉中央的祭坛前按 E'];
   }
 
@@ -957,25 +964,23 @@ export function buildStar(ctx) {
     light: { sky: 0x7470b0, ground: 0x1a1028, hemi: .24, moon: 0x8f9cff, moonK: 1.4, moonDir: [-7, 5], orb: 0xffd88e, halo: 0xffc878, mote: [1, .86, .55],
       env: [0x2a2650, 0x06051a, [[4, 5, 2, 0xffd9a0, .9], [-5, 4, -3, 0x9fb4ff, 1.1], [0, 8, 0, 0x8080c0, 2]]] },
     endCard: { title: '星光归位', line: '第一幕　星　完<br>下一幕　月　已在水边等你' },
-    cell,
-    solid(x, z) { const c = cell(Math.floor(x), Math.floor(z)); if (c === 'G') return gate.open < .85; return SOLID.has(c); },
+    cell, sockets,
+    solid(x, z) { if (C.rise > .5 && Math.hypot(x - constLamp.x, z - constLamp.z) < .38) return true; const c = cell(Math.floor(x), Math.floor(z)); if (c === 'G') return gate.open < .85; return SOLID.has(c); },
     hole(x, z) {
       const c = cell(Math.floor(x), Math.floor(z));
-      if (c === ' ') return !onIsle(x, z);
+      if (c === ' ') return !onIsle(x, z) && !onConst(x, z);
       if (c === '*') { const b = bridges.find(b => b.x === Math.floor(x) && b.z === Math.floor(z)); return !b || b.lit < .22; }
-      if (c === 'w') return true;
-      if (c === 'p') return (x < 80 ? pools.B1 : pools.B2).lvl < PAD_OK;
       return false;
     },
-    ground(x, z) { const c = cell(Math.floor(x), Math.floor(z)); if (c === ' ') return onIsle(x, z); return !'*wp'.includes(c); },
+    ground(x, z) { const c = cell(Math.floor(x), Math.floor(z)); if (c === ' ') return onIsle(x, z) || onConst(x, z); return c !== '*'; },
     onFall() { if (!S.hints.fall) { S.hints.fall = 1; setTimeout(() => toast('星光散了，脚下的路也就没了', 3.4), 900); } },
     ambient(P) { return (P.x > 36.6 && P.x < 49.2) ? .1 : .24; },
     reset, update, logic, nearest, interact, finaleStart, finale, idle,
     finaleCam: () => [altar.x - 1, altar.z],
     finaleOrb: () => [altar.x - 1.2, altar.z + 1],
-    progress: () => `${S.lampsLit}${S.gotCard ? 1 : 0}${rune.solved ? 1 : 0}${P.x > 23.5 ? 1 : 0}${P.x > 36.5 ? 1 : 0}${S.dipper}${sluices.s1.cur === 's1w' ? 1 : 0}${sluices.s2.cur === 's2e' ? 1 : 0}${P.x > 49.5 ? 1 : 0}${P.x > 67 ? 1 : 0}${P.x > 88 ? 1 : 0}`,
+    progress: () => `${S.lampsLit}${S.gotCard ? 1 : 0}${rune.solved ? 1 : 0}${P.x > 23.5 ? 1 : 0}${P.x > 36.5 ? 1 : 0}${S.dipper}${C.done ? 1 : 0}${edges.filter(e => e.drawn).length % 10}${P.x > 49.5 ? 1 : 0}${P.x > 67 ? 1 : 0}${P.x > 88 ? 1 : 0}`,
     MW, MH, mapMarks: () => [...lamps.map(l => ({ x: l.x, z: l.z, kind: 'lamp', done: l.lit })), { x: card.x, z: card.z, kind: 'card', done: card.taken }, { x: altar.x, z: altar.z, kind: 'goal', done: S.done }],
     hud: () => ({ label: '星灯', dots: lamps.map(l => l.lit), have: S.gotCard, line: S.done ? '牌已归位' : S.gotCard ? '持有　XVII 星' : '遗失的牌　未寻得' }),
-    _: { L, S, lamps, rune, gate, card, altar, ob, bridges, rings, anchors, isles, sluices, pools, well, CH, summon }
+    _: { L, S, lamps, rune, gate, card, altar, ob, bridges, rings, anchors, isles, nodes, edges, C, summon, touchNode }
   };
 }

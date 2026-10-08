@@ -18,7 +18,7 @@ const LIT_R = 9.6;   // 星光能照到的距离
 // 光点挂上月钩，就像月亮绕着湖心走；月柱的影子永远落在光的对面，跟着一起转
 const HUB = [41.5 + 21, 7.5], HOOK_R = 1.3, PILLAR_R = .5, ARM_PERIOD = 20;
 const LAKE_Y = -.3;
-const MIR = [76.5, 5.5];     // 引潮镜（潮汐池湖心小岛北侧）
+const MIR = [76.5, 5.5];     // 月镜（镜湖湖心小岛北侧）
 
 /* ---------- 地图 ----------
   空格=深湖  .月石步道  ,苔岸  ~浅水  #断墙  %影石（只在影子里成形）  M石碑  H塔  D犬像  F狼像  G月洞门
@@ -75,11 +75,11 @@ function buildMap() {
   fill(40, 1, 42, 2, ','); set(41, 1, 'Q');
   fill(40, 12, 42, 13, ','); set(41, 13, 'K');
   ox = 0;
-  // T：潮汐池。退潮走石堤，涨潮踩浮台；湖心小岛上立着引潮镜
-  fill(70, 7, 74, 7, 'k');
+  // T：镜中月。湖心小岛上立着一面能转的月镜，镜线另一侧映出一轮「镜中月」；u 镜月石只在镜中月的光里浮现，被真的星光照到就沉下去
+  fill(70, 7, 74, 7, 'u');
   fill(75, 5, 77, 9, '.'); set(76, 5, 'Y');
-  fill(78, 7, 83, 7, 'r'); fill(79, 4, 79, 6, 'r');
-  fill(78, 2, 81, 3, ','); set(80, 2, 'Q');
+  fill(78, 7, 83, 7, 'u'); fill(79, 4, 79, 6, 'u');
+  fill(78, 2, 81, 3, ','); set(80, 2, 'Q'); set(78, 2, 'I');
   // D：月池（+35）
   ox = OD;
   fill(49, 2, 62, 12, ',');
@@ -125,7 +125,7 @@ export function buildMoon(ctx) {
   const { group: root, camQuat, fx, AU, toast, cine, shake, flash, P, orb } = ctx;
   const grid = buildMap();
   const cell = (x, z) => (x < 0 || z < 0 || x >= MW || z >= MH) ? ' ' : grid[z][x];
-  const isLake = c => c === ' ' || c === '%' || c === 'k' || c === 'r';
+  const isLake = c => c === ' ' || c === '%' || c === 'u';
   const L = { mist: [], sway: [], hide: [], monos: [], towers: [], q: [], reeds: [] };
 
   /* ================= 材质（湿润的月石：缝隙深凹、表面反光） ================= */
@@ -447,9 +447,11 @@ export function buildMoon(ctx) {
       ill.push({ x, z, cx: x + .5, cz: z + .5, m, mats: [m0, m1], k: 1, last: -9, ph: hashv(x, z) * 6 });
     }
   }
-  /* ================= T · 潮汐池：引潮镜、潮水、石堤与浮台 ================= */
+  /* ================= T · 镜中月：月镜、镜线、镜中月与镜月石 =================
+     月镜立在湖心小岛北侧，镜面所在的那条线叫镜线。星光在镜线一侧，镜中月就出现在另一侧的对称位置。
+     湖上的镜月石只在镜中月的光里浮现，真的星光照上去反而会沉。站在镜旁按 E，月镜转 45°，镜线跟着转 */
   const mirror = new THREE.Group(); mirror.position.set(MIR[0], 0, MIR[1]); root.add(mirror);
-  const mirM = new THREE.MeshStandardMaterial({ color: 0xc8ccf0, roughness: .08, metalness: .9, emissive: 0xd8dcff, emissiveIntensity: .1 });
+  const mirM = new THREE.MeshStandardMaterial({ color: 0xc8ccf0, roughness: .08, metalness: .9, emissive: 0xe0c8ff, emissiveIntensity: .15 });
   {
     [-1, 1].forEach(sx => { const post = new THREE.Mesh(new THREE.CylinderGeometry(.07, .09, 2.4, 6), silverM); post.position.set(sx * 1.0, 1.2, 0); mirror.add(post);
       const fin = new THREE.Mesh(new THREE.SphereGeometry(.12, 8, 6), silverM); fin.position.set(sx * 1.0, 2.46, 0); mirror.add(fin); });
@@ -459,10 +461,6 @@ export function buildMoon(ctx) {
     const cres = new THREE.Mesh(new THREE.TorusGeometry(.3, .05, 4, 16, Math.PI * 1.3), silverM); cres.position.set(0, 2.55, 0); cres.rotation.z = Math.PI * .85; mirror.add(cres);
     shadowAll(mirror);
   }
-  const tideRingM = new THREE.MeshBasicMaterial({ color: 0x9fe0ff, transparent: true, opacity: .12, blending: THREE.AdditiveBlending, depthWrite: false });
-  const tideRing = new THREE.Mesh(new THREE.RingGeometry(1.42, 1.5, 40), tideRingM); tideRing.rotation.x = -Math.PI / 2; tideRing.position.set(MIR[0], .04, MIR[1] + .4); tideRing.layers.set(LAYER_FX); root.add(tideRing);
-  const tideM = reflective(toon({ color: 0x4f5fa0, normalMap: wN, transparent: true, opacity: .78, roughness: .15, metalness: .2, emissive: 0x141a40, emissiveIntensity: .45 }), .5, .5);
-  const tideW = new THREE.Mesh(new THREE.PlaneGeometry(14.3, 9.3), tideM); tideW.rotation.x = -Math.PI / 2; tideW.position.set(76.85, LAKE_Y, 6.15); root.add(tideW);
   // 潮池的石沿：低矮的白石边框，让涨起的潮水有清楚的边界
   {
     const curb = (x0, z0, x1, z1) => { const w = x1 - x0 || .22, d = z1 - z0 || .22; const m = new THREE.Mesh(bevelBox(w, .16, d, .04), paleM); m.position.set((x0 + x1) / 2, LAKE_Y + .36, (z0 + z1) / 2); m.receiveShadow = m.castShadow = true; root.add(m); };
@@ -470,18 +468,32 @@ export function buildMoon(ctx) {
     curb(70, 1.5, 70, 6); curb(70, 9, 70, 10.8);
     [[70, 1.5], [84, 1.5], [70, 10.8], [84, 10.8], [70, 6], [70, 9]].forEach(([x, z]) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(.16, .2, .5, 8), paleM); m.position.set(x, LAKE_Y + .5, z); m.castShadow = true; root.add(m); });
   }
-  const tideStones = [], rafts = [];
-  const causeGeo = bevelBox(.94, .3, .94, .04), raftGeo = new THREE.CylinderGeometry(.47, .42, .12, 8);
-  for (let z = 0; z < MH; z++) for (let x = 0; x < MW; x++) {
-    const c = grid[z][x];
-    if (c === 'k') { const m = new THREE.Mesh(causeGeo, matStone); m.position.set(x + .5, -.36, z + .5); m.castShadow = m.receiveShadow = true; root.add(m); tideStones.push({ x, z, m }); }
-    else if (c === 'r') {
-      const g0 = new THREE.Group(); g0.position.set(x + .5, LAKE_Y + .05, z + .5); root.add(g0);
-      const d = new THREE.Mesh(raftGeo, paleM); d.rotation.y = Math.PI / 8; d.position.y = -.06; g0.add(d);
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(.45, .022, 4, 8), silverM); rim.rotation.set(Math.PI / 2, 0, Math.PI / 8); g0.add(rim);
-      shadowAll(g0); rafts.push({ x, z, g: g0, ph: hashv(x, z) * 6 });
-    }
+  // 镜线：湖面上一道淡淡的银线，跟着月镜一起转
+  const axisM = new THREE.MeshBasicMaterial({ color: 0xd8c8ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const axisG = new THREE.Group(); axisG.position.set(MIR[0], LAKE_Y + .035, MIR[1]); root.add(axisG);
+  for (let k = -12; k <= 12; k++) { if (Math.abs(k) < 2) continue; const m = new THREE.Mesh(new THREE.PlaneGeometry(.62, .05), axisM); m.rotation.x = -Math.PI / 2; m.position.x = k * .82; m.layers.set(LAYER_FX); axisG.add(m); }
+  L.hide.push(axisG);
+  // 镜中月：星光的倒影。偏紫的一团光，带一盏不投影的灯
+  const PHC = 0xd0a8ff;
+  const ph = { x: 0, z: 0, k: 0, g: new THREE.Group() }; root.add(ph.g);
+  ph.sm = new THREE.MeshStandardMaterial({ color: 0xe8dcff, roughness: .3, emissive: PHC, emissiveIntensity: 1.6 });
+  ph.core = new THREE.Mesh(new THREE.OctahedronGeometry(.13, 0), ph.sm); ph.core.scale.set(.8, 1.25, .8); ph.g.add(ph.core);
+  ph.halo = billboard(haloT, 2.2, 2.2, true, camQuat); ph.halo.material.color.set(PHC); ph.halo.material.opacity = 0; ph.g.add(ph.halo); L.hide.push(ph.halo);
+  ph.light = new THREE.PointLight(PHC, 0, 5.5, 1.3); ph.g.add(ph.light);
+  ph.poolM = new THREE.MeshBasicMaterial({ map: haloT, color: PHC, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  ph.pool = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 4.6), ph.poolM); ph.pool.rotation.x = -Math.PI / 2; ph.pool.layers.set(LAYER_FX); root.add(ph.pool); L.hide.push(ph.pool);
+  // 星光 → 镜中月 的一道虚线（垂直穿过镜线）
+  const linkM = new THREE.LineDashedMaterial({ color: 0xd8c8ff, transparent: true, opacity: 0, dashSize: .25, gapSize: .2, depthWrite: false });
+  const linkGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+  const link = new THREE.Line(linkGeo, linkM); link.layers.set(LAYER_FX); link.frustumCulled = false; root.add(link); L.hide.push(link);
+  // 镜月石
+  const moonStones = [];
+  for (let z = 0; z < MH; z++) for (let x = 0; x < MW; x++) if (grid[z][x] === 'u') {
+    const mat = reflective(toon({ map: mistT, color: 0xe8e0ff, emissive: PHC, emissiveIntensity: .2, transparent: true, opacity: .2, depthWrite: false, roughness: .12 }), .25);
+    const m = new THREE.Mesh(mGeo, mat); m.position.set(x + .5, 0, z + .5); m.receiveShadow = true; root.add(m);
+    moonStones.push({ x, z, cx: x + .5, cz: z + .5, k: 0, last: -9, solid: false, mesh: m, mat, ph: hashv(x, z) * 6 });
   }
+  const msAt = (x, z) => moonStones.find(m => m.x === x && m.z === z);
 
   /* ================= 遍历摆放 ================= */
   const beasts = {};
@@ -520,6 +532,7 @@ export function buildMoon(ctx) {
   const inRange = (x, z) => Math.hypot(x - orb.x, z - orb.z) < LIT_R;
   const litAt = (x, z) => inRange(x, z) && !occluded(orb.x, orb.z, x, z);
   const shadowedAt = (x, z) => inRange(x, z) && occluded(orb.x, orb.z, x, z);
+  const phLit = q => ph.k > .5 && Math.hypot(q.x - ph.x, q.z - ph.z) < 2.6;
 
   /* ================= 引导微光 ================= */
   const LILAC = [.85, .82, 1], CORALc = [1, .6, .7], SILVER = [.86, .9, 1];
@@ -527,14 +540,14 @@ export function buildMoon(ctx) {
     qA: fx.beacon(qA.x, 1.0, qA.z, 0xc8b8ff, 1.2), qC: fx.beacon(qC.x, 1.0, qC.z, 0xc8b8ff, 1.2),
     dog: fx.beacon(dog.x, 1.3, dog.z, 0xffcf7a, .9), wolf: fx.beacon(wolf.x, 1.3, wolf.z, 0xff8aa0, .9),
     m1: fx.beacon(11.5, 3.3, 7.5, 0x9fe0ff, .8), m3: fx.beacon(25.5 + OB, 3.3, 7.5, 0x9fe0ff, .8), m2: fx.beacon(19.5 + OB, 3.3, 7.5, 0x9fe0ff, .8),
-    qD: fx.beacon(qD.x, 1.0, qD.z, 0xc8b8ff, 1.2), qE: fx.beacon(qE.x, 1.0, qE.z, 0xc8b8ff, 1.2), tide: fx.beacon(MIR[0], 1.4, MIR[1], 0x9fe0ff, 1.3),
+    qD: fx.beacon(qD.x, 1.0, qD.z, 0xc8b8ff, 1.2), qE: fx.beacon(qE.x, 1.0, qE.z, 0xc8b8ff, 1.2), tide: fx.beacon(MIR[0], 2.7, MIR[1], 0xd8c8ff, 1.1),
     hub: fx.beacon(HUB[0], 1.6, HUB[1], 0x8ff0e0, 1.3),
     card: fx.beacon(card.x, .5, card.z, 0x9fb4ff, 1),
     altar: fx.beacon(altar.x, 1.0, altar.z, 0xd8dcff, 1.6)
   };
 
   /* ================= 状态 ================= */
-  const S = { phases: 0, gotCard: false, done: false, hints: {}, trail: 0, hubUsed: false, beastHold: 0, solvedB: false, crownHit: false, moonUp: false, tide: 0 };
+  const S = { phases: 0, gotCard: false, done: false, hints: {}, trail: 0, hubUsed: false, beastHold: 0, solvedB: false, crownHit: false, moonUp: false, mirA: 0, mirT: 0 };
   const illAt = (x, z) => ill.find(w => w.x === x && w.z === z);
 
   function wakePhase(q) {
@@ -565,7 +578,8 @@ export function buildMoon(ctx) {
   }
 
   function reset() {
-    Object.assign(S, { phases: 0, gotCard: false, done: false, hints: {}, trail: 0, hubUsed: false, beastHold: 0, solvedB: false, crownHit: false, moonUp: false, tide: 0 });
+    Object.assign(S, { phases: 0, gotCard: false, done: false, hints: {}, trail: 0, hubUsed: false, beastHold: 0, solvedB: false, crownHit: false, moonUp: false, mirA: 0, mirT: 0 });
+    moonStones.forEach(m => { m.k = 0; m.last = -9; m.solid = false; }); ph.k = 0;
     ill.forEach(w => { w.k = 1; w.last = -9; w.open = false; });
     L.q.forEach(q => { q.on = false; q.t = 0; }); qB.on = false;
     L.mist.forEach(m => { m.solid = false; m.k = 0; m.last = -9; });
@@ -649,18 +663,40 @@ export function buildMoon(ctx) {
       if (open && Math.random() < dt * 5) fx.emit(w.cx + (Math.random() - .5) * .8, Math.random() * 1.2, w.cz + (Math.random() - .5) * .8, { vy: .5, life: .9, c: LILAC, tw: 8, a: .7 });
       w.open = open;
     });
-    // 潮汐：光点停在引潮镜前，潮水上涨；离开就慢慢退去
-    const charging = !S.done && ctx.orbNear(MIR[0], MIR[1], 1.35) < 1.6, pt = S.tide;
-    S.tide = clamp(S.tide + (charging ? .22 : -.15) * dt, 0, 1);
-    if (pt < .85 && S.tide >= .85) { AU.stone(); fx.ring(MIR[0], .02, 7.5, 0x9fe0ff, 5, 1.4); if (!S.hints.hi) { S.hints.hi = 1; toast('涨潮了。浮台浮了上来，石堤沉进了水里', 4); } }
-    if (pt > .3 && S.tide <= .3 && S.hints.hi && !S.hints.lo && P.x < 84) { S.hints.lo = 1; toast('潮水退了，石堤又露了出来', 3.4); }
-    const ty = LAKE_Y + S.tide * .29;
-    tideW.position.y = ty; tideW.visible = S.tide > .02;
-    rafts.forEach(r => { r.g.position.y = ty + .05 + (S.tide < .85 ? Math.sin(T * 1.8 + r.ph) * .025 : 0); r.g.rotation.y = Math.sin(T * .4 + r.ph) * .1 * (1 - S.tide); });
-    mirM.emissiveIntensity = .1 + (charging ? .4 + Math.sin(T * 4) * .08 : 0) + S.tide * .12;
-    tideRingM.opacity = charging ? .3 : .12 + .06 * Math.sin(T * 2);
-    if (charging && Math.random() < dt * 2.5) fx.ring(MIR[0], ty + .03, MIR[1] + 1.6, 0x9fe0ff, 3 + Math.random() * 2, 1.6, { a: .3 });
-    if (charging && Math.random() < dt * 14) fx.emit(MIR[0] + (Math.random() - .5) * 1.6, 1.35 + (Math.random() - .5) * 1.4, MIR[1] + .12, { vy: .3, life: 1, c: SILVER, tw: 6 });
+    // 月镜：缓缓转到目标角度；人离开镜湖时自己转回东西向
+    if ((P.x < 69.6 || P.x > 84.4) && !S.done) S.mirT = Math.round(S.mirT / Math.PI) * Math.PI;
+    const pa = S.mirA; S.mirA += (S.mirT - S.mirA) * (1 - Math.exp(-dt * 4));
+    if (Math.abs(S.mirT - S.mirA) < .002) S.mirA = S.mirT;
+    mirror.rotation.y = -S.mirA; axisG.rotation.y = -S.mirA;
+    if (Math.abs(S.mirA - pa) > dt * .05 && Math.random() < dt * 20) fx.emit(MIR[0] + (Math.random() - .5) * 2, .2, MIR[1] + (Math.random() - .5) * .6, { vy: .3, vx: (Math.random() - .5), life: .7, c: [.6, .58, .75], a: .6 });
+    // 镜中月：星光关于镜线的对称点
+    const mOn = !S.done && P.x > 68.5 && P.x < 85.5 ? 1 : 0;
+    ph.k += (mOn - ph.k) * (1 - Math.exp(-dt * 3));
+    { const dx = Math.cos(S.mirA), dz = Math.sin(S.mirA), vx = orb.x - MIR[0], vz = orb.z - MIR[1], d = vx * dx + vz * dz;
+      ph.x = MIR[0] + 2 * d * dx - vx; ph.z = MIR[1] + 2 * d * dz - vz; }
+    ph.g.position.set(ph.x, orb.y, ph.z); ph.core.visible = ph.halo.visible = ph.k > .02;   // 灯本身一直在（只调亮度），灯数不变就不会重编着色器
+    ph.core.rotation.y += dt * 2;
+    ph.light.intensity = ph.k * (3.2 + Math.sin(T * 2.3) * .2);
+    ph.halo.material.opacity = ph.k * (.42 + Math.sin(T * 2.3) * .05);
+    ph.pool.position.set(ph.x, LAKE_Y + .05, ph.z); ph.poolM.opacity = ph.k * .22;
+    axisM.opacity = ph.k * (.32 + Math.sin(T * 1.6) * .06);
+    { const pos = linkGeo.attributes.position; pos.setXYZ(0, orb.x, orb.y - .1, orb.z); pos.setXYZ(1, ph.x, orb.y - .1, ph.z); pos.needsUpdate = true; link.computeLineDistances(); linkM.opacity = ph.k * .35; }
+    mirM.emissiveIntensity = .15 + ph.k * (.25 + Math.sin(T * 1.6) * .06);
+    if (ph.k > .5 && Math.random() < dt * 8) fx.emit(ph.x + (Math.random() - .5) * .4, orb.y, ph.z + (Math.random() - .5) * .4, { vy: -.3, life: .9, c: [.85, .7, 1], tw: 8 });
+    // 镜月石：镜中月照着（2.3 以内）、真的星光又没照着（2 以外）才浮上来；离开后留 0.35 秒余地
+    moonStones.forEach(m => {
+      const want = ph.k > .5 && Math.hypot(m.cx - ph.x, m.cz - ph.z) < 2.3 && Math.hypot(m.cx - orb.x, m.cz - orb.z) > 2.0;
+      if (want) m.last = T;
+      const solid = T - m.last < .35;
+      if (solid && !m.solid && m.k < .3 && Math.hypot(P.x - m.cx, P.z - m.cz) < 7) { if (Math.random() < .5) AU.ghost(); fx.emit(m.cx, .05, m.cz, { vy: .35, life: .7, c: [.85, .7, 1], tw: 6, a: .8 }); }
+      m.solid = solid;
+      m.k += ((solid ? 1 : 0) - m.k) * (1 - Math.exp(-dt * (solid ? 10 : 5)));
+      const k = m.k, flick = .5 + .5 * Math.sin(T * 8 + m.ph);
+      m.mat.opacity = .12 + k * .84 + (1 - k) * flick * .06;
+      m.mat.emissiveIntensity = .1 + k * .3 + (1 - k) * flick * .2;
+      m.mat.userData.reflK.value = .1 + k * .3;
+      m.mesh.position.y = -.24 * (1 - k); m.mesh.scale.set(.72 + k * .28, .4 + k * .6, .72 + k * .28);
+    });
     pillars.forEach((p, i) => { p.cres.rotation.y = Math.sin(T * .5 + i) * .4; });
     // 场景小动画
     L.sway.forEach(s => { s.o.rotation.z = Math.sin(T * .8 + s.ph) * .03; });
@@ -675,7 +711,7 @@ export function buildMoon(ctx) {
     B.qA.on = !qA.on; B.qC.on = !qC.on;
     B.dog.on = B.wolf.on = B.m3.on = !S.solvedB;
     B.m1.on = P.x < 17.6 && qA.on; B.m2.on = P.x > 17.6 && P.x < 20.2;
-    B.qD.on = !qD.on && P.x > 40.6; B.qE.on = !qE.on && P.x > 69; B.tide.on = P.x > 69 && P.x < 84 && S.tide < .5;
+    B.qD.on = !qD.on && P.x > 40.6; B.qE.on = !qE.on && P.x > 69; B.tide.on = P.x > 74.6 && P.x < 78 && !S.hints.turned;
     B.hub.on = !orb.lock && P.x > 33 && P.x < 48; B.hub.x = hookX(); B.hub.z = hookZ(); B.hub.m.position.set(B.hub.x, B.hub.y, B.hub.z);
     B.card.on = !card.taken && card.vis < .5;
     B.altar.on = !S.done;
@@ -692,7 +728,8 @@ export function buildMoon(ctx) {
     // 光点第一次放进轴心之前，这条提示一直留在画面上
     if (!h.r && P.x > 40.6) { h.r = 1; toast('幻墙回廊。月下的墙未必是真的，星光一照就散', 4.6); }
     if (!h.r2 && P.x > 43.3 && P.x < 48) { h.r2 = 1; toast('脚下的路要影子，前面的墙要光。湖里的石柱，也许能两全', 5); }
-    if (!h.t && P.x > 69.6) { h.t = 1; toast('潮汐池。月亮牵动潮水：把光点送到引潮镜前，潮水就会涨起来', 5); }
+    if (!h.t && P.x > 67.6) { h.t = 1; toast('镜湖。星光在镜线这边，镜中月就在那边。湖上的镜月石只认镜中月的光，被真的星光照到就会沉下去', 6.5); }
+    if (!h.mir && P.x > 75 && P.x < 78) { h.mir = 1; toast('站在月镜旁按 E，月镜会转过一个角度，镜线跟着转', 4.2); }
     if (!S.hubUsed && P.x > 55.5 && P.x < 70) ctx.holdToast('湖心的月钩绕着月柱转。把光点停在那圈淡淡的光环上，等月钩来接它');
     if (!h.e && P.x > 84) { h.e = 1; toast('月池。五相与牌，缺一不可', 3.8); }
     // 犬与狼：同时成立并保持一会儿
@@ -708,15 +745,20 @@ export function buildMoon(ctx) {
   function nearest() {
     const out = [];
     L.q.forEach(q => { if (!q.on) out.push({ type: 'phase', q, x: q.x, y: 1.6, z: q.z, label: '唤醒月相石' }); });
+    if (!S.done) out.push({ type: 'mirror', x: MIR[0], y: 2.7, z: MIR[1] + .7, r: 2.1, label: '转动月镜' });
     if (!card.taken && card.vis > .5) out.push({ type: 'card', x: card.x, y: 1.6, z: card.z, label: '从水里拾起牌' });
     if (!S.done) out.push(S.gotCard && S.phases === 5 ? { type: 'finale', x: altar.x, y: 1.6, z: altar.z, r: 2.4, label: '放入　XVIII 月' } : { type: 'altar', x: altar.x, y: 1.6, z: altar.z, r: 2.4, label: '查看月池' });
     return out;
   }
   function interact(n) {
     if (n.type === 'phase') {
-      if (litAt(n.q.x, n.q.z)) { toast('星光照着它，它不肯醒。把光藏到高大的东西后面', 3.2); AU.wrong(); fx.burst(n.q.x, 1, n.q.z, 8, { c: CORALc, sp: .6, life: .6 }); return; }
+      if (n.q === qE && !phLit(qE)) { toast('待宵在等月光：要镜中月照着它，它才会醒', 3.4); AU.wrong(); fx.burst(n.q.x, 1, n.q.z, 8, { c: CORALc, sp: .6, life: .6 }); return; }
+      if (litAt(n.q.x, n.q.z)) { toast(n.q === qE ? '镜中月照着它，可真的星光也照着它。让石柱替你挡住星光' : '星光照着它，它不肯醒。把光藏到高大的东西后面', 3.2); AU.wrong(); fx.burst(n.q.x, 1, n.q.z, 8, { c: CORALc, sp: .6, life: .6 }); return; }
       wakePhase(n.q);
       toast({ 蛾眉: '蛾眉。第一枚月相醒了', 盈月: '盈月。幻墙后的月相醒了', 凸月: '凸月。月亮快要圆了', 待宵: '待宵。只差一夜，就是满月' }[n.q.name], 3.4);
+    } else if (n.type === 'mirror') {
+      S.mirT += Math.PI / 4; S.hints.turned = 1; AU.stone(); shake(.05, .45);
+      fx.ring(MIR[0], .05, MIR[1], 0xd8c8ff, 2.6, .9); fx.sigil(MIR[0], .06, MIR[1], 0xd8c8ff, 'moon', 2.4, 1.4);
     } else if (n.type === 'card') {
       card.taken = true; S.gotCard = true; AU.card();
       fx.bloom(card.x, .8, card.z, 50, [.75, .8, 1], { w: -3, vr: 2 }); fx.sigil(card.x, .22, card.z, 0xc0c8ff, 'moon', 2.6, 2); fx.ring(card.x, .2, card.z, 0x9fb4ff, 2.6, 1.1); flash(.2);
@@ -768,8 +810,9 @@ export function buildMoon(ctx) {
     if (!qD.on && P.x < 55) return ['回廊里还藏着一枚月相', '先用星光照开东北角的幻墙走进去，再把光藏到石柱后面，唤醒月相石'];
     if (!S.hubUsed && !qC.on && P.x < 61) return ['月钩会带着星光绕月柱转圈，月柱的影子就跟着转', '把光点停在月柱周围那圈淡光环上，月钩转过来会挂上它；之后晃动鼠标就能取下'];
     if ((!qC.on || !card.taken) && P.x < 70) return ['影子绕着湖心转。踩着影子走，别急', '在岸边等影子扫过来再踏上去，跟着它转。北边小岛有月相石，南边小岛的水里有牌'];
-    if (P.x < 84 && !qE.on) return ['引潮镜牵动潮水：光在镜前，潮就涨；光离开，潮就退', '退潮时走石堤到小岛；把光点停在引潮镜前涨潮，踩浮台去东北的小岛。月相石要躲在镜子的影子里才会醒'];
-    if (P.x < 84) return ['涨潮时踩着浮台往东', '把光点停在引潮镜前，等浮台浮起来，再一路往东'];
+    if (P.x < 75 && !qE.on) return ['星光和镜中月隔着镜线对称。星光往北，镜中月就往南', '把光点放在石堤正北四格左右的湖面上，镜中月就会落在石堤上；光点别离石堤太近'];
+    if (P.x < 84 && !qE.on) return ['转动月镜，让镜中月照到北边的石列。待宵只认镜中月的光', '在月镜旁按两次 E，把镜线转成南北向，再把光点放到小岛西边的湖面上。唤醒待宵时，把光点放在它正西边的远处，让小岛上的石柱挡住真的星光'];
+    if (P.x < 84) return ['往东的石路，也要镜中月来照', '把月镜转回东西向（再按两次 E），把光点放在石路北边四格左右，跟着自己一起往东走'];
     return ['五相与牌都齐了，去最东边的月池', '在月池前按 E'];
   }
 
@@ -801,12 +844,11 @@ export function buildMoon(ctx) {
     hole(x, z) {
       const c = cell(Math.floor(x), Math.floor(z));
       if (c === ' ') return true;
-      if (c === 'k') return S.tide > .32;
-      if (c === 'r') return S.tide < .85;
+      if (c === 'u') { const m = msAt(Math.floor(x), Math.floor(z)); return !m || !m.solid; }
       if (c === '%') { const m = L.mist.find(m => m.x === Math.floor(x) && m.z === Math.floor(z)); return !m || ctx.T - m.last > .35; }
       return false;
     },
-    ground(x, z) { return !' %kr'.includes(cell(Math.floor(x), Math.floor(z))); },
+    ground(x, z) { return !' %u'.includes(cell(Math.floor(x), Math.floor(z))); },
     onFall() { if (!S.hints.fall) { S.hints.fall = 1; setTimeout(() => toast('被星光照到的月石，原来只是幻影', 3.6), 900); } S._splash = false; },
     onFallFrame(P) { if (!S._splash && P.y < LAKE_Y) { S._splash = true; fx.burst(P.x, LAKE_Y + .05, P.z, 22, { c: [.7, .78, 1], sp: 1.4, up: 2.2, g: -6, life: .9 }); fx.ring(P.x, LAKE_Y + .03, P.z, 0xb8c4ff, 1.8, .9); } },
     onStep(P, dt) {
@@ -818,9 +860,9 @@ export function buildMoon(ctx) {
     reset, update, logic, nearest, interact, finaleStart, finale, idle,
     finaleCam: () => [altar.x - .5, altar.z - 1.8],
     finaleOrb: () => [altar.x - 1.6, altar.z + 1.2],
-    progress: () => `${S.phases}${S.gotCard ? 1 : 0}${qA.on ? 1 : 0}${S.solvedB ? 1 : 0}${qC.on ? 1 : 0}${orb.lock ? 1 : 0}${P.x > 18 ? 1 : 0}${P.x > 25 ? 1 : 0}${P.x > 40.5 ? 1 : 0}${qD.on ? 1 : 0}${P.x > 48.5 ? 1 : 0}${P.x > 55 ? 1 : 0}${qE.on ? 1 : 0}${S.tide > .85 ? 1 : 0}${P.x > 84 ? 1 : 0}`,
+    progress: () => `${S.phases}${S.gotCard ? 1 : 0}${qA.on ? 1 : 0}${S.solvedB ? 1 : 0}${qC.on ? 1 : 0}${orb.lock ? 1 : 0}${P.x > 18 ? 1 : 0}${P.x > 25 ? 1 : 0}${P.x > 40.5 ? 1 : 0}${qD.on ? 1 : 0}${P.x > 48.5 ? 1 : 0}${P.x > 55 ? 1 : 0}${qE.on ? 1 : 0}${Math.round(S.mirT / (Math.PI / 4)) % 4}${P.x > 84 ? 1 : 0}`,
     MW, MH, mapMarks: () => [...[qA, qB, qD, qC, qE].map(q => ({ x: q.x, z: q.z, kind: 'lamp', done: q.on })), { x: card.x, z: card.z, kind: 'card', done: card.taken }, { x: altar.x, z: altar.z, kind: 'goal', done: S.done }],
     hud: () => ({ label: '月相', dots: [qA.on, qB.on, qD.on, qC.on, qE.on], have: S.gotCard, line: S.done ? '牌已归位' : S.gotCard ? '持有　XVIII 月' : '水底之牌　未寻得' }),
-    _: { L, S, litAt, shadowedAt, occluded, qA, qB, qC, qD, qE, dog, wolf, gate, card, altar, ill, pillars, tideStones, rafts, get armA() { return armA; }, set armA(v) { armA = v; } }
+    _: { L, S, litAt, shadowedAt, occluded, qA, qB, qC, qD, qE, dog, wolf, gate, card, altar, ill, pillars, moonStones, ph, phLit, get armA() { return armA; }, set armA(v) { armA = v; } }
   };
 }
