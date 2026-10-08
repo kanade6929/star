@@ -114,3 +114,41 @@ export function lakeMat() {
       }`
   });
 }
+
+// 太阳之章：黎明的云海。day 从 0（破晓前，云缝里还有星星）到 1（正午，金色的云）
+// 通关时星星先绕天极转出星轨，随后被升起的太阳淡掉
+export function cloudSea() {
+  return new THREE.ShaderMaterial({
+    uniforms: { time: { value: 0 }, cam: { value: new THREE.Vector2() }, trail: { value: 0 }, spin: { value: 0 }, pole: { value: new THREE.Vector2() },
+      day: { value: 0 }, sun: { value: new THREE.Vector3(60, 2, 3) }, glow: { value: 0 }, orb: { value: new THREE.Vector3() }, orbK: { value: 1 } },
+    vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: `uniform float time, trail, spin, day, glow, orbK; uniform vec2 cam, pole; uniform vec3 sun, orb; varying vec3 vW;
+      ${COMMON}
+      void main(){
+        vec2 p = vW.xz;
+        // 深处的天空：破晓前是深紫，白天是暖杏色
+        vec2 sp = p + cam * .55;
+        vec3 deep = mix(vec3(.035, .02, .06), vec3(.42, .26, .24), day);
+        deep = mix(deep, mix(vec3(.09, .035, .08), vec3(.85, .55, .38), day), smoothstep(.3, .9, n(sp * .05)));
+        vec2 q = rot(sp, pole + cam * .55, spin);
+        vec3 stars = (layer(q, 2.4, .08, time) + layer(q + 7., 4.6, .06, time) * .5) * (1. - day) * (1. - trail * .7);
+        vec3 tr = trails(sp, pole + cam * .55, spin, trail * 1.3) * trail * (1. - smoothstep(.55, 1., day));
+        // 两层云：近的走得快，像素化的边缘
+        vec2 c1 = p + cam * .3 + vec2(time * .12, 0.), c2 = p + cam * .15 + vec2(time * .05, time * .02);
+        float a1 = n(c1 * .16) * .65 + n(c1 * .42) * .35, a2 = n(c2 * .09 + 4.) * .6 + n(c2 * .25 + 9.) * .4;
+        float k1 = step(.56, a1), k2 = step(.5, a2);
+        float rim1 = step(.56, a1) - step(.6, a1);
+        vec3 cloudLo = mix(vec3(.16, .07, .13), vec3(.95, .66, .48), day), cloudHi = mix(vec3(.38, .16, .22), vec3(1., .88, .66), day);
+        vec3 col = deep + stars + min(tr, vec3(.8));
+        col = mix(col, cloudLo * (.75 + a2 * .4), k2 * .85);
+        col = mix(col, cloudHi * (.8 + a1 * .35), k1);
+        col += vec3(1., .78, .5) * rim1 * (.15 + day * .25);
+        // 太阳的反光：云层上一片金色
+        float sd = length((p + cam * .3 - sun.xy) * vec2(1., 1.3));
+        col += vec3(1., .72, .38) * smoothstep(sun.z * 6., 0., sd) * (.18 + glow * .5) * (.4 + day);
+        // 光点照亮下面的云
+        col += vec3(1., .85, .6) * exp(-pow(length(p - orb.xz) / 2.6, 2.)) * .16 * orbK * (k1 + k2 * .5);
+        gl_FragColor = vec4(min(col, vec3(1.1)), 1.);
+      }`
+  });
+}

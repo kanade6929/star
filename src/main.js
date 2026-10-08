@@ -8,6 +8,7 @@ import { createAudio } from './audio.js';
 import { FX } from './fx.js';
 import { buildStar } from './level1.js';
 import { buildMoon } from './level2.js';
+import { buildSun } from './level3.js';
 
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -166,7 +167,7 @@ function cine(steps) { S.cine = { steps, i: 0, t: 0, started: false }; setBars(t
 /* ================= 关卡装载 ================= */
 let LV = null, root = null;
 const ctx = { THREE, camQuat, P, orb, S, fx, AU, toast, holdToast, cine, shake, flash, hemi, moon, renderer, pipe, get T() { return T; }, updateHud };
-const BUILDERS = { 1: buildStar, 2: buildMoon };
+const BUILDERS = { 1: buildStar, 2: buildMoon, 3: buildSun };
 function loadLevel(n) {
   if (root) disposeGroup(root);
   fx.clear();
@@ -537,11 +538,11 @@ try { prog = JSON.parse(localStorage.getItem(PROG_KEY)) || prog; } catch (e) {}
 function saveProg() { try { localStorage.setItem(PROG_KEY, JSON.stringify(prog)); } catch (e) {} }
 const menu = $('menu');
 function syncSound() { document.querySelectorAll('[data-act="sound"]').forEach(b => { b.setAttribute('aria-pressed', AU.on); b.querySelector('.snd').textContent = AU.on ? '开' : '关'; }); }
-function nextLevel() { return prog.done.includes(1) && !prog.done.includes(2) ? 2 : 1; }
+function nextLevel() { if (!prog.done.includes(1)) return 1; if (!prog.done.includes(2)) return 2; if (!prog.done.includes(3)) return 3; return 1; }
 function refreshMenu() {
-  [1, 2].forEach(n => { document.querySelector(`.tcard[data-n="${n}"] .st`).textContent = prog.done.includes(n) ? '已完成' : '可进入'; });
+  [1, 2, 3].forEach(n => { document.querySelector(`.tcard[data-n="${n}"] .st`).textContent = prog.done.includes(n) ? '已完成' : '可进入'; });
   const nl = nextLevel();
-  document.querySelector('#mainNav [data-act="start"] .sub').textContent = prog.done.includes(1) ? (nl === 2 ? '第二幕 月' : '再走一次') : '';
+  document.querySelector('#mainNav [data-act="start"] .sub').textContent = prog.done.includes(1) ? (nl === 2 ? '第二幕 月' : nl === 3 ? '第三幕 太阳' : '再走一次') : '';
 }
 let woke = false;
 function wake() { if (woke) { AU.init(); return; } woke = true; AU.init(); menu.classList.add('awake'); }
@@ -616,12 +617,12 @@ function endGame() {
   if (!prog.done.includes(n)) prog.done.push(n); saveProg();
   const E = LV.endCard;
   $('endRoman').textContent = LV.roman; $('endTitle').textContent = E.title; $('endLine').innerHTML = E.line;
-  $('again2').textContent = n === 1 ? '前往月之章' : '再走月之章';
+  $('again2').textContent = n === 1 ? '前往月之章' : n === 2 ? '前往太阳之章' : '再走太阳之章';
   $('end').classList.add('on'); S.mode = 'end'; refreshMenu(); setBars(false);
   setTimeout(() => $('again2').focus(), 400);
 }
 $('again').addEventListener('click', toMenu);
-$('again2').addEventListener('click', () => { $('end').classList.remove('on'); begin(S.level === 1 ? 2 : 2); });
+$('again2').addEventListener('click', () => { $('end').classList.remove('on'); begin(S.level === 1 ? 2 : S.level === 2 ? 3 : 3); });
 
 /* ================= 主循环 ================= */
 let last = performance.now();

@@ -13,7 +13,12 @@ function sigilCanvas(kind) {
   const px = (x, y) => g.fillRect(Math.round(x), Math.round(y), 1, 1);
   const circle = (r, step = 1) => { const n = Math.ceil(r * 7); for (let i = 0; i < n; i += step) { const a = i / n * 6.283; px(cx + Math.cos(a) * r, cx + Math.sin(a) * r); } };
   circle(22); circle(17, 2);
-  if (kind === 'moon') {
+  if (kind === 'sun') {
+    // 日轮：同心圆 + 十二道长短相间的光芒
+    circle(8); circle(5, 2);
+    for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283, r0 = 10, r1 = i % 2 ? 13.5 : 16; for (let r = r0; r <= r1; r += .5) px(cx + Math.cos(a) * r, cx + Math.sin(a) * r); }
+    for (let i = 0; i < 24; i++) { const a = i / 24 * 6.283 + .13; px(cx + Math.cos(a) * 19.5, cx + Math.sin(a) * 19.5); }
+  } else if (kind === 'moon') {
     // 新月：两圆相减
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
       const a = Math.hypot(x - cx, y - cx), b = Math.hypot(x - cx - 5, y - cx + 3);
@@ -49,7 +54,7 @@ export class FX {
     this.cursor = 0;
     // 光环 / 星印
     this.ringGeo = new THREE.RingGeometry(.92, 1, 48); this.ringGeo.rotateX(-Math.PI / 2);
-    this.sigT = { star: nearest(new THREE.CanvasTexture(sigilCanvas('star'))), moon: nearest(new THREE.CanvasTexture(sigilCanvas('moon'))) };
+    this.sigT = { star: nearest(new THREE.CanvasTexture(sigilCanvas('star'))), moon: nearest(new THREE.CanvasTexture(sigilCanvas('moon'))), sun: nearest(new THREE.CanvasTexture(sigilCanvas('sun'))) };
     this.haloT = nearest(new THREE.CanvasTexture(haloCanvas(64)));
     this.items = [];
     this.beacons = [];

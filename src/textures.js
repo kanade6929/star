@@ -372,3 +372,67 @@ export function moonStoneTexHD() {
 // 通用：把旧的 16 像素/米贴图函数按 2 倍分辨率重画（坐标缩小一半，抖动在新像素上做）
 export function hd(fnName, ...args) { return HD[fnName](...args); }
 const HD = {};
+
+/* ================= 太阳之章：黎明的花园与白墙 ================= */
+const SSTONE = ['#5a3a46', '#86584e', '#b07e62', '#d0a27a', '#e6c49a', '#f4dcb6', '#fdf0d6'].map(hex);
+const MEAD = ['#2e2632', '#3e4a36', '#5a6e3c', '#86924a', '#b0b45a', '#d6cc78', '#f0e4a0'].map(hex);
+const BRICK = ['#5a3444', '#7e4e56', '#a87466', '#cfa086', '#ead0b0', '#fbeedd'].map(hex);
+const SGOLD = ['#8a4a2a', '#c07a34', '#eab04a', '#ffe08a'].map(hex);
+// 砂岩石板：暖色，大块，16 块里两块嵌一枚小太阳
+export function sunStoneTexHD() {
+  const N = 128, T = 32, p = painter(N, N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const bx = x % T, by = y % T, id = (x >> 5) + (y >> 5) * 4;
+    let v = tileShade(bx, by, T, id, 5) + (fbm(x * .08, y * .08, 10) - .5) * .16;
+    const strata = Math.abs(Math.sin(y * .22 + fbm(x * .05, y * .05, 6) * 4 + id)); // 砂岩的层理
+    if (strata < .05) v -= .07;
+    if (hash(x * 5 + id, y * 3) > .992) v -= .2;
+    p.ramp(x, y, SSTONE, v);
+    if (id === 2 || id === 13) {
+      const dx = bx - 15.5, dy = by - 15.5, r = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
+      if (r < 3.6) p.ramp(x, y, SGOLD, .95 - r * .08);
+      else if (r < 7.5 && r > 4.6 && Math.abs(Math.sin(a * 4)) > .82) p.ramp(x, y, SGOLD, .6);
+    }
+  }
+  return p.done();
+}
+// 晨光草甸：金黄偏橘，夹着零星白色小花
+export function meadowTex() {
+  const N = 32, S = 2, p = painter(N * S, N * S);
+  for (let yy = 0; yy < N * S; yy++) for (let xx = 0; xx < N * S; xx++) { const x = xx / S, y = yy / S;
+    let v = .46 + (fbm(x * .15, y * .15, 5) - .5) * .7;
+    if (hash(x, y * 3) > .86) v += .2;
+    if (hash(x * 5, y) > .988) v = 1;
+    p.ramp(xx, yy, MEAD, v);
+  }
+  return p.done();
+}
+// 白砖墙（塔罗「太阳」里孩子身后的那道墙）
+export function brickWallTex() {
+  const W = 16, H = 32, S = 2, p = painter(W * S, H * S);
+  for (let yy = 0; yy < H * S; yy++) for (let xx = 0; xx < W * S; xx++) { const x = xx / S, y = yy / S;
+    const row = (y / 4) | 0, inY = y % 4, off = row % 2 ? 4 : 0, bx = (x + off) % 8, col = ((x + off) / 8 | 0) + row * 3;
+    let v = .66 + (hash(col, row) - .5) * .18 + (fbm(x * .3, y * .3, 4) - .5) * .16;
+    if (inY === 0) v += .12; else if (inY === 3 || bx === 0) v = .18;
+    v -= (y / H) * .22;
+    p.ramp(xx, yy, BRICK, v);
+  }
+  return p.done();
+}
+export function brickTopTex() {
+  const N = 16, S = 2, p = painter(N * S, N * S);
+  for (let yy = 0; yy < N * S; yy++) for (let xx = 0; xx < N * S; xx++) { const x = xx / S, y = yy / S;
+    let v = .7 + (fbm(x * .3, y * .3, 4) - .5) * .25;
+    if (x === 0 || y === 0) v += .15; if (x === N - 1 || y === N - 1) v = .2;
+    p.ramp(xx, yy, BRICK, v);
+  }
+  return p.done();
+}
+// 向日葵花盘：葵花籽按黄金角排成螺旋
+export function seedTex() {
+  const N = 32, c = mk(N, N), g = c.getContext('2d');
+  g.fillStyle = '#3a1e1a'; g.fillRect(0, 0, N, N);
+  const cols = ['#4e2a1e', '#6a3a22', '#8a5228', '#b06e2e'];
+  for (let i = 0; i < 260; i++) { const r = Math.sqrt(i) * .95, a = i * 2.39996; const x = N / 2 + Math.cos(a) * r, y = N / 2 + Math.sin(a) * r; if (r > 15) break; g.fillStyle = cols[(i * 7) % 4]; g.fillRect(x | 0, y | 0, 1, 1); }
+  return c;
+}

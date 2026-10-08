@@ -661,7 +661,7 @@ export function buildMoon(ctx) {
     tintLo: [.96, .97, 1.05], tintHi: [1.02, 1.0, 1.05],
     light: { sky: 0x8a90d0, ground: 0x141830, hemi: .3, moon: 0xb8c4ff, moonK: 1.35, moonDir: [6, -5], orb: 0xffe6c8, halo: 0xffd9a8, mote: [1, .9, .75],
       env: [0x3a4070, 0x080a18, [[6, 6, -3, 0xdfe6ff, 1.8], [-4, 3, 4, 0xe88a9a, .5], [0, 8, 0, 0x8a90d0, 2]]] },
-    endCard: { title: '满月照影', line: '第二幕　月　完<br>下一幕　太阳　尚在远方' },
+    endCard: { title: '满月照影', line: '第二幕　月　完<br>下一幕　太阳' },
     sockets,
     constrainOrb(o) {
       // 光点不能钻进石碑和塔里
