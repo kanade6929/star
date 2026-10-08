@@ -6,8 +6,9 @@ export function createAudio(onToggle) {
   let mood = 1, nextBar = 0, barN = 0, lastMel = 72, timer = null;
   const last = {};
   function b64(url) { const s = atob(url.split(',')[1]), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer; }
+  let hidden = false;
   function init() {
-    if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
+    if (ac) { if (ac.state === 'suspended' && !hidden) ac.resume(); return; }
     try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
     master = ac.createGain(); master.gain.value = on ? .9 : 0;
     const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7000; lp.Q.value = .2;
@@ -28,7 +29,7 @@ export function createAudio(onToggle) {
     });
   }
   function note(m, v, when = 0, bus = sfx, dur = 0) {
-    if (!ac || !ready || !on) return;
+    if (!ac || !ready || !on || hidden) return;
     let k = keysM[0]; for (const kk of keysM) if (Math.abs(kk - m) < Math.abs(k - m)) k = kk;
     const t = ac.currentTime + when;
     const s = ac.createBufferSource(); s.buffer = buf[k]; s.playbackRate.value = Math.pow(2, (m - k) / 12);
@@ -68,7 +69,7 @@ export function createAudio(onToggle) {
     return v;
   }
   function bgmTick() {
-    if (!ac) return;
+    if (!ac || hidden) return;
     const url = failed[BGM[mood]] ? null : BGM[mood];
     pool.forEach(v => { if (v.ending && performance.now() > v.ending) { v.el.pause(); v.url = null; v.ending = 0; } });
     const live = pool.filter(v => v.url && !v.ending);
@@ -103,8 +104,20 @@ export function createAudio(onToggle) {
   }
   function duck(sec) { if (!music) return; const t = ac.currentTime; music.gain.cancelScheduledValues(t); music.gain.setTargetAtTime(.12, t, .3); music.gain.setTargetAtTime(.5, t + sec, 1.5); bgm.gain.cancelScheduledValues(t); bgm.gain.setTargetAtTime(.15, t, .6); bgm.gain.setTargetAtTime(.55, t + sec, 2); }
   const arp = (ns, v, gap, d = 0) => ns.forEach((n, i) => note(n, v, d + i * gap));
+  // 切出页面（换标签页、切到别的应用、锁屏）时整体静音暂停，回来再接着放
+  function setHidden(h) {
+    if (h === hidden) return; hidden = h;
+    if (!ac) return;
+    if (h) {
+      pool.forEach(v => { v.wasPlaying = !v.el.paused; v.el.pause(); });
+      if (ac.suspend) ac.suspend().catch(() => {});
+    } else {
+      const go = () => pool.forEach(v => { if (v.wasPlaying && v.url) { const p = v.el.play(); if (p && p.catch) p.catch(() => {}); } v.wasPlaying = false; });
+      if (ac.resume) ac.resume().then(go, go); else go();
+    }
+  }
   return {
-    init, note,
+    init, note, setHidden, _dbg: () => ({ ac: ac && ac.state, hidden, playing: pool.filter(v => !v.el.paused).map(v => v.url) }),
     setMood(m) { if (m === mood) return; mood = m; barN = 0; if (ac) bgmTick(); },
     toggle() { on = !on; if (master) master.gain.setTargetAtTime(on ? .9 : 0, ac.currentTime, .2); onToggle && onToggle(on); },
     get on() { return on; },

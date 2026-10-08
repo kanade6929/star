@@ -129,7 +129,7 @@ body.touchdev .foot{display:none}
 .deck.dealt.picking .tcard.chosen{--x:0px;--y:calc(var(--u)*-1.5);--r:0deg}
 .face{position:absolute;inset:0;border:1px solid var(--gold-dim);border-radius:calc(var(--u)*.8);
   background:linear-gradient(180deg,rgba(24,18,56,.88),rgba(8,6,22,.94));box-shadow:0 0 calc(var(--u)*5) rgba(120,100,200,.18);
-  display:flex;flex-direction:column;align-items:center;padding:calc(var(--u)*4.4) calc(var(--u)*2.8) calc(var(--u)*3.6);
+  display:flex;flex-direction:column;align-items:center;padding:calc(var(--u)*4.4) calc(var(--u)*1.6) calc(var(--u)*3.6);
   transition:border-color .5s,box-shadow .6s;animation:float 9s ease-in-out infinite;animation-delay:calc(var(--k)*-3s)}
 .face::before{content:"";position:absolute;inset:calc(var(--u)*1.1);border:1px solid rgba(232,201,142,.18);border-radius:calc(var(--u)*.4);pointer-events:none}
 .tcard:hover .face,.tcard:focus-visible .face{border-color:rgba(232,201,142,.85);box-shadow:0 0 calc(var(--u)*6) rgba(170,150,255,.3),0 0 calc(var(--u)*1.4) rgba(255,226,160,.25)}
@@ -137,7 +137,8 @@ body.touchdev .foot{display:none}
 .face .rn{font-weight:300;color:var(--gold);letter-spacing:.45em;padding-left:.45em;font-size:calc(var(--u)*2)}
 .face .emb{width:56%;aspect-ratio:1;margin-top:auto}
 .face .nm{font-family:var(--title);font-size:calc(var(--u)*6.6);line-height:1;letter-spacing:.2em;padding-left:.2em;color:#f7f1e7;margin:calc(var(--u)*2.4) 0 auto;text-shadow:0 0 calc(var(--u)*2.4) rgba(207,227,255,.45)}
-.face .ln{font-size:max(11px,calc(var(--u)*1.5));line-height:1.9;letter-spacing:.12em;color:rgba(239,232,220,.7);text-align:center;text-wrap:balance}
+.face .ln{font-size:max(9px,calc(var(--u)*1.75));line-height:1.85;letter-spacing:.1em;color:rgba(239,232,220,.7);text-align:center;display:flex;flex-direction:column;align-items:center;max-width:100%}
+.face .ln i{font-style:normal;white-space:nowrap}
 .face .st{margin-top:calc(var(--u)*1.4);font-size:max(10px,calc(var(--u)*1.3));letter-spacing:.3em;padding-left:.3em;color:var(--gold)}
 .locked{cursor:default}
 .locked .face{background:repeating-linear-gradient(45deg,rgba(232,201,142,.06) 0 1px,transparent 1px calc(var(--u)*1.4)),
@@ -187,12 +188,20 @@ body.touchdev.playing #touch{display:block}
 #stick2 .knb{background:rgba(190,215,255,.4);box-shadow:0 0 12px rgba(190,215,255,.5)}
 #stick2 span{position:absolute;left:50%;top:100%;transform:translate(-50%,6px);font-size:11px;letter-spacing:.2em;color:rgba(207,227,255,.6);white-space:nowrap}
 /* 竖着拿手机：整页旋转成横屏 */
-body.rot{position:fixed;left:0;top:0;transform-origin:0 0;transform:translateX(100vw) rotate(90deg)}
+body.rot{position:fixed;left:0;top:0;transform-origin:0 0;transform:translateX(var(--W,100vw)) rotate(90deg)}
 #touch button{position:fixed;width:64px;height:64px;border-radius:50%;border:1px solid var(--gold-dim);background:rgba(10,8,26,.4);color:var(--gold);font:inherit;font-size:16px;pointer-events:auto}
 #tE{right:max(16px,calc(4*var(--vw)),calc(env(safe-area-inset-right) + 10px));bottom:max(24px,calc(6*var(--vh)))}
 #tP{right:max(16px,calc(4*var(--vw)),calc(env(safe-area-inset-right) + 10px));top:max(16px,calc(3*var(--vh)));width:44px!important;height:44px!important;font-size:13px!important}
-#touchTip{position:fixed;left:50%;top:max(16px,calc(3*var(--vh)));transform:translateX(-50%);font-size:12px;letter-spacing:.1em;color:rgba(239,232,220,.55);white-space:nowrap;text-shadow:0 0 6px #000}
-@media (max-width:640px){ .tcard{height:calc(var(--u)*46)} .deck.dealt .tcard{--x:calc(var(--i)*var(--u)*20)} }
+#touchTip{position:fixed;left:50%;top:max(16px,calc(3*var(--vh)));transform:translateX(-50%);width:max-content;max-width:calc(100% - 2*max(200px,calc(24*var(--vw))));font-size:12px;line-height:1.7;letter-spacing:.1em;color:rgba(239,232,220,.55);text-align:center;text-wrap:balance;text-shadow:0 0 6px #000}
+/* 触屏：提示文字避开两侧的摇杆和按钮 */
+body.touchdev #toast{max-width:calc(100% - 2*max(120px,calc(15*var(--vw))));text-wrap:balance;bottom:max(14px,calc(5*var(--vh)))}
+body.touchdev #prompt{font-size:13px}
+#touchTip i{font-style:normal;white-space:nowrap;display:inline-block}
+/* 过场（上下黑边）时：摇杆和提示让开，字幕抬到黑边之上；结算时字幕不压在卡片上 */
+body.cine #touchTip,body.cine #stick2 span{opacity:0}
+body.cine #toast{bottom:calc(9*var(--vh) + 10px)}
+body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
+
 @media (prefers-reduced-motion:reduce){ #menu *,#menu *::before{animation:none!important} .tcard,.deck.dealing .tcard{transition:opacity .3s!important} }
 </style>
 
@@ -215,7 +224,7 @@ body.rot{position:fixed;left:0;top:0;transform-origin:0 0;transform:translateX(1
 <div id="bars" aria-hidden="true"><i></i><i></i></div>
 <div id="skip"><span class="key">E</span> 跳过</div>
 <div id="chapter"><div><div class="num">XVII</div><div class="name">星</div><div class="line">在无光之处，星辰等待被唤醒</div></div></div>
-<div id="touch"><div id="stick" class="stk"><div id="knob" class="knb"></div></div><div id="stick2" class="stk"><div id="knob2" class="knb"></div><span>星光</span></div><button id="tE" aria-label="互动">E</button><button id="tP" aria-label="暂停">Ⅱ</button><div id="touchTip">左边摇杆行走　右边摇杆移动星光</div></div>
+<div id="touch"><div id="stick" class="stk"><div id="knob" class="knb"></div></div><div id="stick2" class="stk"><div id="knob2" class="knb"></div><span>星光</span></div><button id="tE" aria-label="互动">E</button><button id="tP" aria-label="暂停">Ⅱ</button><div id="touchTip"><i>左边摇杆行走</i>　<i>右边摇杆移动星光</i></div></div>
 <div id="end"><div class="card">
   <div class="roman" id="endRoman">XVII</div>
   <h2 id="endTitle">星光归位</h2>
@@ -256,7 +265,7 @@ body.rot{position:fixed;left:0;top:0;transform-origin:0 0;transform:translateX(1
             <g fill="#e8c98e" stroke="none" opacity=".8"><circle cx="22" cy="24" r="1.3"/><circle cx="80" cy="20" r="1"/><circle cx="78" cy="80" r="1.4"/><circle cx="18" cy="74" r="1"/></g>
           </svg>
           <span class="nm">星</span>
-          <span class="ln">光之桥　影之晷<br>在无光之处，星辰等待被唤醒</span>
+          <span class="ln"><i>光之桥　影之晷</i><i>在无光之处</i><i>星辰等待被唤醒</i></span>
           <span class="st">可进入</span>
         </span>
       </button>
@@ -269,7 +278,7 @@ body.rot{position:fixed;left:0;top:0;transform-origin:0 0;transform:translateX(1
             <path d="M20 86 Q35 82 50 86 T80 86" opacity=".5"/><path d="M28 92 Q40 89 52 92 T74 92" opacity=".3"/>
           </svg>
           <span class="nm">月</span>
-          <span class="ln">影中之路　水底之月<br>光与影，交替托住你</span>
+          <span class="ln"><i>影中之路　水底之月</i><i>光与影</i><i>交替托住你</i></span>
           <span class="st">可进入</span>
         </span>
       </button>
@@ -281,7 +290,7 @@ body.rot{position:fixed;left:0;top:0;transform-origin:0 0;transform:translateX(1
             <g opacity=".6"><path d="M50 12v12M50 76v12M12 50h12M76 50h12M23 23l8 8M69 69l8 8M77 23l-8 8M31 69l-8 8"/></g>
           </svg>
           <span class="nm">太阳</span>
-          <span class="ln">折光之镜　向日之花<br>把光，送到最远的地方</span>
+          <span class="ln"><i>折光之镜　向日之花</i><i>把光</i><i>送到最远的地方</i></span>
           <span class="st">可进入</span>
         </span>
       </button>

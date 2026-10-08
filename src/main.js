@@ -42,7 +42,8 @@ function layoutView() {
   b.classList.toggle('rot', view.rot);
   b.classList.toggle('short', view.h < 520);
   b.style.width = view.rot ? view.w + 'px' : ''; b.style.height = view.rot ? view.h + 'px' : '';
-  st.setProperty('--vw', view.rot ? view.w / 100 + 'px' : '1vw'); st.setProperty('--vh', view.rot ? view.h / 100 + 'px' : '1vh');
+  // 用实际可见尺寸换算 vw/vh：手机浏览器地址栏伸缩时 1vh 不等于可见高度的 1%，会让贴边的文字和按钮错位
+  st.setProperty('--vw', view.w / 100 + 'px'); st.setProperty('--vh', view.h / 100 + 'px'); st.setProperty('--W', innerWidth + 'px');
 }
 // 屏幕坐标 → 游戏画面坐标（竖屏旋转时换算）
 function toView(cx, cy) { return view.rot ? [cy, innerWidth - cx] : [cx, cy]; }
@@ -52,6 +53,9 @@ function resize() {
   pipe.setupCamera(cam);
 }
 addEventListener('resize', resize); resize();
+// 手机转屏、地址栏收起时尺寸会晚一点才稳定：再补几次
+const relayout = () => { resize(); [120, 400, 900].forEach(t => setTimeout(resize, t)); };
+addEventListener('orientationchange', relayout); if (window.visualViewport) visualViewport.addEventListener('resize', resize);
 
 /* ================= 全局灯光（每关重新配色） ================= */
 const hemi = new THREE.HemisphereLight(0x7470b0, 0x1a1028, .36); scene.add(hemi);
@@ -128,6 +132,16 @@ let T = 0;
 const S = { mode: 'menu', t: 0, level: 1, fade: 1, fadeTo: 0, endShown: false, ev: -1, introT: 0, cine: null, shakeT: 0, shakeA: 0, shakeD: 1, flash: 0,
   idle: { x: 0, z: 0, t: 0, tier: 0, key: '' }, bars: false, elev: ELEV0, hints: {} };
 const AU = createAudio(on => { syncSound(); toast(on ? '琴声已开启' : '琴声已关闭', 1.4); });
+// 页面不在眼前时不放音乐：切标签页、切应用、锁屏（手机电脑都算）；电脑上窗口失焦也算
+{
+  let away = false, blurred = false;
+  const sync = () => AU.setHidden(document.hidden || away || blurred);
+  document.addEventListener('visibilitychange', sync);
+  addEventListener('pagehide', () => { away = true; sync(); });
+  addEventListener('pageshow', () => { away = false; sync(); });
+  if (!TOUCH) { addEventListener('blur', () => { blurred = true; sync(); }); addEventListener('focus', () => { blurred = false; sync(); }); }
+  addEventListener('pointerdown', () => { if (blurred) { blurred = false; sync(); } }, true);
+}
 
 /* ================= UI 辅助 ================= */
 let toastT = 0;
@@ -640,7 +654,7 @@ requestAnimationFrame(frame);
 setTimeout(() => document.querySelector('#mainNav .vbtn').focus({ preventScroll: true }), 100);
 
 // 调试/测试钩子
-window.__G = { scene,
+window.__G = { scene, AU,
   sim(sec) { for (let t = 0; t < sec; t += 1 / 30) update(1 / 30); return [S.mode, LV.progress(), P.x.toFixed(1), P.z.toFixed(1), P.falling]; },
   S, P, orb, get LV() { return LV; }, get mouse() { return mouse; }, set mouse(v) { mouse.seen = false; },
   begin, toMenu, interact, setMouse, mouseWorld, keys, update, pipe, cam, loadLevel, skipIntro, nearest, warmup, render() { pipe.render(scene, cam, { time: T, fade: S.fade, focus: focusUV, dofK, flash: S.flash, vig }); }
