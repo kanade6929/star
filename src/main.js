@@ -337,6 +337,20 @@ function interact() {
   const n = nearest(); if (!n) return;
   if (n.type === 'finale') { S.ev = 0; S.mode = 'cut'; AU.finale(); setBars(true); LV.finaleStart(); updateHud(); return; }
   LV.interact(n);
+  // 抬手触碰机关：转向目标
+  P.reachT = 0; P.reachYaw = (Math.abs(n.x - P.x) + Math.abs(n.z - P.z) > .15) ? Math.atan2(n.x - P.x, n.z - P.z) : null;
+}
+const REACH = .8;
+function reachState(dt) {
+  if (P.reachT == null) return null;
+  P.reachT += dt; const t = P.reachT;
+  if (t > REACH || P.lie || P.falling) { P.reachT = null; return null; }
+  const e = x => x * x * (3 - 2 * x);
+  const k = t < .18 ? e(t / .18) : t < .5 ? 1 : 1 - e((t - .5) / (REACH - .5));
+  const tap = t > .16 && t < .4 ? Math.sin((t - .16) / .24 * Math.PI) : 0;
+  // 指尖碰到的一瞬：一小簇光点
+  if (t >= .28 && t - dt < .28) { const a = P.reachYaw ?? pc.yawA; fx.burst(P.x + Math.sin(a) * .45, P.y + .75, P.z + Math.cos(a) * .45, 8, { c: [1, .92, .7], sp: .5, life: .5, g: 0, up: .2 }); }
+  return { k, tap, yaw: P.reachYaw };
 }
 
 /* ================= 移动与坠落 ================= */
@@ -487,7 +501,7 @@ function update(dt) {
   else { const amb = S.mode === 'menu' ? LV.light.hemi : LV.ambient(P); hemi.intensity = lerp(hemi.intensity, amb, 1 - Math.exp(-dt * 2)); moon.intensity = hemi.intensity * LV.light.moonK; }
 
   // 角色帧
-  pc.update({ dir: P.dir, moving: P.moving && !P.falling, run: P.run, vx: P.falling ? 0 : P.vx, vz: P.falling ? 0 : P.vz, dt, lie: P.lie, crouch: P.crouch, act: P.act, actT: P.actT });
+  pc.update({ dir: P.dir, moving: P.moving && !P.falling, run: P.run, vx: P.falling ? 0 : P.vx, vz: P.falling ? 0 : P.vz, dt, lie: P.lie, crouch: P.crouch, act: P.act, actT: P.actT, reach: reachState(dt) });
   player.position.set(Math.round(P.x * 32) / 32, P.y, Math.round(P.z * 32) / 32); pc.U.foot.value.copy(player.position);
 
   LV.update(dt, T);

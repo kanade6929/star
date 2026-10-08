@@ -6,7 +6,7 @@ import * as THREE from 'three';
 const U = 1 / 16;
 const hex = h => new THREE.Color(h).convertSRGBToLinear();
 const C = Object.fromEntries(Object.entries({
-  hair: '#ece8fc', hairS: '#cdc6ee', hairD: '#a29ad6', skin: '#fde8dc', skinS: '#f3d0c4', blush: '#f6a8bc', mouth: '#c95f7a',
+  hair: '#ece8fc', hairS: '#cdc6ee', hairD: '#a29ad6', skin: '#fde8dc', skinS: '#f3d0c4', blush: '#f6a8bc',
   lash: '#25194a', iris1: '#2f2f86', iris2: '#5468d0', iris3: '#9cc2ff', white: '#ffffff',
   dress: '#33408f', dressS: '#27306e', dressL: '#5062bc', collar: '#f3efff', ribbon: '#e8c98e',
   cape: '#262d6c', lining: '#7a5cbc', trim: '#e8c98e', sock: '#f1edff', shoe: '#3b2c4c', pin: '#ffe39a'
@@ -94,9 +94,8 @@ function buildParts() {
   for (let x = -6; x < 6; x++) for (let z = -5; z < 6; z++) if (x === -6 || x === 5 || z === -5 || z === 5) head.del(x, 23, z);
   head.box(-4, 24, -3, 4, 25, 4, C.hairS);
   for (let y = 14; y < 21; y++) { head.set(-7, y, 1, C.hairS); head.set(6, y, 1, C.hairS); head.set(-7, y, 0, C.hairD); head.set(6, y, 0, C.hairD); }
-  // 腮红、嘴
+  // 腮红
   [[-5, 14], [-4, 14], [3, 14], [4, 14]].forEach(([x, y]) => head.set(x, y, 5, C.blush));
-  head.set(-1, 13, 5, C.mouth); head.set(0, 13, 5, C.mouth);
   // 眼睛区域留空，由睁眼 / 闭眼两套部件填
   const eyeCells = [];
   [[-4, -3, -2], [1, 2, 3]].forEach(xs => xs.forEach(x => [15, 16, 17].forEach(y => { head.del(x, y, 5); eyeCells.push([x, y]); })));
@@ -212,6 +211,7 @@ export class VoxChar {
     const sp = Math.hypot(st.vx, st.vz);
     let target = this.yawA;
     if (sp > .2) target = Math.atan2(st.vx, st.vz);
+    else if (st.reach && st.reach.yaw != null) target = st.reach.yaw;
     else target = { down: 0, up: Math.PI, left: -Math.PI / 2, right: Math.PI / 2 }[st.dir] ?? this.yawA;
     let d = target - this.yawA; d = Math.atan2(Math.sin(d), Math.cos(d));
     const prevYaw = this.yawA;
@@ -236,11 +236,22 @@ export class VoxChar {
     this.legs[0].rotation.x = s * amp - K * 1.5; this.legs[1].rotation.x = -s * amp - K * 1.5;
     this.arms[0].rotation.set(-s * amp * .9 - K * .3, 0, -.08 - run * .25);
     this.arms[1].rotation.set(s * amp * .9 - K * .3, 0, .08 + run * .25);
-    let look = 0;
+    let look = 0, headX = 0;
+    // 互动：抬右手向前上方伸出、指尖轻触机关，再放下
+    const rk = st.reach ? st.reach.k : 0;
+    if (rk > 0) {
+      const tap = st.reach.tap || 0, mix = (a, b) => a + (b - a) * rk;
+      const r = this.arms[1].rotation, l = this.arms[0].rotation;
+      r.set(mix(r.x, -1.3 - tap * .25), 0, mix(r.z, 1.15));
+      l.set(mix(l.x, .18), 0, mix(l.z, -.16));
+      this.body.rotation.x += .1 * rk + tap * .04;
+      this.bob.position.y -= .025 * rk;
+      headX = .14 * rk;
+    }
     if (st.act === 'rub') { const side = (st.actT || 0) % 1.3 < .65 ? 0 : 1; this.arms[side].rotation.set(-2.5, 0, (side ? -1 : 1) * .45); }
     if (st.act === 'look') { const t = st.actT || 0; look = t < .8 ? -1 : t < 1.7 ? 1 : 0; }
     this.lookA += (look * .6 - this.lookA) * (1 - Math.exp(-dt * 6));
-    this.head.rotation.set(st.act === 'rub' ? .12 : 0, this.lookA, 0);
+    this.head.rotation.set(st.act === 'rub' ? .12 : headX, this.lookA, 0);
     // 眨眼 / 睡着
     this.blinkT -= dt; if (this.blinkT < -.12) this.blinkT = 2 + Math.random() * 3;
     const shut = st.lie || this.blinkT < 0 || (st.act === 'rub' && Math.sin(this.t * 9) > 0);
