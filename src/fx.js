@@ -53,6 +53,12 @@ export class FX {
     this.haloT = nearest(new THREE.CanvasTexture(haloCanvas(64)));
     this.items = [];
     this.beacons = [];
+    // 常驻的隐形样本：光环、星印用的材质每次新建、用完就释放，若没有常驻的同类材质，
+    // 着色器会被释放后再重新编译，点亮机关的瞬间就会卡一下。留一份常驻，着色器就一直在。
+    const keepOpts = { transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide };
+    [new THREE.MeshBasicMaterial(keepOpts), new THREE.MeshBasicMaterial({ ...keepOpts, map: this.haloT })].forEach(mat => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(.01, .01), mat); m.layers.set(LAYER_FX); m.visible = false; m.position.y = -50; scene.add(m);
+    });
   }
   /* ---------- 粒子 ---------- */
   emit(x, y, z, o = {}) {

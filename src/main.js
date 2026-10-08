@@ -183,6 +183,32 @@ function loadLevel(n) {
   document.querySelector('#pause .proman').textContent = `${LV.roman}　${LV.name}`;
   const ch = $('chapter'); ch.querySelector('.num').textContent = LV.roman; ch.querySelector('.name').textContent = LV.name; ch.querySelector('.line').textContent = LV.motto;
   AU.setMood(LV.mood);
+  needWarm = true;
+}
+
+// 预热：关卡载入时把整关（包括还没出现的机关、特效）都完整渲染一遍，
+// 让所有着色器和贴图提前编译、上传，走到下一个小场景时就不会突然卡一下
+let needWarm = false;
+function warmup() {
+  const hid = [], fc = [], cs = [], ic = [], li = [], seen = new Set();
+  const initTex = v => { if (v && v.isTexture && !seen.has(v)) { seen.add(v); renderer.initTexture(v); } };
+  // 原本看不见的灯（如菜单梦境里的灯）预热时也保持关闭：灯光数量一变，所有着色器都要重编，预热就白做了
+  const offL = []; scene.traverse(o => { if (o.isLight) { let v = true; for (let p = o; p; p = p.parent) v = v && p.visible; if (!v) offL.push(o); } });
+  scene.traverse(o => {
+    if (!o.visible) { hid.push(o); o.visible = true; }
+    if (o.frustumCulled) { fc.push(o); o.frustumCulled = false; }
+    if (o.isLight && o.castShadow && o.intensity < .01) { li.push([o, o.intensity]); o.intensity = 1; } // 熄灭的投影光也要把阴影着色器准备好
+    if (o.isInstancedMesh && o.count === 0) { ic.push(o); o.count = 1; } // 还没长出来的体素也要预热
+    if (o.isMesh && !o.castShadow) { cs.push(o); o.castShadow = true; } // 运行中才开始投影的物体也要预热阴影着色器
+    if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
+      for (const k in m) initTex(m[k]);
+      if (m.uniforms) for (const k in m.uniforms) initTex(m.uniforms[k].value);
+    });
+  });
+  offL.forEach(o => o.visible = false);
+  pipe.render(scene, cam, { time: T, fade: 1, focus: focusUV, dofK, flash: 0, vig });
+  offL.forEach(o => o.visible = true);
+  hid.forEach(o => o.visible = false); fc.forEach(o => o.frustumCulled = true); cs.forEach(o => o.castShadow = false); ic.forEach(o => o.count = 0); li.forEach(([o, v]) => o.intensity = v);
 }
 
 function resetLevel() {
@@ -544,7 +570,7 @@ function begin(n = 1) {
     if (!LV || S.level !== n) loadLevel(n);
     pipe.setZoom(1); pipe.setupCamera(cam);
     stickHome();
-    resetLevel();
+    resetLevel(); needWarm = true; // 黑屏时以游戏镜头再预热一遍
     menu.classList.add('hide'); document.body.classList.add('playing'); $('end').classList.remove('on');
     $('deck').classList.remove('picking'); document.querySelectorAll('.tcard').forEach(c => c.classList.remove('chosen'));
     S.mode = 'intro'; S.introT = 0; S.chShown = false; S.fadeTo = 0; camFocus.set(P.x, 0, P.z); camVel.set(0, 0, 0);
@@ -592,6 +618,7 @@ let last = performance.now();
 function frame(now) {
   const dt = clamp((now - last) / 1000, .001, .05); last = now;
   if (S.mode !== 'paused') update(dt);
+  if (needWarm && pipe.w) { warmup(); needWarm = false; }
   pipe.render(scene, cam, { time: T, fade: S.fade, grade: 0, focus: focusUV, dofK, flash: S.flash, vig });
   requestAnimationFrame(frame);
 }
@@ -605,5 +632,5 @@ setTimeout(() => document.querySelector('#mainNav .vbtn').focus({ preventScroll:
 window.__G = { scene,
   sim(sec) { for (let t = 0; t < sec; t += 1 / 30) update(1 / 30); return [S.mode, LV.progress(), P.x.toFixed(1), P.z.toFixed(1), P.falling]; },
   S, P, orb, get LV() { return LV; }, get mouse() { return mouse; }, set mouse(v) { mouse.seen = false; },
-  begin, toMenu, interact, setMouse, mouseWorld, keys, update, pipe, cam, loadLevel, skipIntro, nearest, render() { pipe.render(scene, cam, { time: T, fade: S.fade, focus: focusUV, dofK, flash: S.flash, vig }); }
+  begin, toMenu, interact, setMouse, mouseWorld, keys, update, pipe, cam, loadLevel, skipIntro, nearest, warmup, render() { pipe.render(scene, cam, { time: T, fade: S.fade, focus: focusUV, dofK, flash: S.flash, vig }); }
 };
