@@ -14,8 +14,9 @@ const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const easeBack = t => { const c = 1.6; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
 const BY = 1.1;              // 光束的高度（镜心、棱镜、花盘都在这个高度）
-const ORB_REACH = 6.5;       // 光点能直接照到镜子的距离
-const SNAP = 10 * Math.PI / 180; // 反射方向离目标不到 10° 就吸过去（对玩家宽容一点）
+const ORB_REACH = 6.5;       // 光点能照进透镜的距离
+const QDIR = Math.PI / 4;    // 透镜射出的方向按 45° 取整：光点在透镜的哪一侧，光就往对面射
+const SNAP = 1.5 * Math.PI / 180; // 只容忍浮点误差：光路必须真的对准
 const STEP = Math.PI / 8;    // 镜子每次转 22.5°
 const CRYST = .8;            // 光束跨过云海持续这么久，就凝成金桥
 const BRIDGE_W = .56;        // 金桥的半宽
@@ -29,35 +30,33 @@ function buildMap() {
   const set = (x, z, c) => { if (x >= 0 && z >= 0 && x < MW && z < MH) g[z][x] = c; };
   const fill = (x0, z0, x1, z1, c) => { for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) set(x, z, c); };
   const pts = (list, c) => list.forEach(([x, z]) => set(x, z, c));
-  // A：黎明花园（醒来的地方），白砖墙围着
+  // A：黎明花园。一块透镜、两面镜子，正中立着日晷挡住捷径；向日葵只朝东开
   fill(1, 2, 11, 12, ',');
   for (let x = 0; x <= 12; x++) { set(x, 1, '#'); set(x, 13, '#'); }
   for (let z = 1; z <= 13; z++) { set(0, z, '#'); set(12, z, '#'); }
   fill(12, 6, 12, 8, 'G');
-  fill(2, 6, 4, 8, '.'); fill(2, 7, 11, 7, '.'); fill(5, 3, 7, 5, '.'); fill(6, 5, 6, 12, '.'); fill(5, 10, 7, 12, '.');
-  set(6, 4, 'M'); set(6, 11, 'R');
-  pts([[2, 3], [3, 3], [2, 4], [9, 3], [10, 3], [10, 4], [2, 11], [2, 12], [3, 12], [9, 11], [10, 11], [10, 10], [9, 12]], 'Y');
-  // B：云上的断岸与小岛
-  fill(13, 5, 16, 9, '.'); set(15, 5, 'M');
-  pts([[13, 9], [16, 9]], 'Y');
-  fill(19, 9, 22, 12, ','); set(20, 10, 'M'); pts([[22, 12], [19, 12]], 'Y');
-  // C 西：白马的庭院入口
-  fill(25, 2, 30, 12, '.'); fill(25, 2, 27, 4, ','); fill(28, 9, 29, 10, ',');
-  set(26, 10, 'R');
-  pts([[25, 2], [29, 2], [25, 6]], 'Y');
-  fill(30, 11, 33, 13, '.'); set(32, 12, 'M');
-  // 深谷中央的石台：一面斜放的金镜（转不动）
-  fill(31, 6, 33, 8, '.'); set(32, 7, 'm');
-  // C 东：棱镜与双生的向日葵
-  fill(36, 1, 46, 13, '.'); fill(36, 1, 39, 3, ','); fill(36, 11, 39, 13, ','); fill(43, 4, 46, 6, ',');
-  set(38, 7, 'P'); set(42, 3, 'R'); set(42, 11, 'R');
-  set(44, 5, 'W');
-  // 东南角：向日葵篱笆围起来的小花园，里面是第二朵双生花和牌。篱笆合着时也挡光
-  fill(41, 10, 46, 13, ',');
-  for (let x = 40; x <= 46; x++) set(x, 9, 'h');
-  for (let z = 10; z <= 13; z++) set(40, z, 'h');
-  set(42, 11, 'R'); set(45, 12, 'C');
-  pts([[36, 1], [46, 1], [36, 13], [40, 1]], 'Y');
+  fill(1, 7, 11, 7, '.'); fill(5, 6, 7, 8, '.'); fill(2, 3, 4, 5, '.'); fill(8, 3, 10, 5, '.'); fill(8, 9, 10, 11, '.'); fill(2, 9, 4, 11, '.');
+  set(3, 4, 'L'); set(9, 4, 'M'); set(9, 10, 'M'); set(3, 10, 'R'); set(6, 7, 'S');
+  pts([[1, 2], [6, 2], [11, 2], [1, 12], [6, 12], [11, 12], [11, 9]], 'Y');
+  // B：断岸、北岛、南岛。一道光要先往北叫醒花，再收回来往东送
+  fill(13, 4, 16, 10, '.'); set(15, 7, 'L'); pts([[13, 4], [13, 10]], 'Y');
+  fill(18, 2, 20, 4, ','); set(19, 3, 'R'); pts([[18, 2], [20, 2]], 'Y');
+  fill(18, 10, 20, 12, ','); set(19, 11, 'M'); set(18, 12, 'Y');
+  // C 西：白墙庭院，西墙只在南边留一道门（第二朵花开了才打开）
+  fill(26, 10, 27, 12, '.');
+  fill(29, 2, 32, 12, '.'); fill(29, 2, 30, 4, ',');
+  for (let z = 1; z <= 9; z++) set(28, z, '#'); set(28, 13, '#'); fill(28, 10, 28, 12, 'g');
+  for (let x = 28; x <= 33; x++) set(x, 1, '#');
+  set(31, 11, 'M'); set(31, 7, 'M');
+  pts([[29, 12], [32, 2], [29, 9]], 'Y');
+  // C 东：棱镜、两面镜子、双生向日葵；西南角是向日葵篱笆围起的小花园
+  fill(36, 1, 46, 13, '.'); fill(42, 4, 46, 6, ','); fill(36, 10, 38, 13, ','); fill(43, 12, 46, 13, ',');
+  set(40, 7, 'P'); set(44, 3, 'M'); set(40, 3, 'M'); set(44, 11, 'R'); set(36, 11, 'R');
+  set(45, 6, 'W');
+  for (let x = 36; x <= 39; x++) set(x, 9, 'h');
+  for (let z = 10; z <= 13; z++) set(39, z, 'h');
+  set(37, 12, 'C');
+  pts([[36, 1], [46, 1], [46, 13], [42, 13], [36, 5]], 'Y');
   // 吊桥 → D：日台
   fill(47, 7, 50, 7, 'b');
   fill(51, 2, 62, 12, ','); fill(51, 7, 58, 7, '.'); fill(54, 4, 60, 10, '.');
@@ -66,7 +65,7 @@ function buildMap() {
   pts([[53, 4], [53, 10], [61, 5], [61, 9], [55, 3], [59, 3], [55, 11], [59, 11]], 'Y');
   return g;
 }
-const SOLID = new Set(['#', 'M', 'm', 'R', 'P', 'Y', 'W', 'C', 'A']);
+const SOLID = new Set(['#', 'M', 'L', 'R', 'P', 'Y', 'W', 'C', 'A', 'S']);
 
 /* ---------- 像素画：向日葵、太阳 ---------- */
 function sunflowerCanvas(N, open, seed) {
@@ -169,21 +168,33 @@ export function buildSun(ctx) {
   walls.forEach(([x, z, s], i) => { if (i % 3) return; const d = new THREE.Mesh(new THREE.CylinderGeometry(.12, .12, .04, 10), brassM); d.position.set(x + .5, 1.6 * s + .04, z + .5); root.add(d); });
 
   /* ================= 花园门 ================= */
-  const gate = { x: 12, open: 0, opening: false, leaves: [] };
-  {
-    [5, 9].forEach(z => { const p = new THREE.Mesh(new THREE.BoxGeometry(1, 2.6, 1), brickS); p.position.set(12.5, 1.3, z + .5); shadowAll(p); root.add(p); });
-    const arch = new THREE.Mesh(new THREE.TorusGeometry(1.5, .1, 6, 32, Math.PI), brassM); arch.rotation.y = Math.PI / 2; arch.position.set(12.5, 2.4, 7.5); root.add(arch);
-    const sun = new THREE.Mesh(new THREE.CircleGeometry(.36, 16), new THREE.MeshStandardMaterial({ color: 0xffd270, emissive: 0xffa040, emissiveIntensity: .4, metalness: .6, roughness: .3 }));
-    sun.rotation.y = -Math.PI / 2; sun.position.set(11.9, 3.2, 7.5); root.add(sun);
+  const makeGate = (x, zc) => {
+    const gt = { x, zc, open: 0, opening: false, leaves: [] };
+    [zc - 2, zc + 2].forEach(z => { const p = new THREE.Mesh(new THREE.BoxGeometry(1, 2.6, 1), brickS); p.position.set(x + .5, 1.3, z + .5); shadowAll(p); root.add(p); });
+    const arch = new THREE.Mesh(new THREE.TorusGeometry(1.5, .1, 6, 32, Math.PI), brassM); arch.rotation.y = Math.PI / 2; arch.position.set(x + .5, 2.4, zc + .5); root.add(arch);
+    const sun = new THREE.Mesh(new THREE.CircleGeometry(.36, 16), gateSunM);
+    sun.rotation.y = -Math.PI / 2; sun.position.set(x - .1, 3.2, zc + .5); root.add(sun);
     // 两扇金色格栅门，向两侧转开
     [-1, 1].forEach(s => {
-      const pivot = new THREE.Group(); pivot.position.set(12.5, 0, 7.5 + s * 1.5); root.add(pivot);
+      const pivot = new THREE.Group(); pivot.position.set(x + .5, 0, zc + .5 + s * 1.5); root.add(pivot);
       for (let i = 0; i < 4; i++) { const bar = new THREE.Mesh(new THREE.BoxGeometry(.08, 2.2, .08), brassM); bar.position.set(0, 1.1, -s * (.2 + i * .38)); pivot.add(bar); }
       const rail = new THREE.Mesh(new THREE.BoxGeometry(.1, .08, 1.5), brassM); rail.position.set(0, 1.9, -s * .75); pivot.add(rail);
       const rail2 = rail.clone(); rail2.position.y = .4; pivot.add(rail2);
-      shadowAll(pivot); gate.leaves.push({ pivot, s });
+      shadowAll(pivot); gt.leaves.push({ pivot, s });
     });
-    gate.glow = new THREE.MeshStandardMaterial({ color: 0xffd270, emissive: 0xffa040, emissiveIntensity: .4 });
+    return gt;
+  };
+  const gateSunM = new THREE.MeshStandardMaterial({ color: 0xffd270, emissive: 0xffa040, emissiveIntensity: .4, metalness: .6, roughness: .3 });
+  const gate = makeGate(12, 7), gate2 = makeGate(28, 11);
+  const gateAt = x => x < 20 ? gate : gate2;
+
+  /* ================= 日晷（花园正中，挡住斜着的捷径） ================= */
+  {
+    const g0 = new THREE.Group(); g0.position.set(6.5, 0, 7.5); root.add(g0);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(.46, .52, .7, 12), creamM); base.position.y = .35; g0.add(base);
+    const face = new THREE.Mesh(new THREE.CylinderGeometry(.5, .5, .06, 24), brassM); face.position.y = .73; g0.add(face);
+    const gn = new THREE.Mesh(new THREE.ConeGeometry(.08, .9, 4), brassM); gn.position.set(0, 1.1, 0); gn.rotation.x = .5; g0.add(gn);
+    shadowAll(g0);
   }
 
   /* ================= 向日葵 ================= */
@@ -212,7 +223,8 @@ export function buildSun(ctx) {
   };
   // 受光的大向日葵：花苞 → 盛开
   const recvLights = [];
-  const addRecv = (x, z, id) => {
+  const faceMarkM = new THREE.MeshBasicMaterial({ color: 0xffd890, transparent: true, opacity: .55, depthWrite: false, side: THREE.DoubleSide });
+  const addRecv = (x, z, id, face) => {
     const g0 = new THREE.Group(); g0.position.set(x + .5, 0, z + .5); root.add(g0);
     const stem = voxelBatch(stemCanvas(40 + id, 22), [place(0, 0, .05, 0, .1, .9)], vm, { maxT: .1, minT: .06, slope: .02 }); g0.add(stem);
     const head = new THREE.Group(); head.position.y = BY; g0.add(head);
@@ -222,7 +234,10 @@ export function buildSun(ctx) {
     const bloom = voxelBatch(openC, [place(0, -24 / 32, 0, 0, 0)], mat, { maxT: .14, minT: .06, slope: .025 });
     bloom.scale.setScalar(.01); head.add(bud, bloom);
     const light = new THREE.PointLight(0xffb060, 0, 5, 1.6); light.position.y = BY + .3; g0.add(light); recvLights.push(light);
-    const r = { id, x, z, cx: x + .5, cz: z + .5, g: g0, head, bud, bloom, mat, light, on: false, k: 0, hitT: 0, lit: false, q: new THREE.Quaternion(), face: null };
+    // 地上一道金色的弧：花只收从这一侧照来的光
+    const fl = Math.hypot(face[0], face[1]); face = [face[0] / fl, face[1] / fl];
+    const mark = new THREE.Mesh(new THREE.RingGeometry(.5, .66, 16, 1, -Math.PI / 2, Math.PI), faceMarkM); mark.rotation.set(-Math.PI / 2, 0, Math.atan2(-face[1], face[0])); mark.position.y = .03; g0.add(mark);
+    const r = { id, x, z, cx: x + .5, cz: z + .5, g: g0, head, bud, bloom, mat, light, on: false, k: 0, hitT: 0, lit: false, wrong: 0, q: new THREE.Quaternion(), face };
     L.recv.push(r); return r;
   };
 
@@ -231,15 +246,17 @@ export function buildSun(ctx) {
   const dialPlateM = toon({ color: 0xd8a868, roughness: .3, metalness: .7, emissive: 0x4a2010, emissiveIntensity: .3 });
   const dialArrowM = new THREE.MeshBasicMaterial({ color: 0xffe2a0, side: THREE.DoubleSide }), dialFixedM = new THREE.MeshBasicMaterial({ color: 0xffb070, side: THREE.DoubleSide });
   const arrowGeo = (() => { const sh = new THREE.Shape(); sh.moveTo(.4, -.13); sh.lineTo(.74, 0); sh.lineTo(.4, .13); sh.lineTo(.46, 0); sh.closePath(); return new THREE.ShapeGeometry(sh); })();
-  const addMirror = (x, z, a0, turn, id) => {
+  const lensM = () => new THREE.MeshStandardMaterial({ color: 0xfff6e0, roughness: .05, metalness: .1, emissive: 0xffd080, emissiveIntensity: .3, transparent: true, opacity: .78 });
+  const addMirror = (x, z, a0, turn, id, lens = false) => {
     const g0 = new THREE.Group(); g0.position.set(x + .5, 0, z + .5); root.add(g0);
     const ped = new THREE.Mesh(new THREE.CylinderGeometry(.24, .34, .5, 10), creamM); ped.position.y = .25; g0.add(ped);
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, BY - .5, 6), brassM); pole.position.y = .5 + (BY - .5) / 2; g0.add(pole);
     const yaw = new THREE.Group(); yaw.position.y = BY; g0.add(yaw);
     const fork = new THREE.Mesh(new THREE.TorusGeometry(.5, .04, 5, 20, Math.PI), brassM); fork.rotation.set(0, Math.PI / 2, Math.PI); fork.position.y = 0; yaw.add(fork);
-    const dm = discM();
+    const dm = lens ? lensM() : discM();
     const disc = new THREE.Mesh(new THREE.CylinderGeometry(.5, .5, .05, 22), [brassM, dm, dm]); disc.rotation.z = Math.PI / 2; yaw.add(disc);
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(.51, .04, 5, 24), brassM); rim.rotation.y = Math.PI / 2; yaw.add(rim);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(.51, lens ? .08 : .04, 5, 24), brassM); rim.rotation.y = Math.PI / 2; yaw.add(rim);
+    if (lens) { for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; const t = new THREE.Mesh(new THREE.ConeGeometry(.05, .18, 4), brassM); t.position.set(0, Math.sin(a) * .66, Math.cos(a) * .66); t.rotation.x = -a; yaw.add(t); } fork.visible = false; }
     // 指向箭头：告诉玩家镜面朝哪
     const tick = new THREE.Mesh(new THREE.ConeGeometry(.06, .16, 4), brassM); tick.rotation.z = -Math.PI / 2; tick.position.set(.12, .52, 0); yaw.add(tick);
     // 地上的转盘：发光的箭头指着镜面朝向，俯视时一眼看得出镜子朝哪
@@ -248,12 +265,12 @@ export function buildSun(ctx) {
     const arrow = new THREE.Mesh(arrowGeo, turn ? dialArrowM : dialFixedM); arrow.rotation.x = -Math.PI / 2; arrow.position.y = .005; dial.add(arrow);
     if (!turn) { const base = new THREE.Mesh(new THREE.CylinderGeometry(.7, .9, .3, 12), darkM); base.position.y = -.05; g0.add(base); }
     shadowAll(g0); disc.castShadow = true;
-    const m = { id, x, z, cx: x + .5, cz: z + .5, a: a0, shown: a0, turn, locked: null, g: g0, yaw, dial, dm, lit: 0, spin: 0 };
+    const m = { id, x, z, cx: x + .5, cz: z + .5, a: a0, a0, shown: a0, turn, lens, locked: null, g: g0, yaw, dial, arrow, dm, lit: 0, spin: 0 };
     L.mirrors.push(m); return m;
   };
 
   /* ================= 棱镜 ================= */
-  const prism = { id: 'P', cx: 38.5, cz: 7.5, lit: 0 };
+  const prism = { id: 'P', cx: 40.5, cz: 7.5, lit: 0 };
   {
     const g0 = new THREE.Group(); g0.position.set(prism.cx, 0, prism.cz); root.add(g0);
     const ped = new THREE.Mesh(new THREE.CylinderGeometry(.34, .5, .6, 6), creamM); ped.position.y = .3; g0.add(ped);
@@ -267,7 +284,7 @@ export function buildSun(ctx) {
   /* ================= 白马像（塔罗里孩子骑着的白马）+ 旗帜 ================= */
   const horse = {};
   {
-    const g0 = new THREE.Group(); g0.position.set(44.5, 0, 5.5); root.add(g0);
+    const g0 = new THREE.Group(); g0.position.set(45.5, 0, 6.5); root.add(g0);
     const wM = toon({ color: 0xfaf2e6, roughness: .4 });
     const ped = new THREE.Mesh(new THREE.BoxGeometry(1, .4, 1), creamM); ped.position.y = .2; g0.add(ped);
     const body = new THREE.Mesh(new THREE.BoxGeometry(.36, .36, .8), wM); body.position.y = .95; g0.add(body);
@@ -284,7 +301,7 @@ export function buildSun(ctx) {
 
   /* ================= 太阳之牌（藏在篱笆后） ================= */
   const haloT = tex(haloCanvas(64)); haloT.wrapS = haloT.wrapT = THREE.ClampToEdgeWrapping;
-  const card = { x: 45.5, z: 12.5, taken: false };
+  const card = { x: 37.5, z: 12.5, taken: false };
   {
     const g0 = new THREE.Group(); g0.position.set(card.x, 0, card.z); root.add(g0);
     const ped = new THREE.Mesh(new THREE.CylinderGeometry(.2, .3, .7, 8), creamM); ped.position.y = .35; g0.add(ped);
@@ -301,8 +318,9 @@ export function buildSun(ctx) {
   const machine = {};
   {
     // 一只立在庭院东北角的巨大黄铜日轮，用链条吊着吊桥
-    const g0 = new THREE.Group(); g0.position.set(46.5, 0, 3.2); root.add(g0);
-    const legs = [-1, 1].map(s => { const l = new THREE.Mesh(new THREE.BoxGeometry(.3, 3.6, .3), creamM); l.position.set(s * 1.4, 1.8, 0); g0.add(l); return l; });
+    const MX = 48.8, MZ = 3.6;
+    const g0 = new THREE.Group(); g0.position.set(MX, 0, MZ); root.add(g0);
+    const legs = [-1, 1].map(s => { const l = new THREE.Mesh(new THREE.BoxGeometry(.3, 6.6, .3), creamM); l.position.set(s * 1.4, .3, 0); g0.add(l); return l; });
     const wheel = new THREE.Group(); wheel.position.y = 3.2; g0.add(wheel);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(1.6, .12, 6, 40), brassM); wheel.add(rim);
     const rim2 = new THREE.Mesh(new THREE.TorusGeometry(1.05, .06, 5, 32), brassM); wheel.add(rim2);
@@ -371,7 +389,7 @@ export function buildSun(ctx) {
   const spots = Array.from({ length: 4 }, () => { const l = new THREE.PointLight(0xffc070, 0, 3.2, 1.6); root.add(l); return l; });
 
   /* ================= 光柱：黎明的光从云缝里落下 ================= */
-  const shafts = [[4.5, 4.2, 1.4], [20.5, 10.5, 1.2], [33, 4, 1.6], [56.5, 6.5, 1.6]].map(([x, z, r]) => lightShaft(root, x, z, { color: 0xffc890, r, I: 6, k: .35, lean: [-.35, -.3], hide: L.hide }));
+  const shafts = [[6.5, 7.5, 1.4], [19.5, 3.5, 1.2], [30.5, 5, 1.6], [56.5, 6.5, 1.6]].map(([x, z, r]) => lightShaft(root, x, z, { color: 0xffc890, r, I: 6, k: .35, lean: [-.35, -.3], hide: L.hide }));
 
   /* ================= 遍历摆放 ================= */
   for (let z = 0; z < MH; z++) for (let x = 0; x < MW; x++) {
@@ -380,18 +398,18 @@ export function buildSun(ctx) {
     else if (c === 'h') addDeco(x, z, true);
   }
   stemCs.forEach((c, i) => root.add(voxelBatch(c, stemP[i], vm, { maxT: .07, minT: .05, slope: .01 })));
-  const M1 = addMirror(6, 4, 0, true, 'M1');
-  const M2 = addMirror(15, 5, STEP * 2, true, 'M2');
-  const M3 = addMirror(20, 10, STEP * 4, true, 'M3');
-  const M5 = addMirror(32, 12, 0, true, 'M5');
-  const M4 = addMirror(32, 7, Math.PI / 4, false, 'M4');
-  const R1 = addRecv(6, 11, 1), R2 = addRecv(26, 10, 2), R3a = addRecv(42, 3, 3), R3b = addRecv(42, 11, 4);
+  const D = Math.SQRT1_2;
+  const LA = addMirror(3, 4, 0, true, 'LA', true), MA1 = addMirror(9, 4, 0, true, 'MA1'), MA2 = addMirror(9, 10, STEP * 12, true, 'MA2');
+  const LB = addMirror(15, 7, 0, true, 'LB', true), MB1 = addMirror(19, 11, 0, true, 'MB1');
+  const MC1 = addMirror(31, 11, STEP * 13, true, 'MC1'), MC2 = addMirror(31, 7, STEP * 5, true, 'MC2');
+  const MD = addMirror(44, 3, STEP * 4, true, 'MD'), ME = addMirror(40, 3, STEP * 6, true, 'ME');
+  const R1 = addRecv(3, 10, 1, [1, 0]), R2 = addRecv(19, 3, 2, [0, 1]), R3a = addRecv(44, 11, 3, [-D, -D]), R3b = addRecv(36, 11, 4, [D, -D]);
   const mirrorAt = (x, z) => L.mirrors.find(m => m.x === x && m.z === z);
 
   /* ================= 引导微光 ================= */
   const GOLDc = [1, .82, .45], CREAM = [1, .95, .8], CORALc = [1, .55, .45];
   const B = {
-    M1: fx.beacon(M1.cx, BY + .7, M1.cz, 0xffc070, .9), M2: fx.beacon(M2.cx, BY + .7, M2.cz, 0xffc070, .9), M3: fx.beacon(M3.cx, BY + .7, M3.cz, 0xffc070, .9), M5: fx.beacon(M5.cx, BY + .7, M5.cz, 0xffc070, .9),
+    LA: fx.beacon(LA.cx, BY + .7, LA.cz, 0xffe0a0, 1), LB: fx.beacon(LB.cx, BY + .7, LB.cz, 0xffe0a0, 1),
     R1: fx.beacon(R1.cx, BY, R1.cz, 0xffa040, 1.2), R2: fx.beacon(R2.cx, BY, R2.cz, 0xffa040, 1.2), R3a: fx.beacon(R3a.cx, BY, R3a.cz, 0xffa040, 1.2), R3b: fx.beacon(R3b.cx, BY, R3b.cz, 0xffa040, 1.2),
     prism: fx.beacon(prism.cx, BY, prism.cz, 0xffe0a0, 1.1), card: fx.beacon(card.x, 1.15, card.z, 0xffd08a, 1), altar: fx.beacon(altar.x, 1.0, altar.z, 0xffd08a, 1.6)
   };
@@ -401,7 +419,7 @@ export function buildSun(ctx) {
 
   /* ================= 光路追踪 ================= */
   const hedgeShut = (x, z) => { const f = L.hedge.find(f => f.x === x + .5 && f.z === z + .5); return !f || f.open < .5; };
-  const solidCell = (x, z) => { const c = cell(x, z); return c === '#' || c === 'W' || c === 'G' && gate.open < .9 || c === 'A' || c === 'Y' || c === 'C' || c === 'h' && hedgeShut(x, z); };
+  const solidCell = (x, z) => { const c = cell(x, z); return c === '#' || c === 'W' || (c === 'G' || c === 'g') && gateAt(x).open < .9 || c === 'S' || c === 'A' || c === 'Y' || c === 'C' || c === 'h' && hedgeShut(x, z); };
   function clearLine(ax, az, bx, bz, skip) {
     const d = Math.hypot(bx - ax, bz - az), n = Math.ceil(d / .1);
     for (let i = 1; i < n; i++) { const t = i / n, x = ax + (bx - ax) * t, z = az + (bz - az) * t; const cx = Math.floor(x), cz = Math.floor(z); if (skip && skip(cx, cz)) continue; if (solidCell(cx, cz)) return false; }
@@ -419,7 +437,7 @@ export function buildSun(ctx) {
     }
     return best || [dx, dz];
   }
-  let segs = [], hitR = new Set(), prismHit = false;
+  let segs = [], hitR = new Set(), wrongR = new Set(), prismHit = false;
   function trace(ox, oz, dx, dz, from, depth, kind) {
     if (depth > 8 || segs.length >= beams.length) return;
     [dx, dz] = snapDir(ox, oz, dx, dz, from);
@@ -438,17 +456,15 @@ export function buildSun(ctx) {
     if (!hit) return;
     if (L.mirrors.includes(hit)) {
       hit.lit = 1;
-      if (hit.locked) return; // 已经凝金的镜子自己就是光源
+      if (hit.locked || hit.lens) return; // 凝金的镜子自己就是光源；透镜只接光点
       const n = [Math.cos(hit.a), Math.sin(hit.a)], d = dx * n[0] + dz * n[1];
       trace(hit.cx, hit.cz, dx - 2 * d * n[0], dz - 2 * d * n[1], hit, depth + 1, 'beam');
     } else if (hit === prism) {
       prismHit = true;
       const a = Math.atan2(dz, dx);
       [a - Math.PI / 4, a + Math.PI / 4].forEach(b => trace(prism.cx, prism.cz, Math.cos(b), Math.sin(b), prism, depth + 1, 'beam'));
-    } else { hitR.add(hit); }
+    } else if (dx * hit.face[0] + dz * hit.face[1] < -.9) { hitR.add(hit); seg.ok = true; } else wrongR.add(hit);
   }
-  // 只有这几条光路会凝结（镜子锁定、生成金桥），其它方向的光照样能点亮花，但不会把镜子锁死在错的方向
-  const LINKS = new Set(['M1>1', 'M2>M3', 'M3>2', 'M5>M4', 'M4>P']);
   function crossesVoid(s) {
     const d = Math.hypot(s.bx - s.ax, s.bz - s.az), n = Math.ceil(d / .2);
     for (let i = 1; i < n; i++) { const t = i / n; if (isVoid(cell(Math.floor(s.ax + (s.bx - s.ax) * t), Math.floor(s.az + (s.bz - s.az) * t)))) return true; }
@@ -462,6 +478,13 @@ export function buildSun(ctx) {
     }
     return false;
   }
+  function unlock(m) {
+    m.locked = null; m.a = m.shown;
+    for (let i = S.bridgeList.length - 1; i >= 0; i--) { const b = S.bridgeList[i]; if (b.from === m) { b.b.used = false; b.b.g.visible = false; S.bridgeList.splice(i, 1); for (let j = 0; j < 24; j++) { const t = Math.random(); fx.emit(b.ax + (b.bx - b.ax) * t, .05, b.az + (b.bz - b.az) * t, { vy: -.6, life: 1, c: GOLDc, tw: 6, a: .7 }); } } }
+    Object.keys(S.crys).forEach(k => { if (k.startsWith(m.id + '>')) delete S.crys[k]; });
+    fx.ring(m.cx, .05, m.cz, 0xffd08a, 1.6, .6, { a: .6 }); AU.stone();
+    if (!S.hints.unlock) { S.hints.unlock = 1; toast('光桥化成了金粉。这道光又可以送去别处了', 3.6); }
+  }
   function crystallize(s) {
     const key = s.from.id + '>' + s.to.id || 'x';
     S.crys[key] = true;
@@ -472,7 +495,7 @@ export function buildSun(ctx) {
     b.used = true; b.k = 0; b.seg = s;
     b.g.position.set((s.ax + s.bx) / 2, 0, (s.az + s.bz) / 2); b.g.rotation.y = -Math.atan2(dz, dx); b.g.scale.set(len, 1, 1); b.g.children.forEach(c => c.scale.set(1, 1, 1));
     b.g.visible = true;
-    const rec = { ax: s.ax, az: s.az, bx: s.bx, bz: s.bz, k: 0, b };
+    const rec = { ax: s.ax, az: s.az, bx: s.bx, bz: s.bz, k: 0, b, from: s.from };
     S.bridgeList.push(rec);
     AU.stone(); AU.lamp(2); flash(.15); shake(.05, .3);
     for (let i = 0; i < 40; i++) { const t = Math.random(); fx.emit(s.ax + dx * t, .05, s.az + dz * t, { vy: .4 + Math.random() * .6, life: 1.2, c: GOLDc, tw: 8 }); }
@@ -500,12 +523,20 @@ export function buildSun(ctx) {
         run(k, dt) { if (Math.random() < dt * 30) fx.emit(12.5, .2 + Math.random() * 2, 7.5 + (Math.random() - .5) * 3, { vy: .3, life: .9, c: GOLDc, tw: 8 }); } }
     ]);
   }
+  function openGate2() {
+    gate2.opening = true;
+    cine([
+      { dur: 1.2, focus: [R2.cx, R2.cz + 1], start() { addRay(R2); toast('第二道日光。北岛的向日葵醒了', 3.4); } },
+      { dur: 2.2, focus: [27.5, 11], start() { AU.stone(); shake(.08, .4); flash(.12); toast('云对岸，庭院的门打开了', 3.4); },
+        run(k, dt) { if (Math.random() < dt * 30) fx.emit(28.5, .2 + Math.random() * 2, 11.5 + (Math.random() - .5) * 3, { vy: .3, life: .9, c: GOLDc, tw: 8 }); } }
+    ]);
+  }
   function solveTwins() {
     S.twins = true;
     cine([
       { dur: 1.4, focus: [40.5, 7.5], start() { bloomRecv(R3a); bloomRecv(R3b); flash(.25); shake(.06, .4); fx.sigil(prism.cx, .06, prism.cz, 0xffd08a, 'sun', 5, 2.4); toast('双生的向日葵一起开了', 3.4); } },
-      { dur: 2.6, focus: [46.5, 6], start() { AU.stone(); shake(.12, .6); },
-        run(k, dt) { machine.k = smooth(0, 1, k) * .25; if (Math.random() < dt * 30) fx.emit(46.5 + (Math.random() - .5) * 3, 3.2 + (Math.random() - .5) * 3, 3.2, { vy: .2, life: 1, c: GOLDc, tw: 8 }); } },
+      { dur: 2.6, focus: [47.5, 6], start() { AU.stone(); shake(.12, .6); },
+        run(k, dt) { machine.k = smooth(0, 1, k) * .25; if (Math.random() < dt * 30) fx.emit(48.8 + (Math.random() - .5) * 3, 3.2 + (Math.random() - .5) * 3, 3.6, { vy: .2, life: 1, c: GOLDc, tw: 8 }); } },
       { dur: 3.2, focus: [48.5, 7.5], start() { AU.stone(); },
         run(k, dt) { machine.k = .25 + easeBack(k) * .75; if (Math.random() < dt * 4) AU.stone(); shake(.06, .2); },
         end() { S.bridgeDown = true; machine.k = 1; shake(.14, .5); flash(.2); fx.ring(49, .05, 7.5, 0xffd08a, 4, 1.2); for (let i = 0; i < 40; i++) fx.emit(47 + Math.random() * 4, .1, 7.5 + (Math.random() - .5) * 1.4, { vy: .6 + Math.random(), vx: (Math.random() - .5), life: .8, c: [.9, .75, .6], a: .7 }); } },
@@ -515,12 +546,11 @@ export function buildSun(ctx) {
 
   function reset() {
     Object.assign(S, { rays: 0, gotCard: false, done: false, hints: {}, day: 0, dayT: 0, twinHold: 0, twins: false, bridgeDown: false, crys: {}, bridgeList: [], trail: 0, sunUp: false });
-    [[M1, 0], [M2, STEP * 2], [M3, STEP * 4], [M5, 0]].forEach(([m, a]) => { m.a = m.shown = a; m.locked = null; });
-    M4.locked = null;
+    L.mirrors.forEach(m => { m.a = m.shown = m.a0; m.locked = null; });
     L.hedge.forEach(f => { f.open = 0; }); Object.keys(S).forEach(k => { if (k.startsWith('t_')) delete S[k]; });
     L.recv.forEach(r => { r.on = false; r.k = 0; r.hitT = 0; r.bloom.scale.setScalar(.01); r.bud.scale.setScalar(1); r.light.intensity = 0; r.mat.emissiveIntensity = 0; });
     bridges.forEach(b => { b.used = false; b.g.visible = false; });
-    Object.assign(gate, { open: 0, opening: false });
+    [gate, gate2].forEach(gt => Object.assign(gt, { open: 0, opening: false }));
     machine.k = 0;
     Object.assign(card, { taken: false }); card.g.visible = true;
     altar.slotM.opacity = 0; altar.light.intensity = 0; altar.halo.material.opacity = 0; altar.dialM.emissiveIntensity = 0; altar.marks.forEach(m => m.material.emissiveIntensity = 0);
@@ -553,16 +583,17 @@ export function buildSun(ctx) {
       m.lit = Math.max(0, m.lit - dt * 4);
     });
     // 光路
-    segs = []; hitR = new Set(); prismHit = false;
+    segs = []; hitR = new Set(); wrongR = new Set(); prismHit = false;
     L.mirrors.forEach(m => { if (m.locked) trace(m.cx, m.cz, m.locked[0], m.locked[1], m, 0, 'beam'); });
+    // 光点只能照进透镜；透镜把光沿「光点 → 透镜」的方向（取整到 45°）射出去
     L.mirrors.forEach(m => {
-      if (m.locked || !m.turn) return; // 固定的金镜只接镜子送来的光
+      if (m.locked || !m.lens) return;
       const d = Math.hypot(m.cx - orb.x, m.cz - orb.z);
       if (d > ORB_REACH || d < .3 || !clearLine(orb.x, orb.z, m.cx, m.cz, (x, z) => x === m.x && z === m.z)) return;
       segs.push({ ax: orb.x, az: orb.z, bx: m.cx, bz: m.cz, from: null, to: m, kind: 'orb' });
       m.lit = 1;
-      const dx = (m.cx - orb.x) / d, dz = (m.cz - orb.z) / d, n = [Math.cos(m.a), Math.sin(m.a)], dd = dx * n[0] + dz * n[1];
-      trace(m.cx, m.cz, dx - 2 * dd * n[0], dz - 2 * dd * n[1], m, 1, 'beam');
+      const a = Math.round(Math.atan2(m.cz - orb.z, m.cx - orb.x) / QDIR) * QDIR; m.a = a;
+      trace(m.cx, m.cz, Math.cos(a), Math.sin(a), m, 1, 'beam');
     });
     // 画光束
     beams.forEach((b, i) => {
@@ -584,11 +615,12 @@ export function buildSun(ctx) {
     // 凝成金桥
     const seen = {};
     segs.forEach(s => {
-      if (s.kind === 'orb' || !s.to || !s.from) return;
-      const key = s.from.id + '>' + (s.to.id || 'P');
-      seen[key] = true;
-      if (S.crys[key] || !LINKS.has(key)) return;
+      if (s.kind === 'orb' || !s.to || !s.from || !L.mirrors.includes(s.from) || s.from.locked) return;
       const recvTarget = L.recv.includes(s.to);
+      if (recvTarget && !s.ok) return; // 照在花背面的光不算
+      const key = s.from.id + '>' + s.to.id;
+      seen[key] = true;
+      if (S.crys[key]) return;
       if (!crossesVoid(s) && !(recvTarget && s.to.on)) return;
       S['t_' + key] = (S['t_' + key] || 0) + dt;
       if (S['t_' + key] > CRYST) crystallize(s);
@@ -600,7 +632,7 @@ export function buildSun(ctx) {
       const hit = hitR.has(r);
       r.lit = hit;
       if (!r.on) {
-        if (hit && r.id <= 2) { r.hitT += dt; if (r.hitT > .6) { bloomRecv(r); if (r === R1) openGate(); else { addRay(r); toast('第二道日光。光被送到了云的另一边', 3.6); } } }
+        if (hit && r.id <= 2) { r.hitT += dt; if (r.hitT > .6) { bloomRecv(r); if (r === R1) openGate(); else openGate2(); } }
         else r.hitT = Math.max(0, r.hitT - dt);
       }
       r.k += ((r.on ? 1 : hit ? .25 : 0) - r.k) * (1 - Math.exp(-dt * 3));
@@ -609,9 +641,10 @@ export function buildSun(ctx) {
       r.bud.scale.setScalar(Math.max(.01, 1 - ko * 1.3));
       r.mat.emissiveIntensity = r.k * .5 + (hit ? .2 : 0);
       r.light.intensity = r.k * 2.2;
-      // 花盘朝着光来的方向
-      let tx = orb.x, tz = orb.z; const seg = segs.find(s => s.to === r); if (seg) { tx = seg.ax; tz = seg.az; }
+      // 花盘一直朝着它认的那一侧；光从背后来，花会抖一下
+      let tx = r.cx + r.face[0], tz = r.cz + r.face[1];
       if (S.done) { tx = altar.x; tz = altar.big.position.z; }
+      if (wrongR.has(r)) { r.wrong += dt; r.head.rotation.z += Math.sin(T * 30) * .02; if (r.wrong > .8 && !S.hints.face) { S.hints.face = 1; toast('光照在了花的背面。向日葵只收它面朝那一侧的光', 4.4); } }
       const old = r.head.quaternion.clone(); faceToward(r.head, tx, tz); r.q.copy(r.head.quaternion); r.head.quaternion.copy(old).slerp(r.q, 1 - Math.exp(-dt * 3));
       if (r.on && Math.random() < dt * 3) fx.emit(r.cx + (Math.random() - .5) * .8, BY + .3, r.cz + (Math.random() - .5) * .3, { vy: .3, life: 1.6, c: GOLDc, tw: 6 });
     });
@@ -622,18 +655,17 @@ export function buildSun(ctx) {
       S.twinHold = both ? S.twinHold + dt : Math.max(0, S.twinHold - dt * 1.5);
       if (both) { AU.shadow(S.twinHold); if (Math.random() < dt * 16) fx.emit(prism.cx + (Math.random() - .5), .1, prism.cz + (Math.random() - .5), { vy: .4, life: .8, c: GOLDc, tw: 8 }); }
       if (S.twinHold >= 1 && pv < 1) solveTwins();
-      if (!both && (hitR.has(R3a) || hitR.has(R3b)) && !S.hints.twin) { S.hints.twin = 1; toast('只照到了一朵。另一道光被向日葵篱笆挡住了', 4.4); }
+      if (!both && (hitR.has(R3a) || hitR.has(R3b)) && !S.hints.twin) { S.hints.twin = 1; toast('只照到了一朵。双生的花，要同时被照到', 4.4); }
     }
     prism.lit += ((prismHit ? 1 : 0) - prism.lit) * (1 - Math.exp(-dt * 6));
     prism.cry.rotation.y += dt * (.5 + prism.lit * 2); prism.pm.emissiveIntensity = .2 + prism.lit * 1.4;
     // 花园门
-    if (gate.opening) gate.open = Math.min(1, gate.open + dt * .5);
-    gate.leaves.forEach(l => { l.pivot.rotation.y = l.s * smooth(0, 1, gate.open) * 1.6; });
+    [gate, gate2].forEach(gt => { if (gt.opening) gt.open = Math.min(1, gt.open + dt * .5); gt.leaves.forEach(l => { l.pivot.rotation.y = l.s * smooth(0, 1, gt.open) * 1.6; }); });
     // 日轮机关与吊桥
     machine.wheel.rotation.z = -machine.k * Math.PI * 2 - Math.sin(T * .6) * .02;
     machine.coreM.emissiveIntensity = .15 + machine.k * 1.4;
     machine.hinge.rotation.z = Math.PI / 2 * .96 * (1 - machine.k);
-    { const tip = new THREE.Vector3(4, .1, 0).applyMatrix4(machine.hinge.matrixWorld); const top = new THREE.Vector3(46.5 + 1.2, 3.2 - .8, 3.2);
+    { const tip = new THREE.Vector3(4, .1, 0).applyMatrix4(machine.hinge.matrixWorld); const top = new THREE.Vector3(48.8 - 1.2, 3.2 - .8, 3.6);
       machine.hinge.updateMatrixWorld(); const mid = tip.clone().add(top).multiplyScalar(.5); machine.chain.position.copy(mid); machine.chain.scale.y = tip.distanceTo(top); machine.chain.lookAt(top); machine.chain.rotateX(Math.PI / 2); }
     // 篱笆：光点靠近时，向日葵抬头让开一条路
     L.hedge.forEach(f => { const near = Math.hypot(orb.x - f.x, orb.z - f.z) < 2.6 || Math.hypot(P.x - f.x, P.z - f.z) < .75 && f.open > .5; f.open += ((near ? 1 : 0) - f.open) * (1 - Math.exp(-dt * 5)); });
@@ -661,26 +693,27 @@ export function buildSun(ctx) {
     // 晨间的花粉、飘过的金色尘埃
     if (Math.random() < dt * 10) fx.emit(P.x + (Math.random() - .5) * 24, .3 + Math.random() * 3, P.z + (Math.random() - .5) * 16, { vy: .08, vx: .15, life: 5, c: Math.random() < .6 ? [1, .85, .55] : [1, .7, .6], tw: 4, a: .6 });
     // 引导微光
-    [['M1', M1], ['M2', M2], ['M3', M3], ['M5', M5]].forEach(([k, m]) => B[k].on = !m.locked);
-    B.R1.on = !R1.on; B.R2.on = !R2.on; B.R3a.on = B.R3b.on = !S.twins; B.prism.on = !S.twins && P.x > 30;
+    B.LA.on = !R1.on; B.LB.on = !R2.on;
+    B.R1.on = !R1.on; B.R2.on = !R2.on; B.R3a.on = B.R3b.on = !S.twins; B.prism.on = !S.twins && P.x > 34;
     B.card.on = !card.taken; B.altar.on = !S.done;
   }
 
   function logic(dt) {
     const h = S.hints;
     if (!h.move && ctx.S.t > .8) { h.move = 1; toast('天快亮了。把光，送到最远的地方', 4.2); }
-    if (!h.m1 && Math.hypot(P.x - M1.cx, P.z - M1.cz) < 3.6) { h.m1 = 1; toast('一面铜镜。让光点照到它，镜子会把光折出去。按 E 转动镜子', 5); }
+    if (!h.m1 && Math.hypot(P.x - LA.cx, P.z - LA.cz) < 3.2) { h.m1 = 1; toast('一块聚光的透镜。把光点放在它旁边，光会从对面射出去', 5); }
+    if (!h.m2 && Math.hypot(P.x - MA1.cx, P.z - MA1.cz) < 2.4) { h.m2 = 1; toast('铜镜只接光束，不接光点。按 E 转动镜子', 4.2); }
     if (!h.b && P.x > 12.8) { h.b = 1; toast('云海上没有路。光走过的地方，会留下路', 4.4); }
-    if (!h.c && P.x > 24.6) { h.c = 1; toast('白马守着庭院。深谷正中的金镜转不动，得从别处把光送过去', 5); }
-    if (!h.p && P.x > 35 && Math.hypot(P.x - prism.cx, P.z - prism.cz) < 4) { h.p = 1; toast('棱镜把一道光分成两道', 3.6); }
-    if (!h.hedge && Math.hypot(P.x - 40.5, P.z - 9.5) < 3) { h.hedge = 1; toast('向日葵跟着光转。把光点带过来，它们会让开', 4.2); }
+    if (!h.c && P.x > 18 && P.z > 9) { h.c = 1; toast('凝成金桥的镜子不能再转了。站在它旁边按 E，可以把桥收回来', 5); }
+    if (!h.g2 && S.rays >= 1 && P.x > 18 && P.z > 9 && !gate2.opening) { h.g2 = 1; setTimeout(() => toast('对岸的庭院门关着，光过不去', 3.4), 5200); }
+    if (!h.p && P.x > 35 && Math.hypot(P.x - prism.cx, P.z - prism.cz) < 4) { h.p = 1; toast('棱镜把一道光分成两道，各偏 45°。光可以不止一次穿过它', 4.4); }
+    if (!h.hedge && Math.hypot(P.x - 38.5, P.z - 9.5) < 3) { h.hedge = 1; toast('向日葵跟着光转。把光点带过来，它们会让开', 4.2); }
     if (!h.d && P.x > 50.5) { h.d = 1; toast('日台。三道日光与牌，缺一不可', 3.8); }
-    if (!M1.locked && R1.on === false && P.x < 12) {}
   }
 
   function nearest() {
     const out = [];
-    L.mirrors.forEach(m => { if (m.turn && !m.locked) out.push({ type: 'mirror', m, x: m.cx, y: BY + .9, z: m.cz, r: 1.6, label: '转动镜子' }); });
+    L.mirrors.forEach(m => { if (m.locked) out.push({ type: 'unlock', m, x: m.cx, y: BY + .9, z: m.cz, r: 1.6, label: '收回光桥' }); else if (!m.lens) out.push({ type: 'mirror', m, x: m.cx, y: BY + .9, z: m.cz, r: 1.6, label: '转动镜子' }); });
     if (!card.taken) out.push({ type: 'card', x: card.x, y: 1.9, z: card.z, r: 1.4, label: '拾起牌' });
     if (!S.done) out.push(S.gotCard && S.rays === 3 ? { type: 'finale', x: altar.x, y: 1.6, z: altar.z, r: 2.4, label: '放入　XIX 太阳' } : { type: 'altar', x: altar.x, y: 1.6, z: altar.z, r: 2.4, label: '查看日台' });
     return out;
@@ -689,6 +722,7 @@ export function buildSun(ctx) {
     if (n.type === 'mirror') {
       n.m.a = n.m.a + STEP; if (n.m.a > Math.PI * 2) n.m.a -= Math.PI * 2;
       AU.hover && AU.hover(3 + Math.round(n.m.a / STEP) % 4); fx.ring(n.m.cx, .05, n.m.cz, 0xffd08a, 1.1, .5, { a: .6 });
+    } else if (n.type === 'unlock') { unlock(n.m);
     } else if (n.type === 'card') {
       card.taken = true; S.gotCard = true; AU.card();
       fx.bloom(card.x, 1.1, card.z, 50, [1, .85, .55], { w: -3, vr: 2 }); fx.sigil(card.x, .06, card.z, 0xffd08a, 'sun', 2.6, 2); fx.ring(card.x, .05, card.z, 0xffc070, 2.6, 1.1); flash(.2);
@@ -730,11 +764,13 @@ export function buildSun(ctx) {
   }
 
   function idle() {
-    if (!R1.on) return ['让光点照到铜镜，镜子会把光折出去', '把光点放在镜子西边，按 E 转动镜子，直到光束落在南边的向日葵上'];
-    if (!M2.locked) return ['断岸上的镜子，能把光送到云海对面的小岛', '让光点照到断岸上的镜子，转动它，让光束对准小岛上的镜子，等它凝成金桥'];
-    if (!R2.on) return ['走上金桥，到小岛上去', '在小岛上转动那面镜子，让光束朝东，照到对岸的向日葵'];
-    if (!S.twins && !M4.locked) return ['深谷正中那面金镜只认从南边来的光', '去南边石台上的镜子，让它把光往北送到金镜；金镜会把光转向东边的棱镜'];
-    if (!S.twins) return ['棱镜分出的第二道光，被向日葵篱笆挡住了', '把光点带到篱笆的西北角，向日葵抬头让开，光就能穿过去'];
+    if (!R1.on) return ['光点照进透镜，光会从透镜的另一侧射出去', '把光点放在透镜正西边，让光往东射到铜镜；再转动两面铜镜，让光从东边照到向日葵的花脸'];
+    if (!LB.locked) return ['断岸上也有一块透镜，云海对面的小岛上有铜镜', '把光点放在透镜的西北边，光会斜着射向东南的小岛，等它凝成金桥'];
+    if (!R2.on) return ['北岛的向日葵朝着南边', '在南岛上转动铜镜，让光往北，照到北岛向日葵的花脸'];
+    if (!gate2.opening) return ['庭院的门还关着', '北岛的向日葵开了，门才会开'];
+    if (P.x < 26 && !S.bridgeList.some(b => b.from === MB1 && b.bx > 25)) return ['南岛这面镜子的光，已经凝成了通往北岛的桥', '站在南岛铜镜旁按 E 收回光桥，再把它转向东边的庭院'];
+    if (!MC2.locked) return ['庭院里两面镜子，能把光送过深谷', '先往北，再往东，对准深谷对面的棱镜'];
+    if (!S.twins) return ['棱镜分出的光，有一道往东北去了', '让东北角的镜子把光送回西边的镜子，再往南折回棱镜。第二次穿过棱镜的光，会分向西南；别忘了用光点拨开篱笆'];
     if (!card.taken) return ['篱笆围起来的小花园里，好像还藏着什么', '把光点留在篱笆旁边，向日葵会让开一条路'];
     return ['三道日光与牌都齐了，过吊桥去日台', '一路往东，在日台前按 E'];
   }
@@ -754,9 +790,8 @@ export function buildSun(ctx) {
     cell,
     solid(x, z) {
       const cx = Math.floor(x), cz = Math.floor(z), c = cell(cx, cz);
-      if (c === 'G') return gate.open < .85;
+      if (c === 'G' || c === 'g') return gateAt(cx).open < .85;
       if (c === 'h') { const f = L.hedge.find(f => f.x === cx + .5 && f.z === cz + .5); return !f || f.open < .5; }
-      if (c === 'm') return Math.hypot(x - M4.cx, z - M4.cz) < .35;
       return SOLID.has(c);
     },
     hole(x, z) {
@@ -772,9 +807,9 @@ export function buildSun(ctx) {
     reset, update, logic, nearest, interact, finaleStart, finale, idle,
     finaleCam: () => [altar.x - .5, altar.z - 3.4],
     finaleOrb: () => [altar.x - 1.8, altar.z + 1.2],
-    progress: () => `${S.rays}${S.gotCard ? 1 : 0}${R1.on ? 1 : 0}${M2.locked ? 1 : 0}${R2.on ? 1 : 0}${S.twins ? 1 : 0}${S.bridgeDown ? 1 : 0}${S.bridgeList.length}`,
+    progress: () => `${S.rays}${S.gotCard ? 1 : 0}${R1.on ? 1 : 0}${R2.on ? 1 : 0}${gate2.opening ? 1 : 0}${S.twins ? 1 : 0}${S.bridgeDown ? 1 : 0}${S.bridgeList.length}`,
     hud: () => ({ label: '日光', dots: [R1.on, R2.on, S.twins], have: S.gotCard, line: S.done ? '牌已归位' : S.gotCard ? '持有　XIX 太阳' : '太阳之牌　未寻得' }),
-    _: { L, S, M1, M2, M3, M4, M5, R1, R2, R3a, R3b, prism, gate, card, altar, machine, get segs() { return segs; }, onBridge, mirrorAt }
+    _: { L, S, LA, MA1, MA2, LB, MB1, MC1, MC2, MD, ME, R1, R2, R3a, R3b, prism, gate, gate2, card, altar, machine, unlock, get segs() { return segs; }, onBridge, mirrorAt }
   };
   return LV;
 }
