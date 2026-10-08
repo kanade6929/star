@@ -633,7 +633,7 @@ function frame(now) {
   pipe.render(scene, cam, { time: T, fade: S.fade, grade: 0, focus: focusUV, dofK, flash: S.flash, vig });
   requestAnimationFrame(frame);
 }
-loadLevel(1);
+loadLevel(1); AU.setMood(0);
 resetLevel(); refreshMenu(); syncSound(); S.mode = 'menu'; S.fadeTo = 0;
 toDream(); stickHome();
 requestAnimationFrame(frame);
