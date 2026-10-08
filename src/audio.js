@@ -5,6 +5,7 @@ export function createAudio(onToggle) {
   const buf = {}; let keysM = [];
   let mood = 1, nextBar = 0, barN = 0, lastMel = 72, timer = null;
   const last = {};
+  const BG = .5; let noise = null, dipEnd = 0;
   function b64(url) { const s = atob(url.split(',')[1]), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer; }
   let hidden = false;
   function init() {
@@ -18,7 +19,8 @@ export function createAudio(onToggle) {
     for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); let lpv = 0; for (let i = 0; i < len; i++) { lpv += ((Math.random() * 2 - 1) - lpv) * .22; d[i] = lpv * Math.pow(1 - i / len, 3) * (i < ac.sampleRate * .02 ? i / (ac.sampleRate * .02) : 1); } }
     rev.buffer = b; const rg = ac.createGain(); rg.gain.value = .55; rev.connect(rg); rg.connect(master);
     music = ac.createGain(); music.gain.value = .5; music.connect(master); const ms = ac.createGain(); ms.gain.value = .6; music.connect(ms); ms.connect(rev);
-    bgm = ac.createGain(); bgm.gain.value = .55; bgm.connect(master);
+    bgm = ac.createGain(); bgm.gain.value = BG; bgm.connect(master);
+    noise = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate); { const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
     sfx = ac.createGain(); sfx.gain.value = .85; sfx.connect(master); const ss = ac.createGain(); ss.gain.value = .5; sfx.connect(ss); ss.connect(rev);
     if (ac.state === 'suspended') { const p = ac.resume(); if (p && p.catch) p.catch(() => {}); }
     unlock();
@@ -105,8 +107,59 @@ export function createAudio(onToggle) {
     if (timer) return; nextBar = ac.currentTime + .4;
     timer = setInterval(() => { if (!ac || !on) return; if (bgmOn()) { nextBar = Math.max(nextBar, ac.currentTime + .4); return; } while (nextBar < ac.currentTime + .6) { scheduleBar(nextBar); nextBar += MOODS[mood].beat * 4; } }, 150);
   }
-  function duck(sec) { if (!music) return; const t = ac.currentTime; music.gain.cancelScheduledValues(t); music.gain.setTargetAtTime(.12, t, .3); music.gain.setTargetAtTime(.5, t + sec, 1.5); bgm.gain.cancelScheduledValues(t); bgm.gain.setTargetAtTime(.15, t, .6); bgm.gain.setTargetAtTime(.55, t + sec, 2); }
+  function duck(sec) { if (!music) return; const t = ac.currentTime; music.gain.cancelScheduledValues(t); music.gain.setTargetAtTime(.12, t, .3); music.gain.setTargetAtTime(.5, t + sec, 1.5); dip(.3, sec, .6); }
+  // 音效响起时压低背景音乐，结束后慢慢回来；连续触发时以最晚的结束时间为准
+  function dip(level, hold, fall = .08) {
+    if (!bgm) return; const t = ac.currentTime; dipEnd = Math.max(dipEnd, t + hold);
+    bgm.gain.cancelScheduledValues(t); bgm.gain.setValueAtTime(bgm.gain.value, t);
+    bgm.gain.setTargetAtTime(BG * level, t, fall); bgm.gain.setTargetAtTime(BG, dipEnd, .7);
+  }
   const arp = (ns, v, gap, d = 0) => ns.forEach((n, i) => note(n, v, d + i * gap));
+
+  // ── 合成音效 ──
+  // 四首配乐都落在 D 大调 / B 小调，共用同一组五声音阶 D E F# A B，音效只用这五个音，叠在任何一首上都和谐。
+  // 音色贴近配乐：玻璃质感的铃（FM）、温暖的长音铺底、低频下潜，不再用钢琴。
+  const PENT = [2, 4, 6, 9, 11];
+  // pent(deg, base)：从 base（必须是 D E F# A B 之一）起往上数 deg 个五声音阶音
+  const pent = (deg, base = 62) => { const b = Math.floor(base / 12) * 5 + PENT.indexOf(base % 12) + deg, o = Math.floor(b / 5); return 12 * o + PENT[b - o * 5]; };
+  const root = () => mood === 2 ? 59 : 62;
+  const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+  const live = () => ac && on && !hidden;
+  function pan(node, p) { if (!ac.createStereoPanner) return node; const pn = ac.createStereoPanner(); pn.pan.value = clamp(p, -.6, .6); node.connect(pn); return pn; }
+  // 玻璃铃：正弦载波 + 3.5 倍频调制，调制量随时间衰减，像配乐里的高音颗粒
+  function bell(m, v, when = 0, dec = 1.6, bright = 1) {
+    if (!live()) return; const t = ac.currentTime + when, f = hz(m);
+    const c = ac.createOscillator(), mo = ac.createOscillator(), mg = ac.createGain(), g = ac.createGain();
+    c.frequency.value = f; mo.frequency.value = f * 3.5; mg.gain.setValueAtTime(f * 1.2 * bright, t); mg.gain.exponentialRampToValueAtTime(f * .02 + 1, t + dec * .6);
+    mo.connect(mg); mg.connect(c.frequency); c.connect(g);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .006); g.gain.exponentialRampToValueAtTime(.0005, t + dec);
+    const o2 = ac.createOscillator(), g2 = ac.createGain(); o2.frequency.value = f * 2; o2.connect(g2); g2.connect(g); g2.gain.value = .18;
+    pan(g, (m - 74) / 30).connect(sfx);
+    [c, mo, o2].forEach(o => { o.start(t); o.stop(t + dec + .05); });
+  }
+  // 温暖长音：两支略微走音的三角波 + 低通，缓起缓落，用来托住和弦
+  function pad(m, v, when = 0, dur = 1.5, att = .25, cut = 1800) {
+    if (!live()) return; const t = ac.currentTime + when;
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(cut * .5, t); lp.frequency.linearRampToValueAtTime(cut, t + att + dur * .5); lp.Q.value = .3;
+    const g = ac.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + att); g.gain.setValueAtTime(v, t + att + dur); g.gain.exponentialRampToValueAtTime(.0005, t + att + dur + 1.4);
+    lp.connect(g); pan(g, (m - 62) / 40).connect(sfx);
+    [-5, 5].forEach(d => { const o = ac.createOscillator(); o.type = 'triangle'; o.frequency.value = hz(m); o.detune.value = d; o.connect(lp); o.start(t); o.stop(t + att + dur + 1.5); });
+  }
+  // 低频下潜：正弦从 f0 滑到 f1，像配乐里那种深沉的低音
+  function sub(f0, f1, v, when = 0, dur = .7) {
+    if (!live()) return; const t = ac.currentTime + when, o = ac.createOscillator(), g = ac.createGain();
+    o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .02); g.gain.exponentialRampToValueAtTime(.0005, t + dur + .3);
+    o.connect(g); g.connect(sfx); o.start(t); o.stop(t + dur + .35);
+  }
+  // 滤波噪声：石头摩擦、风声、脚步
+  function hiss(v, when = 0, dur = .6, f0 = 400, f1 = 200, type = 'lowpass', q = .7, att = .02) {
+    if (!live() || !noise) return; const t = ac.currentTime + when, n = ac.createBufferSource(); n.buffer = noise; n.loop = true;
+    const fl = ac.createBiquadFilter(); fl.type = type; fl.Q.value = q; fl.frequency.setValueAtTime(f0, t); fl.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const g = ac.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + att); g.gain.exponentialRampToValueAtTime(.0005, t + dur);
+    n.connect(fl); fl.connect(g); g.connect(sfx); n.start(t, Math.random() * 1.5); n.stop(t + dur + .05);
+  }
+  const sparkle = (n, v, when = 0, lo = 10, span = 5) => { for (let i = 0; i < n; i++) bell(pent(lo + (Math.random() * span | 0)), v * (.6 + Math.random() * .4), when + i * .07 + Math.random() * .03, .9, .6); };
   // 切出页面（换标签页、切到别的应用、锁屏）时整体静音暂停，回来再接着放
   function setHidden(h) {
     if (h === hidden) return; hidden = h;
@@ -125,19 +178,32 @@ export function createAudio(onToggle) {
     setMood(m) { if (m === mood) return; mood = m; barN = 0; if (ac) bgmTick(); },
     toggle() { on = !on; if (master) master.gain.setTargetAtTime(on ? .9 : 0, ac.currentTime, .2); onToggle && onToggle(on); },
     get on() { return on; },
-    hover(i) { if (throttle('h', 70)) { const ns = [72, 76, 79, 81, 84]; note(ns[i % 5], .07); note(ns[i % 5] + 12, .025, .04); } },
-    deal() { arp([57, 64, 69, 72, 76], .09, .13); note(41, .12); },
-    locked() { note(57, .07); note(62, .05, .16); },
-    back() { note(79, .05); note(72, .045, .11); },
-    step() { if (throttle('st', 330)) note([43, 45][Math.random() * 2 | 0], .025); },
-    lamp(i) { const base = [60, 65, 67][i % 3]; arp([base, base + 4, base + 7, base + 11, base + 16], .2, .09); note(base - 24, .25); },
-    card() { arp([72, 76, 79, 83, 88], .18, .11); note(48, .18); },
-    stone() { note(33, .3); note(40, .18, .05); },
-    finale() { duck(12); note(36, .4); note(43, .3, .1); const sc = [60, 62, 64, 67, 69, 71]; for (let k = 0; k < 18; k++) note(sc[k % 6] + 12 * (k / 6 | 0), .16, .3 + k * .2); arp([60, 64, 67, 71, 74, 79], .18, .1, 4.2); },
-    fall() { note(64, .12); note(60, .1, .18); note(55, .1, .36); },
-    ghost() { if (throttle('g', 160)) note([84, 86, 88, 91][Math.random() * 4 | 0], .045); },
-    shadow(k) { if (throttle('sh', 260)) note([67, 71, 74, 79][Math.min(3, k * 4 | 0)], .06); },
-    howl() { note(57, .16); note(64, .12, .25); note(69, .1, .5); note(76, .07, .75); },
-    wrong() { note(47, .14); note(48, .12, .03); note(35, .12, .05); }
+    hover(i) { if (throttle('h', 70)) bell(pent(7 + i % 5), .05, 0, 1.1, .7); },
+    deal() { hiss(.05, 0, .7, 1800, 5000, 'bandpass', 1.2, .25); [5, 6, 7, 8, 9].forEach((d, i) => bell(pent(d), .06, .1 + i * .12, 1.4, .8)); pad(50, .05, 0, .8); },
+    locked() { bell(pent(3, 50), .07, 0, .5, .3); bell(pent(1, 50), .05, .12, .5, .3); },
+    back() { bell(pent(9), .045, 0, .9, .6); bell(pent(7), .04, .1, 1.1, .6); },
+    step() { if (throttle('st', 330)) hiss(.022, 0, .09, 900 + Math.random() * 300, 500, 'bandpass', 1, .005); },
+    lamp(i) {
+      const r = root(), ch = [0, 2, 3, 5, 7].map(d => pent(d + (i % 3), r));
+      dip(.3, 2.4); sub(110, 70, .12, 0, .5);
+      pad(r - 12, .07, 0, 1.4, .35); pad(ch[2] - 12, .045, .05, 1.4, .4);
+      ch.forEach((m, k) => bell(m, .11, .05 + k * .1, 2.2));
+      sparkle(5, .035, .55, 11, 4);
+    },
+    card() { const r = root(); dip(.25, 3); pad(r - 12, .08, 0, 2, .5); pad(pent(2, r) - 12, .05, .1, 2, .5); pad(pent(3, r), .03, .3, 1.6, .6); [0, 1, 2, 3, 4, 5, 6, 7, 8].forEach((d, k) => bell(pent(d + 3, r), .085, k * .08, 2, .9)); sparkle(8, .03, .8, 12, 4); },
+    stone() { if (!throttle('sn', 140)) return; dip(.35, 1.2); sub(75, 38, .22, 0, .7); hiss(.09, 0, .9, 380, 120, 'lowpass', .6, .05); },
+    finale() { duck(12); const r = root(); sub(90, 45, .2, 0, 1.6); pad(r - 24, .09, 0, 6, 1.5, 1200); pad(r - 12, .07, .3, 6, 1.5); pad(pent(2, r) - 12, .05, .6, 6, 1.5); pad(pent(3, r), .035, 1, 5, 2); for (let k = 0; k < 18; k++) bell(pent(k % 10 + 3, r), .07, .6 + k * .22, 2.4, .8); sparkle(12, .03, 4.4, 12, 5); },
+    fall() { dip(.4, 1.2); hiss(.07, 0, 1.1, 2400, 300, 'bandpass', .9, .15); bell(pent(7), .07, 0, 1.2, .6); bell(pent(5), .06, .2, 1.3, .6); bell(pent(3), .055, .4, 1.6, .6); },
+    ghost() { if (throttle('g', 160)) bell(pent(10 + (Math.random() * 5 | 0)), .035, 0, 1, .5); },
+    shadow(k) { if (throttle('sh', 260)) bell(pent(5 + Math.min(4, k * 5 | 0), root()), .05, 0, 1, .7); },
+    howl() {
+      if (!live()) return; dip(.3, 2.6); const t = ac.currentTime, o = ac.createOscillator(), vib = ac.createOscillator(), vg = ac.createGain(), g = ac.createGain(), lp = ac.createBiquadFilter();
+      const f = hz(pent(3, 59) - 12); o.type = 'triangle'; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 1.5, t + .7); o.frequency.setValueAtTime(f * 1.5, t + 1.6); o.frequency.exponentialRampToValueAtTime(f * 1.12, t + 2.4);
+      vib.frequency.value = 5; vg.gain.value = 4; vib.connect(vg); vg.connect(o.frequency); lp.type = 'lowpass'; lp.frequency.value = 1400;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.07, t + .5); g.gain.setValueAtTime(.07, t + 1.6); g.gain.exponentialRampToValueAtTime(.0005, t + 2.6);
+      o.connect(lp); lp.connect(g); g.connect(sfx); [o, vib].forEach(x => { x.start(t); x.stop(t + 2.7); });
+      pad(59 - 12, .05, 0, 1.6, .5); bell(pent(5, 59), .05, .7, 2);
+    },
+    wrong() { dip(.45, .9); bell(pent(1, 50), .08, 0, .7, .25); bell(pent(0, 50) - 12, .08, .09, .9, .2); hiss(.03, 0, .25, 500, 200); }
   };
 }
