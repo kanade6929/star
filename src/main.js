@@ -363,6 +363,12 @@ function updatePlayer(dt, canMove) {
     if (P.fallT > .9) {
       // 就近复活：回到最后一次站稳的地面
       P.falling = false; P.fallT = 0; P.y = 0; P.x = P.safe[0]; P.z = P.safe[1]; P.vx = P.vz = 0;
+      // 复活点本身已经没了（例如脚下的浮岛被叫走、池水退了）：就近找一块实地
+      if (LV.hole(P.x, P.z)) {
+        let best = null, bd = 1e9;
+        for (let dz = -8; dz <= 8; dz++) for (let dx = -8; dx <= 8; dx++) { const x = Math.floor(P.x) + dx + .5, z = Math.floor(P.z) + dz + .5, d = dx * dx + dz * dz; if (d < bd && !LV.hole(x, z) && LV.ground(x, z) && !blocked(x, z)) { bd = d; best = [x, z]; } }
+        if (best) { P.x = best[0]; P.z = best[1]; P.safe = best; }
+      }
       if (!orb.lock) { orb.x = orb.tx = P.x; orb.z = orb.tz = P.z; }
       S.fadeTo = 0;
       fx.swirl(P.x, .4, P.z, .6, [.8, .85, 1]);
