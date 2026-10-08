@@ -437,8 +437,20 @@ function updatePlayer(dt, canMove) {
   const tx = m > .15 ? ix * sp : 0, tz = m > .15 ? iz * sp : 0, acc = m > .15 ? 14 : 18;
   P.vx += (tx - P.vx) * (1 - Math.exp(-dt * acc)); P.vz += (tz - P.vz) * (1 - Math.exp(-dt * acc));
   const dx = P.vx * dt, dz = P.vz * dt;
-  if (!blocked(P.x + dx, P.z)) P.x += dx; else P.vx = 0;
-  if (!blocked(P.x, P.z + dz)) P.z += dz; else P.vz = 0;
+  // 防失足：站在实地上时，不会自己走出边缘，而是贴着边滑过去（斜着的窄桥也能顺着走）；只有脚下的路自己消失了才会掉下去
+  const safeHere = !LV.hole(P.x, P.z);
+  const okAt = (x, z) => !blocked(x, z) && !(safeHere && LV.hole(x, z));
+  const slide = (x, z, d, alongX) => {
+    if (okAt(x, z)) return [x, z];
+    if (blocked(x, z) || !safeHere) return null;
+    // 前面是空的：试着朝两侧偏一点，沿着边缘或斜桥继续走
+    for (const s of [1, -1]) { const nx = alongX ? x : x + s * Math.abs(d) * .9, nz = alongX ? z + s * Math.abs(d) * .9 : z; if (okAt(nx, nz) && !LV.hole(nx, nz)) return [nx, nz]; }
+    return null;
+  };
+  let mv = Math.abs(dx) > 1e-6 ? slide(P.x + dx, P.z, dx, true) : null;
+  if (mv) { P.x = mv[0]; P.z = mv[1]; } else if (Math.abs(dx) > 1e-6) P.vx = 0;
+  mv = Math.abs(dz) > 1e-6 ? slide(P.x, P.z + dz, dz, false) : null;
+  if (mv) { P.x = mv[0]; P.z = mv[1]; } else if (Math.abs(dz) > 1e-6) P.vz = 0;
   P.moving = Math.hypot(P.vx, P.vz) > .4;
   if (m > .15) P.dir = Math.abs(ix) > Math.abs(iz) * 1.1 ? (ix > 0 ? 'right' : 'left') : (iz > 0 ? 'down' : 'up');
   if (P.moving) {

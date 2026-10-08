@@ -519,16 +519,16 @@ export function buildStar(ctx) {
   // 飞行路线：绕开人和别的浮岛，从旁边弧线飞过去（不从头顶穿过）
   function planFlight(il, a) {
     const sx = il.x, sz = il.z, ex = a.x, ez = a.z, dx = ex - sx, dz = ez - sz, L = Math.hypot(dx, dz) || 1, nx = -dz / L, nz = dx / L;
-    const obst = [[P.x - 1.5, P.z - 1.5, 2.6], ...isles.filter(o => o !== il).map(o => [o.x, o.z, 3.4])];
+    const obst = [[P.x - 1.5, P.z - 1.5, 2.4], ...isles.filter(o => o !== il).map(o => [o.x, o.z, 3.3])];
     let best = [(sx + ex) / 2, (sz + ez) / 2], bs = -1e9;
-    for (const off of [0, 2, -2, 3.5, -3.5, 5, -5, 7, -7, 9, -9]) {
+    for (const off of [0, 1, -1, 2, -2, 3, -3, 4, -4, 5.5, -5.5, 7, -7]) {
       const cx = (sx + ex) / 2 + nx * off * 2, cz = (sz + ez) / 2 + nz * off * 2;
       let clear = 9;
       for (let i = 1; i < 24; i++) {
         const t = i / 24, u = 1 - t, x = u * u * sx + 2 * u * t * cx + t * t * ex, z = u * u * sz + 2 * u * t * cz + t * t * ez;
         obst.forEach(([ox, oz, r]) => { if (t > .9 && Math.hypot(ox - ex, oz - ez) < r) return; clear = Math.min(clear, Math.hypot(x - ox, z - oz) - r); });
       }
-      const sc = Math.min(clear, 1) * 20 - Math.abs(off);
+      const sc = Math.min(clear, .4) * 50 - Math.abs(off);   // 够安全就好，尽量走近路，不绕大圈
       if (sc > bs) { bs = sc; best = [cx, cz]; }
     }
     return best;
@@ -585,10 +585,10 @@ export function buildStar(ctx) {
         const F = il.fly; F.t += dt / F.dur; const t = Math.min(1, F.t), e = t * t * (3 - 2 * t);
         const u = 1 - e, px = il.x, pz = il.z;
         il.x = u * u * F.from[0] + 2 * u * e * F.ctrl[0] + e * e * F.a.x; il.z = u * u * F.from[2] + 2 * u * e * F.ctrl[1] + e * e * F.a.z;
-        il.y = F.from[1] * (1 - e) - Math.sin(t * Math.PI) * .35;
+        il.y = F.from[1] * (1 - e) - Math.sin(t * Math.PI) * .12;
         // 顺着飞行方向微微倾斜，落位前摆正
         const vx = (il.x - px) / Math.max(dt, 1e-3), vz = (il.z - pz) / Math.max(dt, 1e-3);
-        il.g.rotation.x = clamp(vz * .025, -.12, .12) * (1 - e); il.g.rotation.z = clamp(-vx * .025, -.12, .12) * (1 - e);
+        il.g.rotation.x = clamp(vz * .012, -.05, .05) * (1 - e); il.g.rotation.z = clamp(-vx * .012, -.05, .05) * (1 - e);
         il.g.rotation.y *= 1 - Math.min(1, dt * 4);
         if (Math.random() < dt * 40) fx.emit(il.x + 1.5 + (Math.random() - .5) * 2.6, il.y - .4, il.z + 1.5 + (Math.random() - .5) * 2.6, { vy: -.4, life: .9, c: GOLD, tw: 6 });
         if (t >= 1) {
@@ -596,7 +596,7 @@ export function buildStar(ctx) {
           AU.stone(); shake(.06, .35); fx.ring(F.a.cx, .03, F.a.cz, 0xffd89a, 3.6, 1.1); fx.bloom(F.a.cx, .2, F.a.cz, 26, GOLD, { w: 2, vr: 1.4, up: .5 });
           if (fresh) newStar(F.a);
         }
-      } else if (il.land !== undefined && il.land < 1) { il.land = Math.min(1, il.land + dt * 3); il.y = -Math.sin(il.land * Math.PI) * .12; }
+      } else if (il.land !== undefined && il.land < 1) { il.land = Math.min(1, il.land + dt * 3); il.y = -Math.sin(il.land * Math.PI) * .05; }
       il.g.position.set(il.x + 1.5, il.y, il.z + 1.5);
       il.glow += ((il.state === 'dock' ? 1 : 0) - il.glow) * (1 - Math.exp(-dt * 3));
       il.im.emissiveIntensity = il.glow * (.55 + .2 * Math.sin(T * 2 + il.k));
