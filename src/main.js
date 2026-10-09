@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { PixelPipeline, LAYER_FX, LAYER_SH_ORB, LAYER_SH_MOON } from './post.js';
 import { billboard, tex, disposeGroup, makeEnv, SHAFT_T } from './common.js';
 import { makeOrbStar } from './orbstar.js';
-import { VoxChar } from './voxchar.js';
+import { VoxChar, WAVE } from './voxchar.js';
 import { createAudio } from './audio.js';
 import { FX } from './fx.js';
 import { buildStar } from './level1.js';
@@ -376,6 +376,22 @@ function stickHome() {
   });
 }
 addEventListener('resize', stickHome);
+// 点一下角色（鼠标或手指）：她抬头看向屏幕前的我们，眯眼笑着挥挥手
+function hitChar(x, y) {
+  // 角色显示时以脚为轴后仰、拉长（见 voxchar.js），按显示出来的样子算头顶在屏幕上的位置
+  const f = player.position, H = 1.75 * pc.U.stretch.value, a = pc.U.tilt.value;
+  let [fx_, fy] = toScreen(f.x, f.y, f.z), [tx, ty] = toScreen(f.x, f.y + H * Math.cos(a), f.z - H * Math.sin(a));
+  fx_ *= view.w; tx *= view.w; fy *= view.h; ty *= view.h;
+  const len = Math.abs(fy - ty), cx = (fx_ + tx) / 2;
+  return Math.abs(x - cx) < Math.max(18, len * .32) && y > Math.min(fy, ty) - 6 && y < Math.max(fy, ty) + 6;
+}
+canvas.addEventListener('pointerdown', e => {
+  if (S.mode !== 'play' || S.cine || P.lie || P.falling || P.moving || P.reachT != null) return;
+  const [x, y] = toView(e.clientX, e.clientY);
+  if (!hitChar(x, y)) return;
+  if (P.waveT == null || P.waveT > 1) { P.waveT = 0; P.dir = 'down'; }
+  if (e.pointerType === 'touch') e.stopImmediatePropagation();   // 点角色不触发摇杆
+}, true);
 canvas.addEventListener('pointerdown', e => {
   if (e.pointerType !== 'touch') return;
   if (S.mode === 'intro' && S.introT > .6) { skipIntro(); return; }
@@ -649,7 +665,8 @@ function update(dt) {
   else { const amb = S.mode === 'menu' ? LV.light.hemi : LV.ambient(P); hemi.intensity = lerp(hemi.intensity, amb, 1 - Math.exp(-dt * 2)); moon.intensity = hemi.intensity * LV.light.moonK; }
 
   // 角色帧
-  pc.update({ dir: P.dir, moving: P.moving && !P.falling, run: P.run, vx: P.falling ? 0 : P.vx, vz: P.falling ? 0 : P.vz, dt, lie: P.lie, crouch: P.crouch, act: P.act, actT: P.actT, reach: reachState(dt) });
+  if (P.waveT != null) { P.waveT += dt; if (P.waveT > WAVE || !play || P.moving || P.falling || P.lie || P.reachT != null) P.waveT = null; }
+  pc.update({ dir: P.dir, moving: P.moving && !P.falling, run: P.run, vx: P.falling ? 0 : P.vx, vz: P.falling ? 0 : P.vz, dt, lie: P.lie, crouch: P.crouch, act: P.act, actT: P.actT, reach: reachState(dt), wave: P.waveT });
   player.position.set(Math.round(P.x * 32) / 32, P.y, Math.round(P.z * 32) / 32); pc.U.foot.value.copy(player.position);
 
   LV.update(dt, T);
