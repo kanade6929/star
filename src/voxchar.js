@@ -102,8 +102,15 @@ function buildParts() {
     if (y === 23 && (z === -5 || z === 1)) continue;
     [-7, 6].forEach(x => head.set(x, y, z, y >= 21 ? C.hair : z < -2 && y < 17 ? C.hairD : C.hairS));
   }
-  // 后脑外层：上半部分属于头，下半部分是会甩动的后发
-  for (let x = -6; x < 6; x++) for (let y = 21; y < 24; y++) if (!(y === 23 && (x === -6 || x === 5))) head.set(x, y, -6, y === 21 ? C.hairS : C.hair);
+  // 后脑：跟着圆头鼓出三层头发（中间最厚、上下收），不会甩动；下面露出的发梢才是会飘的后发
+  const backCol = (x, y) => y >= 21 ? C.hair : y >= 17 ? ((x + 8) % 3 === 1 ? C.hairS : C.hair) : C.hairS;
+  [[-6, 15, 24, -6, 6], [-7, 16, 23, -5, 5], [-8, 18, 21, -3, 3]].forEach(([z, y0, y1, x0, x1]) => {
+    for (let x = x0; x < x1; x++) for (let y = y0; y < y1; y++) {
+      const edge = x === x0 || x === x1 - 1;
+      if (edge && (y === y0 || y === y1 - 1)) continue;   // 四角削圆
+      head.set(x, y, z, backCol(x, y));
+    }
+  });
   // 刘海往前多一层，有厚度，和头顶连成一片
   for (let x = -5; x < 5; x++) for (let y = 21; y < 24; y++) if (!(y === 23 && (x === -5 || x === 4))) head.set(x, y, 6, strand(x, C.hair));
   [-5, -3, -1, 0, 2, 4].forEach(x => head.set(x, 20, 6, C.hairS));
@@ -135,16 +142,18 @@ function buildParts() {
   });
   // 每只笑眼 4 格：两端低、中间两格高
   [[-5, -4, -3, -2], [1, 2, 3, 4]].forEach(([p, q, r, s]) => { eyesSmile.set(p, 15, 5, C.lash); eyesSmile.set(q, 16, 5, C.lash); eyesSmile.set(r, 16, 5, C.lash); eyesSmile.set(s, 15, 5, C.lash); });
-  [[-5, 15], [4, 15]].forEach(([x, y]) => { head.del(x, y, 5); eyesOpen.set(x, y, 5, C.skin); eyesShut.set(x, y, 5, C.skin); });  P.eyesOpen = { p: eyesOpen, pivot: [0, 13, 0] }; P.eyesShut = { p: eyesShut, pivot: [0, 13, 0] }; P.eyesSmile = { p: eyesSmile, pivot: [0, 13, 0] };
-  // 后发：短发的后脑下半部分，到后颈为止，中间鼓一点，下沿参差；和头上的那层严丝合缝
+  [[-5, 15], [4, 15]].forEach(([x, y]) => { head.del(x, y, 5); eyesOpen.set(x, y, 5, C.skin); eyesShut.set(x, y, 5, C.skin); });
+  P.eyesOpen = { p: eyesOpen, pivot: [0, 13, 0] }; P.eyesShut = { p: eyesShut, pivot: [0, 13, 0] }; P.eyesSmile = { p: eyesSmile, pivot: [0, 13, 0] };
+  // 后发：后颈处的一圈发梢，两层厚、下沿往外翘一点，挂在后脑下面，以上沿为轴飘动
   const back = new Part();
-  const hairCol = (x, y, bottom) => y < bottom + 2 ? C.hairD : y < 16 ? C.hairS : ((x + 8) % 3 === 1 ? C.hairS : C.hair);
+  const tipCol = (x, y, bottom) => y < bottom + 2 ? C.hairD : C.hairS;
   for (let x = -6; x < 6; x++) {
     const bottom = (x === -6 || x === 5) ? 13 : 11 + (x & 1);
-    back.box(x, bottom, -6, x + 1, 21, -5, (xx, y) => hairCol(x, y, bottom));
-    if (x > -5 && x < 4) back.box(x, bottom + 1, -7, x + 1, 18, -6, (xx, y) => hairCol(x, y, bottom + 1));
+    back.box(x, bottom, -6, x + 1, 15, -5, (xx, y) => tipCol(x, y, bottom));
+    if (x > -6 && x < 5) back.box(x, bottom + 1, -7, x + 1, 16, -6, (xx, y) => tipCol(x, y, bottom + 1));
+    if (x > -5 && x < 4) back.box(x, bottom + 1, -8, x + 1, bottom + 3, -7, C.hairD);
   }
-  P.back = { p: back, pivot: [0, 21, -6] };
+  P.back = { p: back, pivot: [0, 15, -6.5] };
   // 两缕鬓发：接着两侧头发往下，到下巴，发梢往里收
   P.locks = [-1, 1].map(s => {
     const p = new Part(), x = s < 0 ? -7 : 6, xi = x - s;
