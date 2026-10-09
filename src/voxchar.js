@@ -159,14 +159,14 @@ function buildParts() {
   // 呆毛
   const ah = new Part(); ah.set(0, 26, 1, C.hair).set(0, 27, 1, C.hair).set(1, 28, 1, C.hair).set(2, 28, 0, C.hairS);
   P.ahoge = { p: ah, pivot: [0, 26, 1] };
-  // 披风：外深蓝、里浅紫、金边
-  const cape = new Part();
+  // 披风：一层薄布、深蓝、金边；分上下两段，下摆单独再晃一下，看起来软
+  const cape = new Part(), capeLow = new Part();
   for (let y = 4; y < 13; y++) {
-    const w = y > 10 ? 4 : 5;
-    cape.box(-w, y, -5, w, y + 1, -4, y === 4 ? C.trim : C.cape);
-    cape.box(-w, y, -4, w, y + 1, -3, y === 4 ? C.trim : C.lining);
+    const w = y > 10 ? 3 : 4;
+    (y < 9 ? capeLow : cape).box(-w, y, -4, w, y + 1, -3, y === 4 ? C.trim : C.cape);
   }
   P.cape = { p: cape, pivot: [0, 12.5, -3.5] };
+  P.capeLow = { p: capeLow, pivot: [0, 9, -3.5] };
   return P;
 }
 
@@ -226,7 +226,8 @@ export class VoxChar {
     this.locks = P.locks.map(d => rel(mk(d, this.bob), this.head));
     this.ahoge = rel(mk(P.ahoge, this.bob), this.head);
     this.cape = rel(mk(P.cape, this.bob), this.body);
-    this.sp = { backX: new Spring(40, 7), backZ: new Spring(40, 7), capeX: new Spring(35, 6), capeZ: new Spring(35, 6), lockX: new Spring(55, 6), lockZ: new Spring(55, 6), ah: new Spring(80, 5) };
+    this.capeLow = rel(mk(P.capeLow, this.bob), this.cape);
+    this.sp = { backX: new Spring(40, 7), backZ: new Spring(40, 7), capeX: new Spring(26, 5), capeZ: new Spring(26, 5), capeLowX: new Spring(30, 4), capeLowZ: new Spring(30, 4), lockX: new Spring(55, 6), lockZ: new Spring(55, 6), ah: new Spring(80, 5) };
     this.t = 0; this.phase = 0; this.blinkT = 2.5; this.yawA = 0; this.lean = 0; this.lieK = 0; this.sitK = 0; this.lv = [0, 0]; this.lookA = 0;
   }
   // 在描边法线图里补画角色
@@ -310,6 +311,9 @@ export class VoxChar {
     this.back.rotation.set(Math.max(-.1, Math.min(.8, bx)), 0, bz);
     const cx = this.sp.capeX.step(dt, Math.min(.4, Math.abs(fwd) * .08) + af * .02 + idle * .7 + K * .15), cz = this.sp.capeZ.step(dt, -turn * .06);
     this.cape.rotation.set(Math.max(-.05, cx), 0, cz);
+    // 下摆比上段慢半拍、甩得更开
+    const clx = this.sp.capeLowX.step(dt, Math.min(.35, Math.abs(fwd) * .07) + af * .015 + idle * .8), clz = this.sp.capeLowZ.step(dt, -turn * .05);
+    this.capeLow.rotation.set(Math.max(-.05, clx), 0, clz);
     const lx = this.sp.lockX.step(dt, Math.abs(fwd) * .06 + af * .01), lz = this.sp.lockZ.step(dt, turn * .04 - as * .01);
     this.locks.forEach((g, i) => g.rotation.set(Math.max(-.1, lx), 0, lz + (i ? .04 : -.04)));
     this.ahoge.rotation.z = this.sp.ah.step(dt, -turn * .08 + Math.sin(this.t * 3) * .05 + af * .01);
