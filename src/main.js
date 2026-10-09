@@ -930,7 +930,7 @@ function runSplash() {
   splashT.push(setTimeout(() => $('sp1').classList.add('on'), 150));
   splashT.push(setTimeout(() => $('sp1').classList.remove('on'), 2900));
   splashT.push(setTimeout(() => $('sp2').classList.add('on'), 3900));
-  splashT.push(setTimeout(() => endSplash(), 8600));
+  splashT.push(setTimeout(() => endSplash(), 7000));
 }
 splash.addEventListener('pointerdown', () => endSplash(true));
 addEventListener('keydown', () => endSplash(true), { capture: true });
