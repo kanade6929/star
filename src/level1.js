@@ -363,7 +363,7 @@ export function buildStar(ctx) {
     const sm = new THREE.MeshStandardMaterial({ color: 0x9a94d0, roughness: .3, emissive: 0xffe2a0, emissiveIntensity: .25 });
     const star = new THREE.Mesh(new THREE.OctahedronGeometry(.26, 0), sm); star.scale.set(.7, 1.3, .7); star.position.set(cx, -.35, cz); root.add(star);
     const rm = new THREE.MeshBasicMaterial({ color: 0xffd89a, transparent: true, opacity: .12, blending: THREE.AdditiveBlending, depthWrite: false });
-    const ring = new THREE.Mesh(new THREE.RingGeometry(.62, .7, 32), rm); ring.rotation.x = -Math.PI / 2; ring.position.set(cx, -.3, cz); ring.layers.set(LAYER_FX); root.add(ring);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(.665, .7, 48), rm); ring.rotation.x = -Math.PI / 2; ring.position.set(cx, -.3, cz); ring.layers.set(LAYER_FX); root.add(ring);
     return { i, x, z, cx, cz, sm, star, rm, ring, charge: 0, isle: null, visited: false };
   });
   const isles = [0, 1, 2].map(k => {
@@ -403,7 +403,7 @@ export function buildStar(ctx) {
   pointer.layers.set(LAYER_FX); root.add(pointer);
   // 虚空深处的八芒星：一座缓慢转动的巨大星框，北斗每亮一颗星它就亮一分
   const bigStar = new THREE.Group(); bigStar.position.set(59.5, -6.2, 7.5); root.add(bigStar);
-  const bigStarM = toon({ color: 0x8a7a58, roughness: .35, metalness: .8, emissive: 0xffd89a, emissiveIntensity: .03 });
+  const bigStarM = toon({ color: 0x4e4660, roughness: .55, metalness: .45, emissive: 0xffd89a, emissiveIntensity: .012, transparent: true, opacity: .55 });   // 只是装饰：压暗，让北斗连线做主角
   for (let sq = 0; sq < 2; sq++) for (let e = 0; e < 4; e++) {
     const a = e * Math.PI / 2 + sq * Math.PI / 4, R = 5.6;
     const bar = new THREE.Mesh(new THREE.BoxGeometry(R * Math.SQRT2, .07, .07), bigStarM);
@@ -493,7 +493,7 @@ export function buildStar(ctx) {
     const bm = new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
     const beam = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, 1, 6, 1, true), bm); beam.layers.set(LAYER_FX); beam.visible = false; skyG.add(beam); L.hide.push(beam);
     // 连成后的光桥
-    const pl = new THREE.Mesh(bevelBox(.82, .12, len, .03), plankM); pl.position.set((A.x + Bn.x) / 2, -.14, (A.z + Bn.z) / 2); pl.rotation.y = Math.atan2(dx, dz); pl.receiveShadow = pl.castShadow = true; plankG.add(pl);
+    const pl = new THREE.Mesh(bevelBox(.6, .1, len, .03), plankM); pl.position.set((A.x + Bn.x) / 2, -.14, (A.z + Bn.z) / 2); pl.rotation.y = Math.atan2(dx, dz); pl.receiveShadow = pl.castShadow = true; plankG.add(pl);
     return { i, a: A, b: Bn, len, bm, beam, drawn: false, k: 0, from: A };
   });
   const C = { done: false, finT: 0, desc: 0, rise: 0, fly: 0 };
@@ -541,7 +541,7 @@ export function buildStar(ctx) {
   const occupied = il => inIsle(il, P.x, P.z, .4) || (P.falling && inIsle(il, P.safe[0], P.safe[1], .4));
   const onIsle = (x, z) => isles.some(il => il.state === 'dock' && inIsle(il, x, z));
   const segD = (x, z, e) => { const ax = e.a.x, az = e.a.z, dx = e.b.x - ax, dz = e.b.z - az, t = clamp(((x - ax) * dx + (z - az) * dz) / (e.len * e.len), 0, 1); return Math.hypot(x - ax - dx * t, z - az - dz * t); };
-  const onConst = (x, z) => C.desc > .97 && (nodes.some(n => n.id !== 'I' && Math.hypot(x - n.x, z - n.z) < n.pr) || edges.some(e => segD(x, z, e) < .44));
+  const onConst = (x, z) => C.desc > .97 && (nodes.some(n => n.id !== 'I' && Math.hypot(x - n.x, z - n.z) < n.pr) || edges.some(e => segD(x, z, e) < .38));
   // 飞行路线：绕开人和别的浮岛，从旁边弧线飞过去（不从头顶穿过）
   function planFlight(il, a) {
     const sx = il.x, sz = il.z, ex = a.x, ez = a.z, dx = ex - sx, dz = ez - sz, L = Math.hypot(dx, dz) || 1, nx = -dz / L, nz = dx / L;
@@ -599,7 +599,7 @@ export function buildStar(ctx) {
       a.star.visible = !a.isle || a.isle.state === 'fly';
       a.star.rotation.y += dt * (.8 + k * 6);
       a.star.position.y = -.35 + Math.sin(T * 1.4 + a.i) * .06;
-      a.rm.opacity = a.isle ? 0 : (a.visited ? .14 : .22 + .08 * Math.sin(T * 3 + a.i)) + k * .5;
+      a.rm.opacity = a.isle ? 0 : (a.visited ? .14 : .26 + .08 * Math.sin(T * 3 + a.i)) + k * .5;
       a.ring.scale.setScalar(1.25 - k * .3);
     });
     isles.forEach(il => {
@@ -627,10 +627,10 @@ export function buildStar(ctx) {
       il.glow += ((il.state === 'dock' ? 1 : 0) - il.glow) * (1 - Math.exp(-dt * 3));
       il.im.emissiveIntensity = il.glow * (.55 + .2 * Math.sin(T * 2 + il.k));
     });
-    dipLines.forEach(l => { const on = anchors[l.a].visited && anchors[l.b].visited ? 1 : 0; l.k += (on - l.k) * (1 - Math.exp(-dt * 2)); l.m.material.opacity = .06 + l.k * (.55 + Math.sin(T * 3 + l.a) * .15); });
+    dipLines.forEach(l => { const on = anchors[l.a].visited && anchors[l.b].visited ? 1 : 0; l.k += (on - l.k) * (1 - Math.exp(-dt * 2)); l.m.material.opacity = .08 + l.k * (.72 + Math.sin(T * 3 + l.a) * .12); });
     deepStars.forEach((m, i) => { m.material.opacity = anchors[i].visited ? .45 + Math.sin(T * 2 + i) * .1 : .08; });
     bigStar.rotation.y += dt * (.03 + S.dipper * .015 + (S.dipDone ? .12 : 0));
-    bigStarM.emissiveIntensity = .03 + S.dipper * .025 + (S.dipDone ? .1 : 0);
+    bigStarM.emissiveIntensity = .012 + S.dipper * .006 + (S.dipDone ? .03 : 0);
     pointerM.opacity = S.dipDone ? .45 + Math.sin(T * 3) * .15 : 0;
   }
   // 走进星海：镜头扫过空着的水瓶和散在海里的星鱼

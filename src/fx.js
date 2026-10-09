@@ -53,7 +53,35 @@ export class FX {
     const points = new THREE.Points(pg, pm); points.frustumCulled = false; points.layers.set(LAYER_FX); scene.add(points);
     this.cursor = 0;
     // 光环 / 星印
-    this.ringGeo = new THREE.RingGeometry(.92, 1, 48); this.ringGeo.rotateX(-Math.PI / 2);
+    // 波纹：一张平铺的方片，着色器里画圆环。线从完整、变细、断成点，再散掉
+    this.ringGeo = new THREE.PlaneGeometry(2.4, 2.4); this.ringGeo.rotateX(-Math.PI / 2);
+    this.ringMat = new THREE.ShaderMaterial({
+      uniforms: { uCol: { value: new THREE.Color() }, uA: { value: 0 }, uW: { value: .05 }, uBreak: { value: 0 }, uSeed: { value: 0 }, uEcho: { value: 1 } },
+      vertexShader: `varying vec2 vP; void main(){ vP = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+      fragmentShader: `uniform vec3 uCol; uniform float uA, uW, uBreak, uSeed, uEcho; varying vec2 vP;
+        float h1(float n){ return fract(sin(n * 91.345 + uSeed * 17.13) * 43758.5453); }
+        float band(float d, float r, float w){ float e = abs(d - r), aa = fwidth(d) * .75;
+          return clamp((w + aa * .5 - e) / aa, 0., 1.) * min(1., 2. * w / aa); }
+        // 沿圆周分段：每段随机长短，随 uBreak 逐渐缩短直到消失
+        float dashes(float ang, float n, float salt){
+          if (uBreak <= 0.) return 1.;
+          float s = (ang / 6.2832 + .5) * n, id = floor(s), f = fract(s), r = h1(id + salt);
+          float len = 1. - uBreak * (.45 + r * 1.1);
+          float aa = fwidth(s) * .8;
+          return smoothstep(-aa, aa, len - f) * smoothstep(-aa, aa, f - .02 * uBreak); }
+        void main(){
+          float d = length(vP); if (d > 1.18) discard;
+          float ang = atan(vP.y, vP.x);
+          float main = band(d, 1., uW) * dashes(ang, 46., 0.);
+          // 内侧一道更细的余波
+          float echo = band(d, .9, uW * .45) * dashes(ang + .3, 34., 7.) * .45 * uEcho;
+          // 环外极淡的光晕
+          float glow = exp(-pow((d - 1.) / (uW * 4. + .02), 2.)) * .14 * (1. - uBreak);
+          float a = (main + echo + glow) * uA;
+          if (a < .004) discard;
+          gl_FragColor = vec4(uCol * a, 1.); }`,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide
+    });
     this.sigT = { star: nearest(new THREE.CanvasTexture(sigilCanvas('star'))), moon: nearest(new THREE.CanvasTexture(sigilCanvas('moon'))), sun: nearest(new THREE.CanvasTexture(sigilCanvas('sun'))) };
     this.haloT = nearest(new THREE.CanvasTexture(haloCanvas(64)));
     this.items = [];
@@ -61,7 +89,7 @@ export class FX {
     // 常驻的隐形样本：光环、星印用的材质每次新建、用完就释放，若没有常驻的同类材质，
     // 着色器会被释放后再重新编译，点亮机关的瞬间就会卡一下。留一份常驻，着色器就一直在。
     const keepOpts = { transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide };
-    [new THREE.MeshBasicMaterial(keepOpts), new THREE.MeshBasicMaterial({ ...keepOpts, map: this.haloT })].forEach(mat => {
+    [new THREE.MeshBasicMaterial(keepOpts), new THREE.MeshBasicMaterial({ ...keepOpts, map: this.haloT }), this.ringMat].forEach(mat => {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(.01, .01), mat); m.layers.set(LAYER_FX); m.visible = false; m.position.y = -50; scene.add(m);
     });
   }
@@ -96,9 +124,21 @@ export class FX {
   }
   /* ---------- 光环 / 星印 ---------- */
   ring(x, y, z, color, size = 3, dur = 1.1, o = {}) {
-    const m = new THREE.Mesh(this.ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    const mat = this.ringMat.clone(), U = mat.uniforms;
+    U.uCol.value.set(color); U.uSeed.value = Math.random() * 100; U.uEcho.value = size > 1.3 ? 1 : 0;
+    const m = new THREE.Mesh(this.ringGeo, mat);
     m.position.set(x, y, z); m.layers.set(LAYER_FX); this.scene.add(m);
-    this.items.push({ m, t: 0, dur, upd: (k) => { const e = 1 - Math.pow(1 - k, 3); m.scale.setScalar(.2 + e * size); m.material.opacity = (1 - k) * (o.a ?? 1); } });
+    // 线宽（米）：起初细而完整，向外发散时越来越细，最后断成点散掉
+    const w0 = Math.min(.075, .035 + size * .009), w1 = .006, a0 = o.a ?? 1;
+    dur *= 1.15;
+    this.items.push({ m, t: 0, dur, upd: (k) => {
+      const e = 1 - Math.pow(1 - k, 2.6), R = .15 + e * size;
+      m.scale.setScalar(R);
+      const th = Math.min(1, k / .8);
+      U.uW.value = (w0 + (w1 - w0) * (1 - Math.pow(1 - th, 1.6))) / R;
+      U.uBreak.value = Math.max(0, Math.min(1, (k - .36) / .6));
+      U.uA.value = a0 * Math.min(1, k * 14) * (1 - Math.max(0, (k - .86) / .14)) * 1.25;
+    } });
   }
   sigil(x, y, z, color, kind = 'star', size = 2.4, dur = 2, o = {}) {
     const mat = new THREE.MeshBasicMaterial({ map: this.sigT[kind], color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
@@ -153,7 +193,7 @@ export class FX {
     // 引导微光：缓慢呼吸，偶尔升起一粒同色光尘
     this.beacons.forEach(b => {
       b.k += ((b.on ? 1 : 0) - b.k) * (1 - Math.exp(-dt * 2.5));
-      b.m.material.opacity = b.k * (.2 + .1 * Math.sin(T * 2.2 + b.ph));
+      b.m.material.opacity = b.k * (.16 + .07 * Math.sin(T * 2.2 + b.ph));   // 引导微光收一点，别和别的亮点抢
       b.m.visible = b.k > .01;
       b.mote -= dt;
       if (b.on && b.mote < 0) { b.mote = .5 + Math.random() * .7; this.emit(b.x + (Math.random() - .5) * .35, b.y - .2, b.z + (Math.random() - .5) * .35, { vy: .35, life: 1.5, c: b.col, tw: 5, a: .9 }); }

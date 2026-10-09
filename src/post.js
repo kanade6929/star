@@ -15,6 +15,8 @@ export class PixelPipeline {
   constructor(renderer) {
     this.r = renderer;
     this.w = 0; this.h = 0; this.scale = 1; this.zoom = 1; this.css = null;
+    // 画质：0 高，1 中等（手机默认）。中等：画布不按高分屏放大、倒影隔帧更新、泛光与景深少模糊一轮
+    this.quality = 0; this.frameN = 0;
     const opts = { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, type: THREE.HalfFloatType };
     this.colorRT = new THREE.WebGLRenderTarget(4, 4, { ...opts, depthTexture: new THREE.DepthTexture(4, 4) });
     this.normalRT = new THREE.WebGLRenderTarget(4, 4, { ...opts, depthBuffer: true });
@@ -195,8 +197,12 @@ export class PixelPipeline {
   }
   render(scene, cam, opt = {}) {
     const r = this.r, U = this.compMat.uniforms;
+    this.frameN++;
+    const mid = this.quality === 1;
+    // 阴影只在主画面这一遍更新：倒影那一遍开着裁剪面，在那里画阴影会编出另一套阴影着色器
+    r.shadowMap.needsUpdate = false;
+    if (opt.reflect !== false && (!mid || this.frameN % 2 === 0 || opt.force)) this.renderReflection(scene, cam);
     r.shadowMap.needsUpdate = true;
-    if (opt.reflect !== false) this.renderReflection(scene, cam);
     // 1) 颜色 + 深度
     cam.layers.enableAll();
     r.setRenderTarget(this.colorRT); r.setClearColor(0x05040f, 1); r.clear(); r.render(scene, cam);
@@ -213,19 +219,20 @@ export class PixelPipeline {
     this.brightMat.uniforms.texel.value.set(1 / this.colorRT.width, 1 / this.colorRT.height);
     r.setRenderTarget(this.bloomA); r.render(this.quadScene, this.quadCam);
     const bw = this.bloomA.width, bh = this.bloomA.height;
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < (mid ? 2 : 3); i++) {
       this.quad.material = this.blurMat;
-      this.blurMat.uniforms.tSrc.value = this.bloomA.texture; this.blurMat.uniforms.dir.value.set(1 / bw, 0);
+      const bs = mid ? 1.25 : 1;
+      this.blurMat.uniforms.tSrc.value = this.bloomA.texture; this.blurMat.uniforms.dir.value.set(bs / bw, 0);
       r.setRenderTarget(this.bloomB); r.render(this.quadScene, this.quadCam);
-      this.blurMat.uniforms.tSrc.value = this.bloomB.texture; this.blurMat.uniforms.dir.value.set(0, 1 / bh);
+      this.blurMat.uniforms.tSrc.value = this.bloomB.texture; this.blurMat.uniforms.dir.value.set(0, bs / bh);
       r.setRenderTarget(this.bloomA); r.render(this.quadScene, this.quadCam);
     }
     // 3b) 景深模糊图
     this.quad.material = this.blurMat;
     const dw = this.dofA.width, dh = this.dofA.height;
     let src = this.colorRT.texture;
-    for (let i = 0; i < 3; i++) {
-      const rad = 1 + i;
+    for (let i = 0; i < (mid ? 2 : 3); i++) {
+      const rad = mid ? 1.5 + i * 1.5 : 1 + i;
       this.blurMat.uniforms.tSrc.value = src; this.blurMat.uniforms.dir.value.set(rad / dw, 0);
       r.setRenderTarget(this.dofB); r.render(this.quadScene, this.quadCam);
       this.blurMat.uniforms.tSrc.value = this.dofB.texture; this.blurMat.uniforms.dir.value.set(0, rad / dh);

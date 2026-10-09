@@ -47,9 +47,15 @@ function layoutView() {
 }
 // 屏幕坐标 → 游戏画面坐标（竖屏旋转时换算）
 function toView(cx, cy) { return view.rot ? [cy, innerWidth - cx] : [cx, cy]; }
+// 设置：画质（高 / 中等）与光点皮肤。手机默认中等：画布不按高分屏放大，倒影和月光阴影隔帧更新
+const SET_KEY = 'chenxingye3d_set';
+const SET = { q: TOUCH ? 'mid' : 'high', skin: 'gold' };
+try { Object.assign(SET, JSON.parse(localStorage.getItem(SET_KEY)) || {}); } catch (e) {}
+function saveSet() { try { localStorage.setItem(SET_KEY, JSON.stringify(SET)); } catch (e) {} }
 function resize() {
   layoutView();
-  pipe.resize(view.w, view.h, Math.min(devicePixelRatio || 1, 2));
+  pipe.quality = SET.q === 'mid' ? 1 : 0;
+  pipe.resize(view.w, view.h, SET.q === 'mid' ? 1 : Math.min(devicePixelRatio || 1, 2));
   pipe.setupCamera(cam);
 }
 addEventListener('resize', resize); resize();
@@ -91,13 +97,28 @@ const ORB_Y = 1.6;
 const VIS_K = 1 / Math.tan(ELEV0);
 function orbNear(x, z, y = 0) { return Math.hypot(orb.x - x, (orb.z - ORB_Y * VIS_K) - (z - y * VIS_K)); }
 const orb = { x: 6, z: 6, tx: 6, tz: 6, y: ORB_Y, g: new THREE.Group(), lift: 0, lock: null, k: 1, held: 0, px: 6, pz: 6 };
-const orbLight = new THREE.PointLight(0xffd88e, 7, 12, 1.6);
+const orbLight = new THREE.PointLight(0xffd88e, 7, 14, 1.38);   // 衰减放缓一点：光圈比以前大一圈，近处亮度不变
 orbLight.castShadow = true; orbLight.shadow.mapSize.set(1024, 1024); orbLight.shadow.bias = -.0006; orbLight.shadow.normalBias = .025;
-orbLight.shadow.camera.near = .05; orbLight.shadow.camera.far = 11;
+orbLight.shadow.camera.near = .05; orbLight.shadow.camera.far = 13;
 orbLight.shadow.camera.layers.set(0); orbLight.shadow.camera.layers.enable(LAYER_SH_ORB);
+moon.shadow.autoUpdate = false;
+// 画质切换：中等时光点阴影贴图减半（像素风的影子看不出差别），并重建阴影贴图
+function applyQuality() {
+  const ms = SET.q === 'mid' ? 512 : 1024;
+  if (orbLight.shadow.mapSize.x !== ms) { orbLight.shadow.mapSize.set(ms, ms); if (orbLight.shadow.map) { orbLight.shadow.map.dispose(); orbLight.shadow.map = null; } }
+  resize();
+}
+applyQuality();
 orb.g.add(orbLight);
 // 光点本体是一颗立体的四芒星，光晕是空气里的体积散射（不是贴图）
 const orbStar = makeOrbStar(LAYER_FX); orb.g.add(orbStar.g); let orbGlow = 1;
+// 星之彩棱的光尘：七色里偏冷的多一些
+const PRISM7 = [[1, .55, .6], [1, .78, .5], [.95, 1, .6], [.55, 1, .75], [.55, .85, 1], [.6, .7, 1], [.82, .62, 1], [.6, .82, 1], [.75, .9, 1]];
+const prismCol = new THREE.Color(), glowCol = new THREE.Color();
+function applySkin() {
+  orbStar.setSkin(SET.skin);
+  if (SET.skin !== 'prism' && LV) { orbLight.color.set(LV.light.orb); orbStar.setColor(0xffc45a); }
+}
 scene.add(orb.g);
 
 /* ================= 特效 ================= */
@@ -149,7 +170,8 @@ const AU = createAudio(on => { syncSound(); toast(on ? '琴声已开启' : '琴�
 /* ================= UI 辅助 ================= */
 let toastT = 0;
 // 触屏上把"鼠标"的说法换成摇杆
-const touchText = m => !TOUCH ? m : m.replace('移动鼠标', '推动右摇杆').replace('用鼠标', '用右摇杆').replace('晃动鼠标', '把右摇杆推到底');
+const touchText = m => !TOUCH ? m : m.replace('移动鼠标', '推动右摇杆').replace('用鼠标', '用右摇杆').replace('晃动鼠标', '把右摇杆推到底').replace(/鼠标/g, '右摇杆')
+  .replace(/按 ?E/g, '点「互动」').replace(/按 ?(Tab|Esc|M|Shift|空格)/g, '点按钮');
 function toast(msg, dur = 3) { msg = touchText(msg); const el = $('toast'); el.textContent = msg; el.classList.add('on'); toastT = dur; }
 // 常驻提示：每帧调用就一直显示；别的提示出现时先让它说完
 function holdToast(msg) { msg = touchText(msg); if (toastT < .25 || $('toast').textContent === msg) toast(msg, .5); }
@@ -160,11 +182,14 @@ function toScreen(x, y, z) {
   const fx_ = (pipe.w + 2) / pipe.w, fy = (pipe.h + 2) / pipe.h;
   return [(v3.x * fx_ + 1) / 2, (1 - v3.y * fy) / 2];
 }
+const tEbtn = $('tE'), tElab = $('tElab');
 function showPrompt(label, x, y, z) {
-  if (!label) { promptEl.classList.remove('on'); return; }
+  if (!label) { promptEl.classList.remove('on'); if (TOUCH && tEbtn.classList.contains('ready')) { tEbtn.classList.remove('ready'); tElab.textContent = '互动'; } return; }
   const [sx, sy] = toScreen(x, y, z);
   promptEl.style.left = (sx * view.w) + 'px'; promptEl.style.top = (sy * view.h) + 'px';
   promptEl.innerHTML = `<span class="key">E</span>${label}`; promptEl.classList.add('on');
+  if (TOUCH && tElab.textContent !== label) tElab.textContent = label;
+  if (TOUCH) tEbtn.classList.add('ready');
 }
 function updateHud() {
   if (!LV) return;
@@ -193,7 +218,7 @@ function loadLevel(n) {
   S.level = n;
   const lg = LV.light;
   hemi.color.set(lg.sky); hemi.groundColor.set(lg.ground); hemi.intensity = lg.hemi;
-  moon.color.set(lg.moon); orbLight.color.set(lg.orb); orbStar.setColor(0xffc45a);
+  moon.color.set(lg.moon); orbLight.color.set(lg.orb); orbStar.setColor(0xffc45a); applySkin();
   if (scene.environment) scene.environment.dispose();
   scene.environment = makeEnv(renderer, ...lg.env);
   pipe.setPalette(LV.palette, LV.tintLo, LV.tintHi);
@@ -234,7 +259,7 @@ function warmup() {
     });
   });
   offL.forEach(o => o.visible = false);
-  pipe.render(scene, cam, { time: T, fade: 1, focus: focusUV, dofK, flash: 0, vig });
+  pipe.render(scene, cam, { time: T, fade: 1, focus: focusUV, dofK, flash: 0, vig, force: true });
   offL.forEach(o => o.visible = true);
   hid.forEach(o => o.visible = false); fc.forEach(o => o.frustumCulled = true); cs.forEach(o => o.castShadow = false); ic.forEach(o => o.count = 0); li.forEach(([o, v]) => o.intensity = v);
 }
@@ -333,6 +358,7 @@ $('tE').addEventListener('pointerdown', e => { e.preventDefault(); if (S.mode ==
 $('tP').addEventListener('pointerdown', e => { e.preventDefault(); if (S.mode === 'play') pause(); });
 $('tM').addEventListener('pointerdown', e => { e.preventDefault(); toggleMap(); });
 $('map').addEventListener('pointerdown', e => { e.preventDefault(); toggleMap(false); });
+$('skip').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); if (S.mode === 'intro') skipIntro(); });
 
 /* ================= 地图：Tab 打开，简约的俯视平面图 + 人物实时位置 + 还没拿到的牌和灯 ================= */
 const mapEl = $('map'), mapC = $('mapc'), mapG = mapC.getContext('2d');
@@ -552,6 +578,12 @@ function update(dt) {
   const fin = S.mode === 'cut' ? 1 - smooth(1, 3, S.ev) * .8 : 1;
   orb.k = (1 - near * (intro ? .55 : .35)) * fin * (S.mode === 'menu' ? .75 : 1);
   orbLight.intensity = (7 + Math.sin(T * 1.7) * .1) * orb.k;
+  if (SET.skin === 'prism') {
+    // 彩棱：以冷蓝为主，缓慢地流过七种颜色（不会长时间停在暖色上）
+    const hue = (.6 + .34 * Math.sin(T * .33) + .06 * Math.sin(T * 1.3) + 1) % 1;
+    prismCol.setHSL(hue, .5, .66, THREE.SRGBColorSpace); orbLight.color.copy(prismCol);
+    orbStar.setColor(glowCol.setHSL((hue * .4 + .6 * .6) % 1, .55, .68, THREE.SRGBColorSpace));
+  }
   orbGlow = fin * (intro ? .5 : S.mode === 'menu' ? .35 : 1 - near * .55);
   // 光尘拖尾：划得越快留下越多，沿路径均匀撒开
   const ov = Math.hypot(orb.x - orb.px, orb.z - orb.pz), mc = LV.light.mote;
@@ -559,7 +591,7 @@ function update(dt) {
   for (; orb.dust >= 1; orb.dust--) {
     const u = Math.random();
     fx.emit(lerp(orb.px, orb.x, u) + (Math.random() - .5) * .22, orb.y + (Math.random() - .5) * .22, lerp(orb.pz, orb.z, u) + (Math.random() - .5) * .22,
-      { vy: -.12 - Math.random() * .15, vx: (Math.random() - .5) * .3, vz: (Math.random() - .5) * .3, drag: 1.5, life: .9 + Math.random() * .8, c: Math.random() < .25 ? [1, 1, 1] : mc, s: Math.random() < .3 ? 2 : 1, a: .95, tw: 9 });
+      { vy: -.12 - Math.random() * .15, vx: (Math.random() - .5) * .3, vz: (Math.random() - .5) * .3, drag: 1.5, life: .9 + Math.random() * .8, c: Math.random() < .25 ? [1, 1, 1] : SET.skin === 'prism' ? PRISM7[(Math.random() * PRISM7.length) | 0] : mc, s: Math.random() < .3 ? 2 : 1, a: .95, tw: 9 });
   }
   orb.px = orb.x; orb.pz = orb.z;
 
@@ -645,7 +677,8 @@ function wake() { if (woke) { AU.init(); return; } woke = true; AU.init(); menu.
 addEventListener('pointerdown', wake, { capture: true });
 addEventListener('keydown', wake, { capture: true });
 function showView(v) {
-  $('vMain').classList.toggle('off', v !== 'main'); $('vChap').classList.toggle('off', v !== 'chap');
+  $('vMain').classList.toggle('off', v !== 'main'); $('vChap').classList.toggle('off', v !== 'chap'); $('vMore').classList.toggle('off', v !== 'more');
+  if (v === 'more') { refreshMore(); setTimeout(() => document.querySelector('#vMore .seg [aria-checked="true"]').focus({ preventScroll: true }), 300); return; }
   const deck = $('deck');
   if (v === 'chap') { deck.classList.remove('dealt', 'picking'); deck.classList.add('dealing'); requestAnimationFrame(() => requestAnimationFrame(() => deck.classList.add('dealt'))); AU.deal(); setTimeout(() => deck.querySelector('.tcard:not(.locked)').focus(), 300); }
   else setTimeout(() => document.querySelector('#mainNav .vbtn').focus({ preventScroll: true }), 50);
@@ -654,7 +687,18 @@ function menuAct(act) {
   if (act === 'start') begin(nextLevel());
   else if (act === 'chapters') showView('chap');
   else if (act === 'sound') AU.toggle();
+  else if (act === 'more') showView('more');
 }
+function refreshMore() {
+  document.querySelectorAll('#vMore [data-q]').forEach(b => b.setAttribute('aria-checked', b.dataset.q === SET.q));
+  document.querySelectorAll('#vMore [data-skin]').forEach(b => b.setAttribute('aria-checked', b.dataset.skin === SET.skin));
+}
+document.querySelectorAll('#vMore [data-q]').forEach((b, i) => b.addEventListener('click', () => { if (SET.q === b.dataset.q) return; SET.q = b.dataset.q; saveSet(); applyQuality(); refreshMore(); AU.hover(i + 2); }));
+document.querySelectorAll('#vMore [data-skin]').forEach((b, i) => b.addEventListener('click', () => {
+  if (SET.skin === b.dataset.skin) return; SET.skin = b.dataset.skin; saveSet(); applySkin(); refreshMore(); AU.hover(i + 4);
+  fx.bloom(orb.x, orb.y, orb.z, 24, SET.skin === 'prism' ? [.6, .82, 1] : [1, .85, .55], { w: 2, vr: 1.2, up: .3 });
+}));
+$('back2').addEventListener('click', () => { AU.back(); showView('main'); });
 document.querySelectorAll('.vbtn').forEach((b, i) => {
   b.addEventListener('click', () => { const a = b.dataset.act; if (b.closest('#pause')) pauseAct(a); else menuAct(a); });
   b.addEventListener('mouseenter', () => AU.hover(i));
@@ -668,7 +712,7 @@ document.querySelectorAll('.tcard').forEach(c => {
 });
 $('back').addEventListener('click', () => { AU.back(); showView('main'); });
 function menuKey(e, k) {
-  if (k === 'escape' && !$('vChap').classList.contains('off')) { AU.back(); showView('main'); }
+  if (k === 'escape' && (!$('vChap').classList.contains('off') || !$('vMore').classList.contains('off'))) { AU.back(); showView('main'); }
 }
 // 进关卡的黑屏加载：章节徽记缓缓画出，UI 一起隐去；预热完再淡出
 const LOAD_INFO = {
@@ -752,6 +796,7 @@ let last = performance.now();
 function frame(now) {
   const dt = clamp((now - last) / 1000, .001, .05); last = now;
   if (S.mode !== 'paused') update(dt);
+  moon.shadow.needsUpdate = pipe.quality === 0 || pipe.frameN % 2 === 0 || needWarm > 0; // 中等画质：月光阴影隔帧更新（光点的阴影每帧都画）
   if (needWarm && pipe.w) { warmup(); needWarm--; } // 连续两帧：第一帧时有些阴影贴图才刚创建
   pipe.render(scene, cam, { time: T, fade: S.fade, grade: 0, focus: focusUV, dofK, flash: S.flash, vig });
   requestAnimationFrame(frame);
@@ -765,7 +810,7 @@ requestAnimationFrame(frame);
 setTimeout(() => document.querySelector('#mainNav .vbtn').focus({ preventScroll: true }), 100);
 
 // 调试/测试钩子
-window.__G = { scene, AU,
+window.__G = { scene, AU, fx,
   sim(sec) { if (loadDone) loadDone(); for (let t = 0; t < sec; t += 1 / 30) update(1 / 30); return [S.mode, LV.progress(), P.x.toFixed(1), P.z.toFixed(1), P.falling]; },
   S, P, orb, get LV() { return LV; }, get mouse() { return mouse; }, set mouse(v) { mouse.seen = false; },
   begin, toMenu, interact, setMouse, mouseWorld, keys, update, pipe, cam, loadLevel, skipIntro, nearest, warmup, render() { pipe.render(scene, cam, { time: T, fade: S.fade, focus: focusUV, dofK, flash: S.flash, vig }); }
