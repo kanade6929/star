@@ -67,6 +67,8 @@ function buildParts() {
   body.box(-2, 12, 2, 2, 13, 3, C.collar);           // 前襟
   [[-1, 11], [0, 11], [-2, 11], [1, 11], [-1, 10], [0, 10]].forEach(([x, y]) => body.set(x, y, 2, C.ribbon)); // 蝴蝶结
   body.set(-3, 11, 2, C.ribbon); body.set(2, 11, 2, C.ribbon);
+  // 脖子：平时整段藏在头里（不显得脖子变长），抬头时下巴下面露出的是肉色而不是白色衣领
+  body.box(-3, 13, -2, 3, 15, 3, C.skin);
   P.body = { p: body, pivot: [0, 5, 0] };
   // 手臂（肩关节）
   P.arms = [-1, 1].map(s => {
