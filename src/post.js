@@ -27,6 +27,8 @@ export class PixelPipeline {
     this.bloomB = new THREE.WebGLRenderTarget(4, 4, lin);
     this.dofA = new THREE.WebGLRenderTarget(4, 4, lin);
     this.dofB = new THREE.WebGLRenderTarget(4, 4, lin);
+    // 描边结果先在低分辨率算好（每个画面像素只算一次），合成时只读一次；alpha 里存好抖动阈值
+    this.edgeRT = new THREE.WebGLRenderTarget(4, 4, { ...opts, depthBuffer: false });
     this.normalMat = new THREE.MeshNormalMaterial();
     this.quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     this.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
@@ -55,34 +57,18 @@ export class PixelPipeline {
           s += (texture2D(tSrc, vUv + dir * 3.23).rgb + texture2D(tSrc, vUv - dir * 3.23).rgb) * .07;
           gl_FragColor = vec4(s, 1.); }`
     });
-    const pal = Array.from({ length: 16 }, () => new THREE.Vector3());
-    this.compMat = new THREE.ShaderMaterial({
-      uniforms: {
-        tColor: { value: null }, tDepth: { value: null }, tNormal: { value: null }, tBloom: { value: null }, tDof: { value: null },
-        focus: { value: new THREE.Vector2(.5, .5) }, dofK: { value: 1 }, palK: { value: .18 }, pal: { value: pal },
-        res: { value: new THREE.Vector2() }, inner: { value: new THREE.Vector2() }, shift: { value: new THREE.Vector2() },
-        time: { value: 0 }, bloomK: { value: 1.0 }, fade: { value: 0 }, fadeCol: { value: new THREE.Color(0x05040f) },
-        grade: { value: 0 }, flash: { value: 0 }, vig: { value: .55 },
-        tintLo: { value: new THREE.Vector3(.95, .93, 1.08) }, tintHi: { value: new THREE.Vector3(1.06, 1.02, .94) }
-      },
+    this.edgeMat = new THREE.ShaderMaterial({
+      uniforms: { tColor: { value: null }, tDepth: { value: null }, tNormal: { value: null }, res: { value: new THREE.Vector2() } },
       vertexShader: quadVS,
       fragmentShader: `
-        uniform sampler2D tColor, tDepth, tNormal, tBloom, tDof; uniform vec2 focus; uniform float dofK, palK; uniform vec3 pal[16];
-        uniform vec2 res, inner, shift; uniform float time, bloomK, fade, grade, flash, vig; uniform vec3 fadeCol, tintLo, tintHi;
-        varying vec2 vUv;
+        uniform sampler2D tColor, tDepth, tNormal; uniform vec2 res; varying vec2 vUv;
         float D(vec2 p){ return texture2D(tDepth, (p + .5) / res).r; }
         vec3 N(vec2 p){ return texture2D(tNormal, (p + .5) / res).rgb * 2. - 1.; }
         float bayer(vec2 p){ ivec2 q = ivec2(mod(p, 4.)); int i = q.x + q.y * 4;
           float m[16]; m[0]=0.;m[1]=8.;m[2]=2.;m[3]=10.;m[4]=12.;m[5]=4.;m[6]=14.;m[7]=6.;m[8]=3.;m[9]=11.;m[10]=1.;m[11]=9.;m[12]=15.;m[13]=7.;m[14]=13.;m[15]=5.;
           for (int k = 0; k < 16; k++) if (k == i) return m[k] / 16.; return 0.; }
-        // 本关调色板（每关 16 色，由关卡传入）
-        vec3 palPull(vec3 c){ vec3 best = pal[0]; float bd = 1e9;
-          for (int i = 0; i < 16; i++) { vec3 d = c - pal[i]; float e = dot(d, d * vec3(.8, 1., .7)); if (e < bd) { bd = e; best = pal[i]; } }
-          return best; }
-        vec3 aces(vec3 x){ return clamp((x * (2.51 * x + .03)) / (x * (2.43 * x + .59) + .14), 0., 1.); }
-        vec3 toSRGB(vec3 c){ c = max(c, 0.); return mix(c * 12.92, 1.055 * pow(c, vec3(1. / 2.4)) - .055, step(.0031308, c)); }
         void main(){
-          vec2 p = floor(vUv * inner + 1. + shift);
+          vec2 p = floor(gl_FragCoord.xy);
           vec3 c = texture2D(tColor, (p + .5) / res).rgb;
           float d = D(p); vec3 n = N(p);
           // 深度描边：邻居明显更远 → 我在前景物体的边缘
@@ -103,6 +89,34 @@ export class PixelPipeline {
             if (depthEdge > 0.) c *= .42;
             else if (normalEdge > 0.) c = c * 1.45 + .012;
           }
+          gl_FragColor = vec4(c, bayer(p));
+        }`
+    });
+    const pal = Array.from({ length: 16 }, () => new THREE.Vector3());
+    this.compMat = new THREE.ShaderMaterial({
+      uniforms: {
+        tEdge: { value: null }, tBloom: { value: null }, tDof: { value: null },
+        focus: { value: new THREE.Vector2(.5, .5) }, dofK: { value: 1 }, palK: { value: .18 }, pal: { value: pal },
+        res: { value: new THREE.Vector2() }, inner: { value: new THREE.Vector2() }, shift: { value: new THREE.Vector2() },
+        time: { value: 0 }, bloomK: { value: 1.0 }, fade: { value: 0 }, fadeCol: { value: new THREE.Color(0x05040f) },
+        grade: { value: 0 }, flash: { value: 0 }, vig: { value: .55 },
+        tintLo: { value: new THREE.Vector3(.95, .93, 1.08) }, tintHi: { value: new THREE.Vector3(1.06, 1.02, .94) }
+      },
+      vertexShader: quadVS,
+      fragmentShader: `
+        uniform sampler2D tEdge, tBloom, tDof; uniform vec2 focus; uniform float dofK, palK; uniform vec3 pal[16];
+        uniform vec2 res, inner, shift; uniform float time, bloomK, fade, grade, flash, vig; uniform vec3 fadeCol, tintLo, tintHi;
+        varying vec2 vUv;
+        // 本关调色板（每关 16 色，由关卡传入）
+        vec3 palPull(vec3 c){ vec3 best = pal[0]; float bd = 1e9;
+          for (int i = 0; i < 16; i++) { vec3 d = c - pal[i]; float e = dot(d, d * vec3(.8, 1., .7)); if (e < bd) { bd = e; best = pal[i]; } }
+          return best; }
+        vec3 aces(vec3 x){ return clamp((x * (2.51 * x + .03)) / (x * (2.43 * x + .59) + .14), 0., 1.); }
+        vec3 toSRGB(vec3 c){ c = max(c, 0.); return mix(c * 12.92, 1.055 * pow(c, vec3(1. / 2.4)) - .055, step(.0031308, c)); }
+        void main(){
+          vec2 p = floor(vUv * inner + 1. + shift);
+          vec4 e = texture2D(tEdge, (p + .5) / res); // 已描边的颜色 + 抖动阈值
+          vec3 c = e.rgb;
           vec2 fuv = (vUv * inner + 1. + shift) / res;
           // 景深（移轴）：椭圆形的清晰区，往外缓慢过渡，最多只糊到六成
           vec2 fd = vec2((vUv.x - focus.x) * .62, (vUv.y - focus.y) * 1.05);
@@ -120,7 +134,7 @@ export class PixelPipeline {
           s = mix(s, palPull(s), palK * smoothstep(.1, .3, l));
           // 轻量化 + 抖动，只去掉渐变色带，不做硬分层
           float lv = 64.;
-          s = floor(s * lv + bayer(p)) / lv;
+          s = floor(s * lv + e.a) / lv;
           // 暗角
           vec2 q = vUv - .5; s *= 1. - dot(q, q) * vig;
           s = mix(s, fadeCol, fade);
@@ -143,7 +157,8 @@ export class PixelPipeline {
     this.scale = Math.max(1, Math.round(Math.sqrt(devW * devH) / (576 / this.zoom)));
     this.w = Math.ceil(devW / this.scale); this.h = Math.ceil(devH / this.scale);
     const W = this.w + 2, H = this.h + 2;
-    this.colorRT.setSize(W, H); this.normalRT.setSize(W, H); this.reflRT.setSize(W, H);
+    this.colorRT.setSize(W, H); this.normalRT.setSize(W, H); this.reflRT.setSize(W, H); this.edgeRT.setSize(W, H);
+    this.edgeMat.uniforms.res.value.set(W, H);
     this.bloomA.setSize(Math.ceil(W / 4), Math.ceil(H / 4)); this.bloomB.setSize(Math.ceil(W / 4), Math.ceil(H / 4));
     this.dofA.setSize(Math.ceil(W / 2), Math.ceil(H / 2)); this.dofB.setSize(Math.ceil(W / 2), Math.ceil(H / 2));
     this.compMat.uniforms.res.value.set(W, H);
@@ -202,7 +217,7 @@ export class PixelPipeline {
     // 阴影只在主画面这一遍更新：倒影那一遍开着裁剪面，在那里画阴影会编出另一套阴影着色器
     r.shadowMap.needsUpdate = false;
     if (opt.reflect !== false && (!mid || this.frameN % 2 === 0 || opt.force)) this.renderReflection(scene, cam);
-    r.shadowMap.needsUpdate = true;
+    r.shadowMap.needsUpdate = this.shadowDirty !== false; // 场景里没有东西动过时沿用上一帧的阴影贴图
     // 1) 颜色 + 深度
     cam.layers.enableAll();
     r.setRenderTarget(this.colorRT); r.setClearColor(0x05040f, 1); r.clear(); r.render(scene, cam);
@@ -239,8 +254,12 @@ export class PixelPipeline {
       r.setRenderTarget(this.dofA); r.render(this.quadScene, this.quadCam);
       src = this.dofA.texture;
     }
-    // 4) 合成到屏幕
-    U.tColor.value = this.colorRT.texture; U.tDepth.value = this.colorRT.depthTexture; U.tNormal.value = this.normalRT.texture; U.tBloom.value = this.bloomA.texture; U.tDof.value = this.dofA.texture;
+    // 4) 描边（低分辨率）
+    const E = this.edgeMat.uniforms;
+    E.tColor.value = this.colorRT.texture; E.tDepth.value = this.colorRT.depthTexture; E.tNormal.value = this.normalRT.texture;
+    this.quad.material = this.edgeMat; r.setRenderTarget(this.edgeRT); r.render(this.quadScene, this.quadCam);
+    // 5) 合成到屏幕
+    U.tEdge.value = this.edgeRT.texture; U.tBloom.value = this.bloomA.texture; U.tDof.value = this.dofA.texture;
     if (opt.focus) U.focus.value.copy(opt.focus); if (opt.dofK !== undefined) U.dofK.value = opt.dofK;
     U.time.value = opt.time || 0; U.fade.value = opt.fade || 0; U.grade.value = opt.grade || 0; U.flash.value = opt.flash || 0;
     if (opt.vig !== undefined) U.vig.value = opt.vig;
