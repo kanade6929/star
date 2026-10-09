@@ -570,7 +570,7 @@ export function buildStar(ctx) {
     best.state = 'fly'; best.anchor = null; a.isle = best;
     best.fly = { t: 0, a, from: [best.x, best.y, best.z], ctrl: planFlight(best, a), dur: 1.4 + Math.min(1.2, bd / 8) };
     AU.ghost(); fx.ring(a.cx, .02, a.cz, 0xffd89a, 2.6, .9);
-    if (!S.hints.summon) { S.hints.summon = 1; toast('星光牵来了一座浮岛。站着人的浮岛不会被牵走', 4); }
+    if (!S.hints.summon) { S.hints.summon = 1; toast('星光牵来了一座浮岛', 3.2); }
   }
   function newStar(a) {
     S.dipper = anchors.filter(q => q.visited).length;
@@ -642,7 +642,7 @@ export function buildStar(ctx) {
     cine([
       { dur: 1.6, focus: [80, 4.5], start() { AU.stone(); fx.sigil(80, .4, 3, 0xffd89a, 'star', 3.4, 2); flash(.08); toast('女神的水瓶空了。瓶里的九尾星鱼，散落在星海里', 4); } },
       { dur: 2.4, focus: [80, 8.5], start() { fishes.forEach((f, i) => setTimeout(() => fx.burst(f.x, FISH_Y + .2, f.z, 8, { c: GOLD, sp: .5, life: .7 }), i * 120)); } },
-      { dur: 1.2, focus: [80, 6.5], start() { S.fishOn = true; toast('星鱼追着光游。把星光停在它们旁边，再慢慢引回女神像前的池口', 6); } }
+      { dur: 1.2, focus: [80, 6.5], start() { S.fishOn = true; toast('星鱼追着光游', 3.6); } }
     ]);
   }
   // 九尾星鱼归池：升上夜空化成宝瓶座 → 星线一条条连上 → 星座降到海面变成光桥 → 中心升起星灯
@@ -691,12 +691,12 @@ export function buildStar(ctx) {
         const d = Math.hypot(tx - f.x, tz - f.z), sees = S.fishOn && over && seeLight(f.x, f.z, tx, tz);
         if (f.st === 'idle' && sees && d < 3.3) {
           f.st = 'follow'; f.blind = 0; AU.hover(i); fx.burst(f.x, FISH_Y + .2, f.z, 8, { c: GOLD, sp: .6, life: .6 });
-          if (!S.hints.fish) { S.hints.fish = 1; toast('星鱼跟上来了。慢一点，光走太快它们会跟丢', 3.6); }
+          if (!S.hints.fish) { S.hints.fish = 1; toast('星鱼跟上来了', 2.8); }
         } else if (f.st === 'follow') {
           f.blind = sees ? 0 : f.blind + dt;
           if (d > 4.4 || f.blind > .5) {
             f.st = 'idle'; f.home = [f.x, f.z]; fx.burst(f.x, FISH_Y + .2, f.z, 6, { c: [.6, .6, .8], sp: .4, life: .6 });
-            if (f.blind > .5 && !S.hints.reef) { S.hints.reef = 1; toast('礁石挡住了星光，星鱼看不见光了', 3.4); }
+            if (f.blind > .5 && !S.hints.reef) { S.hints.reef = 1; toast('星鱼看不见光了', 3); }
             else if (d > 4.4 && !S.hints.lost) { S.hints.lost = 1; toast('星光走得太快，星鱼跟丢了', 3); }
           }
         }
@@ -950,9 +950,9 @@ export function buildStar(ctx) {
     if (!h.move && t > .8) { h.move = 1; toast('夜色很深。移动鼠标，星光会跟着你', 4.5); }
     if (!h.lamp && Math.hypot(P.x - lamps[0].x, P.z - lamps[0].z) < 3.2 && !lamps[0].lit) { h.lamp = 1; toast('把星光引到灯碗上，走近按 E 点燃', 4); }
     if (!h.void && P.x > 10.5) { h.void = 1; toast('虚空之上，有些路只在星光里显现', 4); }
-    if (!h.c && P.x > 25) { h.c = 1; toast('石碑静静立着。地上的星纹，在等它的影子', 4.2); }
+    if (!h.c && P.x > 25) { h.c = 1; toast('石碑静静立着，地上刻着星纹', 3.6); }
     if (!h.d && P.x > 37.2) { h.d = 1; toast('暗厅。只有星光照到的地方，才看得见', 4); }
-    if (!h.f && P.x > 49.6) { h.f = 1; toast('七星浮岛。把星光停在空着的锚星上，最近的浮岛会被牵过来', 5); }
+    if (!h.f && P.x > 49.6) { h.f = 1; toast('七星浮岛。浮岛追着星光', 3.8); }
     if (!S.waking && P.x > 70.6) wakeConst();
     if (!h.e && P.x > 88.5) { h.e = 1; toast('星之泉。祭坛静候', 3.6); }
     // 日晷：光、石碑、星纹三点一线时，影子落在星纹上
@@ -978,7 +978,7 @@ export function buildStar(ctx) {
   function interact(n) {
     if (n.type === 'lamp') {
       const l = lamps[n.i];
-      if (ctx.orbNear(l.x, l.z, 1.28) > 1.7) { toast('把星光引到灯碗上，再点燃它', 2.6); AU.wrong(); return; }
+      if (ctx.orbNear(l.x, l.z, 1.28) > 1.7) { if (!S.lampsLit) toast('灯碗里还没有星光', 2.6); AU.wrong(); fx.burst(l.x, 1, l.z, 8, { c: [1, .7, .6], sp: .6, life: .6 }); return; }
       lightLamp(n.i);
     } else if (n.type === 'card') {
       card.taken = true; S.gotCard = true; AU.card();
@@ -1019,26 +1019,27 @@ export function buildStar(ctx) {
     return e > 11.5;
   }
 
+  // 停留太久：第一句只给意象，第二句只指方向
   function idle() {
-    if (!lamps[0].lit) return ['灯碗在等星光。把光点移到灯上，走近按 E', '左上方的小广场有一盏星灯：先用鼠标把光点放到灯碗上，再走近按 E'];
-    if (P.x < 23.5 && !rune.solved) return ['虚空上的路，只在星光照到的地方显现', '让光点走在你前面，照亮脚下的星晶石，再踩上去。掉下去也没关系'];
-    if (!rune.solved) return ['石碑的影子，要落在地上的星纹里', '把光点移到石碑的另一侧：光点、石碑、星纹连成一线，并保持一会儿'];
-    if (!lamps[1].lit) return ['日晷庭的角落里，还有一盏星灯', '日晷庭左上角的星灯还暗着'];
-    if (P.x < 36.5) return ['石门已经打开了，往东走', '穿过右边的石门，进入暗厅'];
-    if (!lamps[2].lit) return ['暗厅里也有一盏灯，用星光去找它', '暗厅左下方有一盏星灯'];
-    if (!card.taken && P.x < 49.5) return ['遗失的牌藏在暗处，只在星光里现形', '把光点带到暗厅的右下角，牌会显出来'];
+    if (!lamps[0].lit) return ['灯碗在等星光', '左上方的小广场，有一盏暗着的星灯'];
+    if (P.x < 23.5 && !rune.solved) return ['虚空上的路，只在星光里显现', '让星光走在你前面。掉下去也没关系'];
+    if (!rune.solved) return ['地上的星纹，在等一片影子', '星光、石碑、星纹'];
+    if (!lamps[1].lit) return ['日晷庭的角落里，还有一盏星灯', '去左上角看看'];
+    if (P.x < 36.5) return ['石门已经打开了', '往东走'];
+    if (!lamps[2].lit) return ['暗厅里也有一盏灯', '用星光去找它'];
+    if (!card.taken && P.x < 49.5) return ['暗处好像落着什么', '暗厅的角落，还没被星光照过'];
     if (!S.dipDone) {
-      if (P.x < 67) return ['浮岛只会飞向光点停留的、空着的锚星；站着人的那座不会动', '把光点停在前方空着的锚星上一会儿，等身后的浮岛飞过来再走上去。北斗的七颗星，每颗都要接一次浮岛'];
-      return ['北斗还没连全，回头看看哪颗星还暗着', '回到浮岛上，把浮岛召到还暗着的锚星上（北斗的斗口在南边）'];
+      if (P.x < 67) return ['浮岛追着星光。站着人的那座，不会动', '前方空着的锚星，在等一座浮岛'];
+      return ['北斗还没连全', '回头看看，哪颗星还暗着'];
     }
-    if (P.x < 70.5) return ['北斗指向了北极星。往东走，去宝瓶星海', '从浮岛东边的观星台继续往东'];
+    if (P.x < 70.5) return ['北斗指向了北极星', '往东，去宝瓶星海'];
     if (!C.done) {
-      if (S.nFollow) return ['慢慢引，别让礁石挡在星鱼和光之间', '把光点一点点往女神像前那圈金色池口挪，绕开礁石；光走太快或被礁石挡住，星鱼就会停下'];
-      return [`星鱼喜欢光。还有 ${9 - S.fishHome} 尾没回池`, '星鱼分在三处：西边礁湾、南边礁弧后面、东边礁湾。把光点停到它们旁边，等它们游过来，再沿着礁石的缺口引到女神像前的池口'];
+      if (S.nFollow) return ['慢一点，别让礁石挡在星鱼和光之间', '女神像前的池口，在等它们'];
+      return [`还有 ${9 - S.fishHome} 尾星鱼没回池`, '西边、南边、东边的礁石里，都还有星鱼'];
     }
-    if (!card.taken) return ['牌还落在暗厅里', '回到暗厅，把光点带到右下角，牌会显出来'];
-    if (P.x < 87.5) return ['光桥已经铺好了。走过星海去东边', '从女神像前的长廊走上光桥，经过最东边的星，去星之泉'];
-    return ['五盏星灯与牌都齐了。在祭坛前按 E', '走到星之泉中央的祭坛前按 E'];
+    if (!card.taken) return ['牌还落在暗厅里', '暗厅的角落，还没被星光照过'];
+    if (P.x < 87.5) return ['光桥已经铺好了', '走过星海，去东边'];
+    return ['五盏星灯与牌都齐了', '星之泉的祭坛，在等你'];
   }
 
   return {

@@ -734,15 +734,16 @@ function nodeHints() {
 }
 let lostT = 0;
 
-// 在一个地方停留太久：根据当前进度给出提示，先含蓄、再明确
+// 在一个地方停留太久：先让场景里的引导微光亮起来（画面先说话），再给一句意象，最后才指个方向
 function idleHints(dt) {
   const I = S.idle, key = LV.progress();
-  if (Math.hypot(P.x - I.x, P.z - I.z) > 2.4 || key !== I.key) { I.x = P.x; I.z = P.z; I.t = 0; I.tier = 0; I.key = key; return; }
+  if (Math.hypot(P.x - I.x, P.z - I.z) > 2.4 || key !== I.key) { I.x = P.x; I.z = P.z; I.t = 0; I.tier = 0; I.key = key; fx.nudge = 0; return; }
   I.t += dt;
+  fx.nudge = I.t > 10 ? 1 : 0;
   const H = LV.idle(P);
   if (!H) return;
-  if (I.tier === 0 && I.t > 16) { I.tier = 1; toast(H[0], 5.5); AU.ghost(); }
-  else if (I.tier === 1 && I.t > 36) { I.tier = 2; toast(H[1] || H[0], 6.5); AU.ghost(); }
+  if (I.tier === 0 && I.t > 22) { I.tier = 1; toast(H[0], 5); AU.ghost(); }
+  else if (I.tier === 1 && I.t > 45) { I.tier = 2; toast(H[1] || H[0], 5.5); AU.ghost(); }
 }
 
 /* ================= 菜单 / 流程 ================= */

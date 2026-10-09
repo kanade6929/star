@@ -269,7 +269,7 @@ export function buildMoon(ctx) {
     const halo = billboard(haloT, 2, 2, true, camQuat); halo.position.y = .98; halo.material.color.set(0xd8d4ff); halo.material.opacity = 0; g0.add(halo);
     const light = new THREE.PointLight(0xd8dcff, 0, 6, 1.5); light.position.y = 1.1; g0.add(light);
     root.add(g0);
-    const q = { x: x + .5, z: z + .5, name, on: false, t: 0, sm, ring, halo, light, g: g0 };
+    const q = { x: x + .5, z: z + .5, name, on: false, t: 0, sh: 0, shy: 0, sm, sphere, ring, halo, light, g: g0 };
     L.q.push(q); return q;
   };
 
@@ -555,7 +555,7 @@ export function buildMoon(ctx) {
   // 会动的「插槽」：光点停在月钩经过的地方，月钩转到时把它挂走
   const sockets = [{ get x() { return hookX(); }, get z() { return hookZ(); }, y: 1.6, r: .55, active: () => !S.done,
     onLock() { S.hubUsed = true; AU.lamp(0); const x = hookX(), z = hookZ(); fx.ring(x, 1.6, z, 0x8ff0e0, 1.6, .9); fx.ring(HUB[0], .05, HUB[1], 0x8ff0e0, 3.2, 1.2); fx.sigil(HUB[0], .06, HUB[1], 0x8ff0e0, 'moon', 3, 1.8); flash(.15); shake(.04, .3);
-      if (!S.hints.lock) { S.hints.lock = 1; toast('月钩挂上了星光。月柱的影子跟着转，踩着影子走', 4.6); } } }];
+      if (!S.hints.lock) { S.hints.lock = 1; toast('月钩挂上了星光', 3.4); } } }];
   function occluded(ax, az, bx, bz) {
     for (const m of L.monos) { if (Math.abs(ax - m.x) < .45 && Math.abs(az - m.z) < .45) continue; if (segAABB(ax, az, bx, bz, m.x, m.z, .4)) return true; }
     for (const t of L.towers) { if (Math.hypot(ax - t.x, az - t.z) < t.r) continue; if (segCircle(ax, az, bx, bz, t.x, t.z, t.r)) return true; }
@@ -602,8 +602,8 @@ export function buildMoon(ctx) {
     AU.lamp(1);
     const gx = gate.x + .1, gz = gate.cz;
     cine([
-      { dur: 1.4, focus: [26.5 + OB, 7.5], start() { flash(.2); fx.bloom(dog.x, 1.1, dog.z, 30, [1, .85, .5], { w: 2.4, vr: 1.4 }); fx.bloom(wolf.x, 1.1, wolf.z, 30, CORALc, { w: -2.4, vr: 1.4 }); AU.howl && AU.howl(); },
-        run(k, dt) { [dog, wolf].forEach((b, i) => { if (Math.random() < dt * 26) { const t = Math.random() * k; fx.emit(b.x + (gx - b.x) * t, 1 + Math.sin(t * 3) * .5, b.z + (gz - b.z) * t, { vy: .2, life: .9, c: i ? CORALc : [1, .85, .5], tw: 8 }); } }); } },
+      { dur: 1.4, focus: [26.5 + OB, 7.5], start() { flash(.2); fx.bloom(dog.x, 1.1, dog.z, 30, [.55, .76, 1], { w: 2.4, vr: 1.4 }); fx.bloom(wolf.x, 1.1, wolf.z, 30, [.74, .56, 1], { w: -2.4, vr: 1.4 }); AU.howl && AU.howl(); },
+        run(k, dt) { [dog, wolf].forEach((b, i) => { if (Math.random() < dt * 26) { const t = Math.random() * k; fx.emit(b.x + (gx - b.x) * t, 1 + Math.sin(t * 3) * .5, b.z + (gz - b.z) * t, { vy: .2, life: .9, c: i ? [.74, .56, 1] : [.55, .76, 1], tw: 8 }); } }); } },
       { dur: 1.4, focus: [gx - 3, gz], start() { AU.stone(); shake(.1, .5); },
         run(k) { L.towers.forEach((t, i) => { t.top.rotation.y = (i ? -1 : 1) * easeBack(k) * Math.PI * .5; t.winM.emissiveIntensity = .9 + k * 2; }); gate.glow.material.opacity = k * .9; gate.dm.emissiveIntensity = k * .6; } },
       { dur: 3, focus: [gx - 3, gz], start() { gate.opening = true; AU.stone(); },
@@ -616,7 +616,7 @@ export function buildMoon(ctx) {
     Object.assign(S, { phases: 0, gotCard: false, done: false, hints: {}, trail: 0, hubUsed: false, beastHold: 0, solvedB: false, crownHit: false, moonUp: false, mirA: 0, mirT: 0 });
     moonStones.forEach(m => { m.k = 0; m.last = -9; m.solid = false; }); ph.k = 0;
     ill.forEach(w => { w.k = 1; w.last = -9; w.open = false; });
-    L.q.forEach(q => { q.on = false; q.t = 0; }); qB.on = false;
+    L.q.forEach(q => { q.on = false; q.t = 0; q.sh = 0; q.shy = 0; }); qB.on = false;
     L.mist.forEach(m => { m.solid = false; m.k = 0; m.last = -9; });
     Object.assign(gate, { open: 0, opening: false }); gate.glow.material.opacity = 0; gate.dm.emissiveIntensity = 0; gate.disc.position.y = 1.5; gate.disc.rotation.x = 0;
     L.towers.forEach(t => { t.top.rotation.y = 0; t.winM.emissiveIntensity = .9; });
@@ -657,9 +657,21 @@ export function buildMoon(ctx) {
     L.q.forEach((q, i) => {
       if (q.on) q.t = Math.min(1, q.t + dt * .7);
       const kk = smooth(0, 1, q.t);
-      q.sm.emissiveIntensity = .05 + kk * 2.2; q.sm.color.setRGB(.54 + kk * .4, .56 + kk * .4, .72 + kk * .28);
-      q.light.intensity = kk * 6; q.halo.material.opacity = kk * .5;
-      q.ring.rotation.y += dt * (.4 + kk * 1.5);
+      // 还没醒的月相石落进影子里，会自己微微发紫光：不用文字，石头自己说「就是这里」
+      const ready = !q.on && (q === qE ? phLit(q) && !litAt(q.x, q.z) : shadowedAt(q.x, q.z));
+      q.sh += ((ready ? 1 : 0) - q.sh) * (1 - Math.exp(-dt * 3));
+      q.shy = Math.max(0, q.shy - dt);
+      const s = q.sh * (1 - kk) * (1 + Math.sin(T * 2.4 + i) * .22);
+      q.sm.emissive.setRGB(.58 + kk * .33, .3 + kk * .6, 1);
+      q.sm.emissiveIntensity = .05 + s * .7 + kk * 2.2; q.sm.color.setRGB(.54 + kk * .4 + s * .04, .56 + kk * .4 - s * .14, .72 + kk * .28 + s * .1);
+      q.light.color.setRGB(.6 + kk * .25, .36 + kk * .5, 1);
+      q.light.intensity = kk * 6 + s * 1.5; q.halo.material.opacity = kk * .5 + s * .3;
+      q.halo.material.color.setRGB(.66 + kk * .19, .4 + kk * .43, 1);
+      // 被星光照着时缩一缩、轻轻发抖；唤醒失败时抖得更明显
+      const tr = (!q.on && litAt(q.x, q.z) ? .25 : 0) + q.shy * 2;
+      q.sphere.position.set(Math.sin(T * 37 + i) * .012 * tr, .98 - tr * .02, Math.cos(T * 31 + i) * .008 * tr);
+      q.ring.rotation.y += dt * (.4 + kk * 1.5 + s * .8);
+      if (s > .45 && Math.random() < dt * 3) fx.emit(q.x + (Math.random() - .5) * .35, .9, q.z + (Math.random() - .5) * .35, { vy: .3, life: 1.4, c: [.68, .45, 1], tw: 5, a: .8 });
       if (kk > .5 && Math.random() < dt * 5) fx.emit(q.x + (Math.random() - .5) * .3, 1, q.z + (Math.random() - .5) * .3, { vy: .45, life: 1.6, c: SILVER, tw: 6 });
     });
     // 犬与狼：眼睛分别亮起
@@ -761,17 +773,11 @@ export function buildMoon(ctx) {
   function logic(dt) {
     const h = S.hints, t = ctx.S.t;
     if (!h.move && t > .8) { h.move = 1; toast('月光下的东西，未必是真的', 4.2); }
-    if (!h.q && Math.hypot(P.x - qA.x, P.z - qA.z) < 3.4) { h.q = 1; toast('月相石怕星光。让它待在影子里，再按 E 唤醒', 4.6); }
-    if (!h.mist && P.x > 9.3) { h.mist = 1; toast('湖上的月石只在影子里成形。让石碑的影子替你铺路', 4.6); }
-    if (!h.stone && P.x > 17.8 && P.x < 20) { h.stone = 1; toast('垫脚石到了。身后的影子够不着前面，要借对岸石碑的影子', 4.8); }
+    // 弱引导：只点出地名和意象，答案交给画面（月相石在影子里发紫光、玻璃犬狼被点亮、月石在影子里成形）
     if (!h.court && P.x > 20 + OB) { h.court = 1; toast('犬望着光，狼藏于影', 4); }
-    if (!h.beast && P.x > 22 + OB && !S.solvedB && Math.hypot(P.x - 25.5 - OB, P.z - 7.5) < 4) { h.beast = 1; toast('犬要看见星光，狼要躲进影子里。两件事，要同时成立', 4.8); }
-    // 光点第一次放进轴心之前，这条提示一直留在画面上
-    if (!h.r && P.x > 40.6) { h.r = 1; toast('幻墙回廊。月下的墙未必是真的，星光一照就散', 4.6); }
-    if (!h.r2 && P.x > 43.3 && P.x < 48) { h.r2 = 1; toast('脚下的路要影子，前面的墙要光。湖里的石柱，也许能两全', 5); }
-    if (!h.t && P.x > 67.6) { h.t = 1; toast('镜湖。星光在镜线这边，镜中月就在那边。湖上的镜月石只认镜中月的光，被真的星光照到就会沉下去', 6.5); }
-    if (!h.mir && P.x > 75 && P.x < 78) { h.mir = 1; toast('站在月镜旁按 E，月镜会转过一个角度，镜线跟着转', 4.2); }
-    if (!S.hubUsed && P.x > 55.5 && P.x < 70) ctx.holdToast('湖心的月钩绕着月柱转。把光点停在那圈淡淡的光环上，等月钩来接它');
+    if (!h.r && P.x > 40.6) { h.r = 1; toast('幻墙回廊', 3.2); }
+    if (!h.hub && P.x > 55.5 && !S.hubUsed) { h.hub = 1; toast('月钩绕着月柱，空空地转', 3.8); }
+    if (!h.t && P.x > 67.6) { h.t = 1; toast('镜湖。湖里，也有一轮月', 3.8); }
     if (!h.e && P.x > 84) { h.e = 1; toast('月池。五相与牌，缺一不可', 3.8); }
     // 犬与狼：同时成立并保持一会儿
     if (!S.solvedB) {
@@ -793,8 +799,8 @@ export function buildMoon(ctx) {
   }
   function interact(n) {
     if (n.type === 'phase') {
-      if (n.q === qE && !phLit(qE)) { toast('待宵在等月光：要镜中月照着它，它才会醒', 3.4); AU.wrong(); fx.burst(n.q.x, 1, n.q.z, 8, { c: CORALc, sp: .6, life: .6 }); return; }
-      if (litAt(n.q.x, n.q.z)) { toast(n.q === qE ? '镜中月照着它，可真的星光也照着它。让石柱替你挡住星光' : '星光照着它，它不肯醒。把光藏到高大的东西后面', 3.2); AU.wrong(); fx.burst(n.q.x, 1, n.q.z, 8, { c: CORALc, sp: .6, life: .6 }); return; }
+      // 时机不对：不弹字，石头缩一下、抖一抖
+      if ((n.q === qE && !phLit(qE)) || litAt(n.q.x, n.q.z)) { n.q.shy = .5; AU.wrong(); fx.burst(n.q.x, 1, n.q.z, 8, { c: CORALc, sp: .6, life: .6 }); return; }
       wakePhase(n.q);
       toast({ 蛾眉: '蛾眉。第一枚月相醒了', 盈月: '盈月。幻墙后的月相醒了', 凸月: '凸月。月亮快要圆了', 待宵: '待宵。只差一夜，就是满月' }[n.q.name], 3.4);
     } else if (n.type === 'mirror') {
@@ -842,19 +848,20 @@ export function buildMoon(ctx) {
     return e > 11.5;
   }
 
+  // 停留太久：第一句只给意象，第二句只指方向；具体怎么摆光，交给发光的物件自己说
   function idle() {
-    if (!qA.on) return ['月相石只在影子里醒来', '把光点移到石碑的另一边，让石碑挡住光，再站到月相石旁按 E'];
-    if (P.x < 17.8) return ['湖上那条路，只在影子里才是真的', '站到湖边石碑的背后，把光点放在石碑西侧：影子会沿着湖面一直铺到中间的垫脚石'];
-    if (P.x < 20.2) return ['前面的路，身后的石碑已经照不到了', '把光点移到对岸那块石碑的东边：它的影子会向西铺过来'];
-    if (!S.solvedB) return ['犬要看见光，狼要藏进影子', '把光点放到中间石碑的左上方：狼落进石碑的影子，犬正好被照亮'];
-    if (P.x < 48.5) return ['脚下的影石要影子，前面的幻墙要星光', '把光点放到湖里那根石柱的北边（或南边）：石柱的影子落在小径上，星光还能斜着照到幻墙'];
-    if (!qD.on && P.x < 55) return ['回廊里还藏着一枚月相', '先用星光照开东北角的幻墙走进去，再把光藏到石柱后面，唤醒月相石'];
-    if (!S.hubUsed && !qC.on && P.x < 61) return ['月钩会带着星光绕月柱转圈，月柱的影子就跟着转', '把光点停在月柱周围那圈淡光环上，月钩转过来会挂上它；之后晃动鼠标就能取下'];
-    if ((!qC.on || !card.taken) && P.x < 70) return ['影子绕着湖心转。踩着影子走，别急', '在岸边等影子扫过来再踏上去，跟着它转。北边小岛有月相石，南边小岛的水里有牌'];
-    if (P.x < 75 && !qE.on) return ['星光和镜中月隔着镜线对称。星光往北，镜中月就往南', '把光点放在石堤正北四格左右的湖面上，镜中月就会落在石堤上；光点别离石堤太近'];
-    if (P.x < 84 && !qE.on) return ['转动月镜，让镜中月照到北边的石列。待宵只认镜中月的光', '在月镜旁按两次 E，把镜线转成南北向，再把光点放到小岛西边的湖面上。唤醒待宵时，把光点放在它正西边的远处，让小岛上的石柱挡住真的星光'];
-    if (P.x < 84) return ['往东的石路，也要镜中月来照', '把月镜转回东西向（再按两次 E），把光点放在石路北边四格左右，跟着自己一起往东走'];
-    return ['五相与牌都齐了，去最东边的月池', '在月池前按 E'];
+    if (!qA.on) return ['月相石不喜欢太亮', '它醒来的时候，会先泛起一点紫光'];
+    if (P.x < 17.8) return ['湖上那条路，只在暗处才是真的', '石碑的影子，能伸得很长'];
+    if (P.x < 20.2) return ['身后的影子，够不到前面了', '对岸也立着一块石碑'];
+    if (!S.solvedB) return ['犬望着光，狼藏于影', '两尊玻璃像，要一起亮起来'];
+    if (P.x < 48.5) return ['脚下要影子，前面要光', '湖里的石柱，也许能两全'];
+    if (!qD.on && P.x < 55) return ['回廊里还藏着一枚月相', '有一面幻墙后面，还有路'];
+    if (!S.hubUsed && !qC.on && P.x < 61) return ['月钩空空地转着，在等什么', '月柱周围有一圈淡淡的光环'];
+    if ((!qC.on || !card.taken) && P.x < 70) return ['影子绕着湖心转。别急', '北边和南边的小岛上，都还有东西'];
+    if (P.x < 75 && !qE.on) return ['星光往北，湖里的月就往南', '湖里那轮月，能照到星光照不到的地方'];
+    if (P.x < 84 && !qE.on) return ['待宵只认湖里那轮月', '月镜能转。真的星光，也要有东西替它挡住'];
+    if (P.x < 84) return ['往东的石路，也要湖里的月来照', '月镜还能再转回去'];
+    return ['五相与牌都齐了', '月池在最东边'];
   }
 
   return {
@@ -890,7 +897,7 @@ export function buildMoon(ctx) {
       return false;
     },
     ground(x, z) { return !' %u'.includes(cell(Math.floor(x), Math.floor(z))); },
-    onFall() { if (!S.hints.fall) { S.hints.fall = 1; setTimeout(() => toast('被星光照到的月石，原来只是幻影', 3.6), 900); } S._splash = false; },
+    onFall() { if (!S.hints.fall) { S.hints.fall = 1; setTimeout(() => toast('那块月石，原来只是幻影', 3.2), 900); } S._splash = false; },
     onFallFrame(P) { if (!S._splash && P.y < LAKE_Y) { S._splash = true; fx.burst(P.x, LAKE_Y + .05, P.z, 22, { c: [.7, .78, 1], sp: 1.4, up: 2.2, g: -6, life: .9 }); fx.ring(P.x, LAKE_Y + .03, P.z, 0xb8c4ff, 1.8, .9); } },
     onStep(P, dt) {
       const c = cell(Math.floor(P.x), Math.floor(P.z));

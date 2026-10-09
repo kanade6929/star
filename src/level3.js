@@ -774,7 +774,7 @@ export function buildSun(ctx) {
     S.carves.push({ from: s.from, cells });
     AU.stone(); AU.lamp(2); shake(.05, .3); flash(.1);
     cells.forEach((c, i) => setTimeout(() => { for (let j = 0; j < 6; j++) fx.emit(c.x + Math.random(), .9 + Math.random() * .5, c.z + Math.random(), { vy: .3, vx: (Math.random() - .5) * .8, vz: (Math.random() - .5) * .8, g: -1.2, life: 1.4, c: Math.random() < .5 ? [1, .8, .3] : [1, .65, .2], a: .9 }); }, i * 70));
-    if (!S.hints.carve) { S.hints.carve = 1; toast('光凝住了。光走过的地方，向日葵让开了一条路', 4.2); }
+    if (!S.hints.carve) { S.hints.carve = 1; toast('向日葵让开了一条路', 3.4); }
   }
   function onBridge(x, z) {
     for (const b of S.bridgeList) {
@@ -791,8 +791,8 @@ export function buildSun(ctx) {
     for (let i = S.carves.length - 1; i >= 0; i--) { const cv = S.carves[i]; if (cv.from === m) { cv.cells.forEach(c => { c.n = Math.max(0, c.n - 1); }); S.carves.splice(i, 1); closed = true; } }
     Object.keys(S.crys).forEach(k => { if (k.startsWith(m.id + '>')) delete S.crys[k]; });
     fx.ring(m.cx, .05, m.cz, 0xffd08a, 1.6, .6, { a: .6 }); AU.stone();
-    if (closed) { if (!S.hints.unclose) { S.hints.unclose = 1; toast('向日葵又合拢了。这道光又可以送去别处了', 3.6); } }
-    else if (!S.hints.unlock) { S.hints.unlock = 1; toast('光桥化成了金粉。这道光又可以送去别处了', 3.6); }
+    if (closed) { if (!S.hints.unclose) { S.hints.unclose = 1; toast('向日葵又合拢了', 3); } }
+    else if (!S.hints.unlock) { S.hints.unlock = 1; toast('光桥化成了金粉', 3); }
   }
   function crystallize(s) {
     const key = s.from.id + '>' + s.to.id || 'x';
@@ -874,7 +874,7 @@ export function buildSun(ctx) {
   function turnDisc() {
     DISC.k++; DISC.turns++; DISC.from = DISC.shown; DISC.to = DISC.k * Q45; DISC.t = 0; DISC.show = false;
     AU.stone(); shake(.06, .3);
-    if (!S.hints.turn) { S.hints.turn = 1; setTimeout(() => toast('整座岛转了 45°。光要从岛门进来，再从岛门出去', 4.4), 2200); }
+    if (!S.hints.turn) { S.hints.turn = 1; setTimeout(() => toast('整座岛转动了', 3), 2200); }
   }
   function updateDisc(dt) {
     const prev = DISC.shown;
@@ -1006,7 +1006,7 @@ export function buildSun(ctx) {
       // 花盘一直朝着它认的那一侧；光从背后来，花会抖一下
       let tx = r.cx + r.face[0], tz = r.cz + r.face[1];
       if (S.done) { tx = altar.x; tz = altar.big.position.z; }
-      if (wrongR.has(r)) { r.wrong += dt; r.head.rotation.z += Math.sin(T * 30) * .02; if (r.wrong > .8 && !S.hints.face) { S.hints.face = 1; toast('光照在了花的背面。向日葵只收它面朝那一侧的光', 4.4); } }
+      if (wrongR.has(r)) { r.wrong += dt; r.head.rotation.z += Math.sin(T * 30) * .02; if (r.wrong > .8 && !S.hints.face) { S.hints.face = 1; toast('光照在了花的背面', 3.2); } }
       const old = r.head.quaternion.clone(); faceToward(r.head, tx, tz); r.q.copy(r.head.quaternion); r.head.quaternion.copy(old).slerp(r.q, 1 - Math.exp(-dt * 3));
       if (r.on && Math.random() < dt * 3) fx.emit(r.cx + (Math.random() - .5) * .8, BY + .3, r.cz + (Math.random() - .5) * .3, { vy: .3, life: 1.6, c: GOLDc, tw: 6 });
     });
@@ -1017,7 +1017,7 @@ export function buildSun(ctx) {
       S.twinHold = both ? S.twinHold + dt : Math.max(0, S.twinHold - dt * 1.5);
       if (both) { AU.shadow(S.twinHold); if (Math.random() < dt * 16) fx.emit(prism.cx + (Math.random() - .5), .1, prism.cz + (Math.random() - .5), { vy: .4, life: .8, c: GOLDc, tw: 8 }); }
       if (S.twinHold >= 1 && pv < 1) solveTwins();
-      if (!both && (hitR.has(R3a) || hitR.has(R3b)) && !S.hints.twin) { S.hints.twin = 1; toast('只照到了一朵。双生的花，要同时被照到', 4.4); }
+      if (!both && (hitR.has(R3a) || hitR.has(R3b)) && !S.hints.twin) { S.hints.twin = 1; toast('只照到了一朵', 3); }
     }
     prism.lit += ((prismHit ? 1 : 0) - prism.lit) * (1 - Math.exp(-dt * 6));
     prism.cry.rotation.y += dt * (.5 + prism.lit * 2); prism.pm.emissiveIntensity = .2 + prism.lit * 1.4;
@@ -1067,15 +1067,14 @@ export function buildSun(ctx) {
   function logic(dt) {
     const h = S.hints;
     if (!h.move && ctx.S.t > .8) { h.move = 1; toast('天快亮了。把光，送到最远的地方', 4.2); }
-    if (!h.m1 && Math.hypot(P.x - LA.cx, P.z - LA.cz) < 3.2) { h.m1 = 1; toast('一块聚光的透镜。把光点放在它旁边，光会从对面射出去', 5); }
-    if (!h.m2 && Math.hypot(P.x - MA1.cx, P.z - MA1.cz) < 2.4) { h.m2 = 1; toast('铜镜只接光束，不接光点。按 E 转动镜子', 4.2); }
-    if (!h.b && P.x > 12.8) { h.b = 1; toast('云海上没有路。光走过的地方，会留下路', 4.4); }
-    if (!h.c && P.x > 18 && P.z > 9) { h.c = 1; toast('凝成金桥的镜子不能再转了。站在它旁边按 E，可以把桥收回来', 5); }
+    if (!h.m1 && Math.hypot(P.x - LA.cx, P.z - LA.cz) < 3.2) { h.m1 = 1; toast('一块透镜，在等光', 3.4); }
+    if (!h.m2 && Math.hypot(P.x - MA1.cx, P.z - MA1.cz) < 2.4) { h.m2 = 1; toast('铜镜只接光束', 3.2); }
+    if (!h.b && P.x > 12.8) { h.b = 1; toast('云海上没有路', 3.2); }
     if (!h.g2 && S.rays >= 1 && P.x > 18 && P.z > 9 && !gate2.opening) { h.g2 = 1; setTimeout(() => toast('对岸的庭院门关着，光过不去', 3.4), 5200); }
-    if (!h.p && P.x > 35 && Math.hypot(P.x - prism.cx, P.z - prism.cz) < 4) { h.p = 1; toast('棱镜把一道光分成两道，各偏 45°。光可以不止一次穿过它', 4.4); }
-    if (!h.hedge && Math.hypot(P.x - 38.5, P.z - 9.5) < 3) { h.hedge = 1; toast('向日葵跟着光转。把光点带过来，它们会让开', 4.2); }
-    if (!h.f && P.x > 51) { h.f = 1; toast('一整片向日葵，比人还高，走不进去。光凝住的地方，花会让开', 5); }
-    if (!h.disc && P.x > 64.6) { h.disc = 1; toast('日轮岛。岛上的绞盘能让整座岛转动，栈桥和岛心的镜子也跟着转', 5); }
+    if (!h.p && P.x > 35 && Math.hypot(P.x - prism.cx, P.z - prism.cz) < 4) { h.p = 1; toast('棱镜会把光分开', 3.2); }
+    if (!h.hedge && Math.hypot(P.x - 38.5, P.z - 9.5) < 3) { h.hedge = 1; toast('向日葵跟着光转', 3.2); }
+    if (!h.f && P.x > 51) { h.f = 1; toast('一整片向日葵，比人还高', 3.4); }
+    if (!h.disc && P.x > 64.6) { h.disc = 1; toast('日轮岛', 3); }
     if (!h.d && P.x > 82) { h.d = 1; toast('清透水园。五道日光与牌，缺一不可', 3.8); }
   }
 
@@ -1133,26 +1132,27 @@ export function buildSun(ctx) {
     return e > 12.5;
   }
 
+  // 停留太久：第一句只给意象，第二句只指方向
   function idle() {
-    if (!R1.on) return ['光点照进透镜，光会从透镜的另一侧射出去', '把光点放在透镜正西边，让光往东射到铜镜；再转动两面铜镜，让光从东边照到向日葵的花脸'];
-    if (!LB.locked) return ['断岸上也有一块透镜，云海对面的小岛上有铜镜', '把光点放在透镜的西北边，光会斜着射向东南的小岛，等它凝成金桥'];
-    if (!R2.on) return ['北岛的向日葵朝着南边', '在南岛上转动铜镜，让光往北，照到北岛向日葵的花脸'];
-    if (!gate2.opening) return ['庭院的门还关着', '北岛的向日葵开了，门才会开'];
-    if (P.x < 26 && !S.bridgeList.some(b => b.from === MB1 && b.bx > 25)) return ['南岛这面镜子的光，已经凝成了通往北岛的桥', '站在南岛铜镜旁按 E 收回光桥，再把它转向东边的庭院'];
-    if (!MC2.locked) return ['庭院里两面镜子，能把光送过深谷', '先往北，再往东，对准深谷对面的棱镜'];
-    if (!S.twins) return ['棱镜分出的光，有一道往东北去了', '让东北角的镜子把光送回西边的镜子，再往南折回棱镜。第二次穿过棱镜的光，会分向西南；别忘了用光点拨开篱笆'];
-    if (!card.taken) return ['篱笆围起来的小花园里，好像还藏着什么', '把光点留在篱笆旁边，向日葵会让开一条路'];
+    if (!R1.on) return ['透镜在等光', '向日葵只看它面朝的那一边'];
+    if (!LB.locked) return ['断岸上也有一块透镜', '云海对面的小岛上，有一面铜镜'];
+    if (!R2.on) return ['北岛的向日葵朝着南边', '南岛的铜镜还能转'];
+    if (!gate2.opening) return ['庭院的门还关着', '北岛的向日葵还没开'];
+    if (P.x < 26 && !S.bridgeList.some(b => b.from === MB1 && b.bx > 25)) return ['南岛这面镜子，已经被光桥锁住了', '收回的光，还能送去别处'];
+    if (!MC2.locked) return ['深谷对面有一块棱镜', '庭院里有两面镜子'];
+    if (!S.twins) return ['双生的花，要一起被照到', '光可以不止一次穿过棱镜'];
+    if (!card.taken) return ['篱笆围起来的小花园里，好像还藏着什么', '向日葵跟着光转'];
     if (!R4.on) {
-      if (!LF.locked) return ['花海入口有一块透镜', '把光点放在透镜正西边，光往东射进花海，打到第一面镜子，就会凝住'];
-      if (!F1.locked) return ['方尖碑挡住了往东的直路', '让第一面镜子把光往北送，绕过方尖碑'];
-      if (!F3.locked) return ['北边两面镜子，能把光沿着花海的北沿往东送', '光到了东北角，再让它往南拐'];
-      return ['光要从西边照到花海尽头那朵向日葵的花脸', '最后一面镜子在花海南边，把光往东送'];
+      if (!LF.locked) return ['花海入口有一块透镜', '光凝住的地方，花会让开'];
+      if (!F1.locked) return ['方尖碑挡住了直路', '绕一绕'];
+      if (!F3.locked) return ['花海的北沿还空着', '光走到尽头，也可以拐弯'];
+      return ['花海尽头那朵向日葵，还在等光', '它面朝着西边'];
     }
     if (!S.wheel) {
-      if (!RN.on) return ['北岸的花朝着南边，等光从岛心往北照过来', '西岸透镜的光往东射进岛心。转动日轮，让岛门同时对着西边和北边'];
-      return ['东岸的花朝着西边，光要从岛心往东照过去', '南岸也有一块透镜，把光点放在它南边。转动日轮，让岛门同时对着南边和东边'];
+      if (!RN.on) return ['北岸的花朝着南边', '岛门转到哪里，光就能从哪里进出'];
+      return ['东岸的花朝着西边', '南岸也有一块透镜'];
     }
-    return ['五道日光与牌都齐了，穿过城门去日台', '日台在水园中央，在它前面按 E'];
+    return ['五道日光与牌都齐了', '日台在水园中央'];
   }
 
   LV = {
@@ -1184,7 +1184,7 @@ export function buildSun(ctx) {
       return false;
     },
     ground(x, z) { if (inDisc(x, z)) return !discHole(x, z); const c = cell(Math.floor(x), Math.floor(z)); return c === 'b' ? S.bridgeDown : c !== ' ' && c !== 'O' || onBridge(x, z); },
-    onFall() { if (!S.hints.fall) { S.hints.fall = 1; setTimeout(() => toast('云海托不住你。只有凝成金色的光，才能踩上去', 3.8), 900); } S._splash = false; },
+    onFall() { if (!S.hints.fall) { S.hints.fall = 1; setTimeout(() => toast('云海托不住你', 3), 900); } S._splash = false; },
     onStep(P, dt) {
       if (cell(Math.floor(P.x), Math.floor(P.z)) === '~') {
         S.rip += dt; if (S.rip > .3) { S.rip = 0; fx.ring(P.x, .06, P.z + .05, 0xfff4e0, .9, .8, { a: .4 }); }
