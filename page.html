@@ -179,6 +179,7 @@ body.touchdev #pause{background:radial-gradient(60% 70% at 50% 50%,rgba(5,4,15,.
 .vbtn:focus{outline:none}
 .vbtn small{margin-inline-start:.9em;font-family:var(--serif);font-weight:300;font-size:.5em;letter-spacing:.3em;color:var(--gold)}
 .vbtn small:empty{display:none}
+.hui{font-family:"Noto Serif SC",serif;font-weight:500} /* ZCOOL XiaoWei 的「回」字字形是实心方块，单独换字体 */
 .wake{position:absolute;left:50%;bottom:calc(var(--u)*11.5);transform:translateX(-50%);margin:0;white-space:nowrap;font-size:max(12px,calc(var(--u)*1.6));letter-spacing:.3em;
   color:rgba(239,232,220,.75);animation:breath 3.6s ease-in-out infinite;transition:opacity 1.5s;text-shadow:0 0 8px #000}
 #menu.awake .wake{opacity:0!important;animation:none}
@@ -432,7 +433,7 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
   <div class="proman">XVII　星</div>
   <nav class="vmenu" id="pauseNav">
     <button class="vbtn" data-act="resume"><span class="lbl">继续</span></button>
-    <button class="vbtn" data-act="menu"><span class="lbl">回到主界面</span></button>
+    <button class="vbtn" data-act="menu"><span class="lbl"><span class="hui">回</span>到主界面</span></button>
     <button class="vbtn" data-act="more"><span class="lbl">更多</span></button>
   </nav>
 </div></div>

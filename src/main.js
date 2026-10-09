@@ -643,7 +643,7 @@ function update(dt) {
   orb.px = orb.x; orb.pz = orb.z;
 
   if (play) updatePlayer(dt, !S.cine);
-  if (play && !S.cine) { LV.logic(dt); idleHints(dt); }
+  if (play && !S.cine) { LV.logic(dt); idleHints(dt); nodeHints(); }
   if (S.mode === 'cut') { S.ev += dt; if (LV.finale(dt, S.ev) && !S.endShown) { S.endShown = true; endGame(); } }
   else { const amb = S.mode === 'menu' ? LV.light.hemi : LV.ambient(P); hemi.intensity = lerp(hemi.intensity, amb, 1 - Math.exp(-dt * 2)); moon.intensity = hemi.intensity * LV.light.moonK; }
 
@@ -693,6 +693,26 @@ function update(dt) {
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('on'); }
   if (play && !P.falling && !S.cine) { const n = nearest(); n ? showPrompt(n.label, n.x, n.y, n.z) : showPrompt(null); } else showPrompt(null);
   S.fade = lerp(S.fade, S.fadeTo, 1 - Math.exp(-dt * (S.fadeTo ? 9 : 3)));
+}
+
+// 快走进下一个场景小节点时，身后还有牌没捡、灯没亮：温柔地提一句（每个节点只说一次）
+// 节点位置按关卡的区段分界（关卡可以用 LV.nodes 覆盖）
+const NODE_X = { 1: [23.5, 36.5, 49.5, 67, 88], 2: [18, 25, 40.5, 48.5, 55, 84], 3: [18, 35, 51, 64.6, 82] };
+const LAMP_LEFT = { 星灯: '还有星灯没有亮', 月相: '还有月相石没有醒来', 日光: '还有日光没有被唤起' };
+function nodeHints() {
+  if (S.mode !== 'play' || S.cine || P.vx < .3 || !LV.mapMarks) return;
+  const xs = LV.nodes || NODE_X[S.level] || [];
+  const B = xs.find(b => P.x > b - 2.6 && P.x < b);
+  if (B === undefined || S.hints['node' + B] || toastT > .6) return; // 别的提示还在说，先等它说完
+  const left = LV.mapMarks().filter(m => !m.done && m.x < B && m.x < P.x - 3 && (m.kind === 'lamp' || m.kind === 'card'));
+  S.hints['node' + B] = 1;
+  if (!left.length) return;
+  const card = left.some(m => m.kind === 'card'), lamp = left.some(m => m.kind === 'lamp');
+  const lab = LV.hud().label, lampTxt = LAMP_LEFT[lab] || `还有${lab}在等你`;
+  const msg = card && lamp ? `身后${lampTxt}，还落着一张牌。不急，想回去的话，路一直都在`
+    : card ? '身后好像还落着一张牌，它在等你。不急，想回去的话，路一直都在'
+    : `身后${lampTxt}。不急，想回去的话，路一直都在`;
+  toast(msg, 5); AU.ghost();
 }
 
 // 在一个地方停留太久：根据当前进度给出提示，先含蓄、再明确
@@ -901,6 +921,6 @@ setTimeout(() => document.querySelector('#mainNav .vbtn').focus({ preventScroll:
 // 调试/测试钩子
 window.__G = { scene, AU, fx,
   sim(sec) { if (loadDone) loadDone(); for (let t = 0; t < sec; t += 1 / 30) update(1 / 30); return [S.mode, LV.progress(), P.x.toFixed(1), P.z.toFixed(1), P.falling]; },
-  S, P, orb, PERF, SET, poolLights, poolStat, get LV() { return LV; }, get mouse() { return mouse; }, set mouse(v) { mouse.seen = false; },
+  S, P, orb, PERF, SET, poolLights, poolStat, nodeHints, get LV() { return LV; }, get mouse() { return mouse; }, set mouse(v) { mouse.seen = false; },
   begin, toMenu, interact, setMouse, mouseWorld, keys, update, pipe, cam, loadLevel, skipIntro, nearest, warmup, render() { pipe.render(scene, cam, { time: T, fade: S.fade, focus: focusUV, dofK, flash: S.flash, vig }); }
 };
