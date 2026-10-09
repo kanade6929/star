@@ -4825,6 +4825,7 @@ vReflPos = reflMat * modelMatrix * vec4(transformed, 1.0);`),n.fragmentShader=n.
 uniform sampler2D tReflect; uniform float reflK, reflDist; varying vec4 vReflPos;`).replace("#include <opaque_fragment>",`{
         vec2 ruv = vReflPos.xy / vReflPos.w + normal.xy * .045 * reflDist;
         vec3 rc = texture2D(tReflect, ruv).rgb;
+        rc /= 1. + dot(rc, vec3(.3, .5, .2)) * 1.6;   // \u538B\u4F4F\u5012\u5F71\u91CC\u7684\u9AD8\u5149\uFF08\u5149\u70B9\uFF09\uFF0C\u6697\u5904\u51E0\u4E4E\u4E0D\u53D8
         float edge = smoothstep(0., .04, ruv.x) * smoothstep(1., .96, ruv.x) * smoothstep(0., .04, ruv.y) * smoothstep(1., .96, ruv.y);
         outgoingLight += rc * reflK * (1. - roughnessFactor * .85) * edge;
       }
@@ -5015,10 +5016,11 @@ totalEmissiveRadiance += diffuseColor.rgb * .14;`).replace("#include <opaque_fra
         // \u5CB8\u4E0A\u7269\u4F53\u7684\u5012\u5F71
         vec2 ruv = vR.xy / vR.w + vec2(rip * .012, 0.);
         vec3 refl = texture2D(tReflect, ruv).rgb * .8;
+        refl /= 1. + dot(refl, vec3(.3, .5, .2)) * 1.6;   // \u5012\u5F71\u91CC\u7684\u9AD8\u5149\uFF08\u5149\u70B9\uFF09\u538B\u4E00\u538B
         // \u5149\u70B9\u5728\u6C34\u91CC\u7684\u5012\u5F71\uFF1A\u7AD6\u957F\u7684\u5149\u67F1\uFF0C\u88AB\u6CE2\u7EB9\u6253\u6563
         vec2 od = p - orb.xz - vec2(0., orb.y * .9);
-        float ostreak = exp(-pow(od.x / (.32 + abs(od.y) * .12), 2.) - pow(od.y / 2.2, 2.)) * (.6 + .4 * band);
-        vec3 ocol = vec3(.62, .72, 1.) * ostreak * .55 * orbK;
+        float ostreak = exp(-pow(od.x / (.32 + abs(od.y) * .12), 2.) - pow(od.y / 1.6, 2.)) * (.6 + .4 * band);
+        vec3 ocol = vec3(.7, .66, .6) * ostreak * .2 * orbK;
         // \u4F4E\u96FE
         float fog = smoothstep(.45, .9, n(p * .18 + vec2(time * .05, time * .02)));
         vec3 col = base + stars * .6 * (1. - trail * .7) + min(tr * trail, vec3(.75)) + mcol + refl * (1. - glow * .25) + ocol;
