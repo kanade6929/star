@@ -149,14 +149,15 @@ applyQuality();
 orb.g.add(orbLight);
 // 光点本体是一颗立体的四芒星，光晕是空气里的体积散射（不是贴图）
 const orbStar = makeOrbStar(LAYER_FX); orb.g.add(orbStar.g); let orbGlow = 1;
-// 星之彩棱的光尘：七色里偏冷的多一些
-// 彩棱的配色：薄桃 → 樱粉 → 淡紫 → 长春花蓝 → 冰蓝 → 薄荷，相邻两色才互相过渡（来回走，不会从薄荷直接混到薄桃变脏）
-// 冷色饱和度压低、明度提高
-const PRISM_PAL = [0xffc6ae, 0xffb8d6, 0xd8bcff, 0xb2c8ff, 0xaee4ff, 0xb4efda].map(h => new THREE.Color(h));
-const PRISM7 = PRISM_PAL.map(c => { const s = c.clone().convertLinearToSRGB(); return [s.r, s.g, s.b]; });
-function prismAt(t, out) { // t 任意实数，来回扫过整组颜色
-  const n = PRISM_PAL.length - 1, u = (1 - Math.cos(t)) / 2 * n, i = Math.min(n - 1, Math.floor(u)), f = u - i;
-  return out.copy(PRISM_PAL[i]).lerp(PRISM_PAL[i + 1], f * f * (3 - 2 * f));
+// 星之彩棱：底色是暖金白（和金色星光同一个家族），在上面叠一层缓缓流过的七色色散：
+// 红橙黄绿青蓝紫依次循环，只取三成多混进暖金里，所以整体仍偏暖、有整体感，又看得出折射的彩色
+const PRISM_BASE = new THREE.Color(0xffdca6);
+const PRISM_PAL = [0xff8f80, 0xffb070, 0xffe07a, 0xa8ec8a, 0x86dcea, 0x98aaff, 0xd09cff].map(h => new THREE.Color(h));
+const PRISM7 = [...PRISM_PAL, PRISM_BASE, PRISM_BASE].map(c => { const s = c.clone().convertLinearToSRGB(); return [s.r, s.g, s.b]; });
+function prismAt(t, out, k = .36) { // t 任意实数：沿光谱一圈圈循环，相邻色平滑过渡
+  const n = PRISM_PAL.length, u = ((t / 6.2832 * n) % n + n) % n, i = Math.floor(u), f = u - i;
+  out.copy(PRISM_PAL[i]).lerp(PRISM_PAL[(i + 1) % n], f * f * (3 - 2 * f));
+  return out.lerp(PRISM_BASE, 1 - k);
 }
 const _goldC = new THREE.Color(); const lum = c => c.r * .2126 + c.g * .7152 + c.b * .0722;
 const prismCol = new THREE.Color(), glowCol = new THREE.Color();
@@ -627,9 +628,9 @@ function update(dt) {
   orbLight.intensity = (7 + Math.sin(T * 1.7) * .1) * orb.k;
   if (SET.skin === 'prism') {
     // 彩棱：在一组和谐的浅色之间缓缓来回流动；亮度按金色星光补齐，再略亮一点
-    prismAt(T * .21, prismCol); orbLight.color.copy(prismCol);
-    orbLight.intensity *= clamp(lum(_goldC.set(LV.light.orb)) / Math.max(lum(prismCol), .05), 1, 1.4) * 1.08;
-    orbStar.setColor(prismAt(T * .21 + .5, glowCol));
+    prismAt(T * .5, prismCol, .34); orbLight.color.copy(prismCol);
+    orbLight.intensity *= clamp(lum(_goldC.set(LV.light.orb)) / Math.max(lum(prismCol), .05), 1, 1.3) * 1.04;
+    orbStar.setColor(prismAt(T * .5 + 1.2, glowCol, .22));
   }
   orbGlow = fin * (intro ? .5 : S.mode === 'menu' ? .35 : 1 - near * .55);
   // 光尘拖尾：划得越快留下越多，沿路径均匀撒开
@@ -766,7 +767,7 @@ document.querySelectorAll('#vMore [data-fps]').forEach((b, i) => b.addEventListe
 document.querySelectorAll('#vMore [data-q]').forEach((b, i) => b.addEventListener('click', () => { if (SET.q === b.dataset.q) return; SET.q = b.dataset.q; saveSet(); applyQuality(); refreshMore(); AU.hover(i + 2); }));
 document.querySelectorAll('#vMore [data-skin]').forEach((b, i) => b.addEventListener('click', () => {
   if (SET.skin === b.dataset.skin) return; SET.skin = b.dataset.skin; saveSet(); applySkin(); refreshMore(); AU.hover(i + 4);
-  fx.bloom(orb.x, orb.y, orb.z, 24, SET.skin === 'prism' ? [.6, .82, 1] : [1, .85, .55], { w: 2, vr: 1.2, up: .3 });
+  fx.bloom(orb.x, orb.y, orb.z, 24, SET.skin === 'prism' ? [1, .88, .7] : [1, .85, .55], { w: 2, vr: 1.2, up: .3 });
 }));
 $('back2').addEventListener('click', () => { AU.back(); if (inPauseMore()) pauseMore(false); else showView('main'); });
 document.querySelectorAll('.vbtn').forEach((b, i) => {
@@ -806,7 +807,7 @@ function hideLoader() {
   S.loading = false; S.fadeTo = 0; loadDone = null;
 }
 function begin(n = 1) {
-  AU.init();
+  AU.init(); endSplash(true);
   if (S.loading) return;
   S.loading = true; S.fadeTo = 1; showLoader(n);
   const t0 = performance.now();
@@ -913,9 +914,28 @@ function perfTick(now, ms, sh) {
 loadLevel(1); AU.setMood(0);
 // 进主菜单就试着放背景音乐；浏览器不允许自动播放时，等第一次点击或按键再响
 AU.init(); setTimeout(() => { if (AU.running && !woke) { woke = true; menu.classList.add('awake'); } }, 1500);
+// 开场：先提示戴耳机，再是慢慢亮起的 Hug 工作室标志，然后才进主界面。点一下可以跳过
+const splash = $('splash'), splashT = [];
+function endSplash(fast) {
+  if (splash.classList.contains('done')) return;
+  splashT.forEach(clearTimeout);
+  if (fast) splash.style.transition = 'opacity .5s ease';
+  splash.classList.add('done'); menu.classList.add('intro');
+}
+// 等首帧（含着色器预热）画完再开始计时，免得慢设备上标志一闪而过
+function runSplash() {
+  if (splash.classList.contains('done')) return;
+  splashT.push(setTimeout(() => $('sp1').classList.add('on'), 150));
+  splashT.push(setTimeout(() => $('sp1').classList.remove('on'), 2900));
+  splashT.push(setTimeout(() => $('sp2').classList.add('on'), 3900));
+  splashT.push(setTimeout(() => endSplash(), 8600));
+}
+splash.addEventListener('pointerdown', () => endSplash(true));
+addEventListener('keydown', () => endSplash(true), { capture: true });
 resetLevel(); refreshMenu(); syncSound(); S.mode = 'menu'; S.fadeTo = 0;
 toDream(); stickHome();
 requestAnimationFrame(frame);
+requestAnimationFrame(() => requestAnimationFrame(runSplash));
 setTimeout(() => document.querySelector('#mainNav .vbtn').focus({ preventScroll: true }), 100);
 
 // 调试/测试钩子
