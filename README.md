@@ -36,6 +36,11 @@ node build.js          # 生成 index.html 和 out/
 
 钢琴采样：Salamander Grand Piano（Alexander Holm，CC BY 3.0）。
 
+音效采样（`audio/sfx/`）：
+- 钢片琴、颤音琴、泰国锣、大锣：University of Iowa Electronic Music Studios, Musical Instrument Samples（可自由使用）。
+- 竖琴：tonejs-instruments（Nicholaus Brosowsky，CC BY 3.0）。
+- 脚步、纸牌、门闩、石头与闷响：Kenney（RPG Audio、Casino Audio、Impact Sounds，CC0）。
+
 ## 旧版
 
 之前的 2D 横版《辰星夜》保留在 [`2d/`](2d/) 目录，在线地址是本仓库 Pages 网址后面加 `/2d/`。

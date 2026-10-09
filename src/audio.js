@@ -1,7 +1,7 @@
 // 钢琴采样音频（沿用前代《辰星夜》的生成式琴声）
 export function createAudio(onToggle) {
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
-  let ac = null, master = null, rev = null, music = null, bgm = null, sfx = null, on = true, ready = false;
+  let ac = null, master = null, rev = null, music = null, bgm = null, sfx = null, dry = null, wetBus = null, on = true, ready = false;
   const buf = {}; let keysM = [];
   let mood = 1, nextBar = 0, barN = 0, lastMel = 72, timer = null;
   const last = {};
@@ -22,6 +22,8 @@ export function createAudio(onToggle) {
     bgm = ac.createGain(); bgm.gain.value = BG; bgm.connect(master);
     noise = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate); { const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
     sfx = ac.createGain(); sfx.gain.value = .85; sfx.connect(master); const ss = ac.createGain(); ss.gain.value = .5; sfx.connect(ss); ss.connect(rev);
+    dry = ac.createGain(); dry.gain.value = .85; dry.connect(master); wetBus = ac.createGain(); wetBus.gain.value = .35; wetBus.connect(rev);
+    loadSamples();
     if (ac.state === 'suspended') { const p = ac.resume(); if (p && p.catch) p.catch(() => {}); }
     unlock();
     bgmTick(); timerB = setInterval(bgmTick, 200);
@@ -159,6 +161,49 @@ export function createAudio(onToggle) {
     const g = ac.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + att); g.gain.exponentialRampToValueAtTime(.0005, t + dur);
     n.connect(fl); fl.connect(g); g.connect(sfx); n.start(t, Math.random() * 1.5); n.stop(t + dur + .05);
   }
+  // ── 采样音效 ──
+  // audio/sfx/ 里是真乐器单音：钢片琴 glock、颤音琴 vibe、泰国锣 gong、拉奏大锣 tam（爱荷华大学乐器库，可随意使用），
+  // 竖琴 harp（tonejs-instruments，CC BY 3.0），以及 Kenney 的 CC0 音效（脚步、纸牌、门闩、石头、闷响）。
+  // 都已离线调到和配乐同一个音准、对齐响度；每个文件是一条"音色条"，固定长度的格子一个接一个，按格子切出来播。
+  // 采样没加载好之前，退回上面的合成音色。
+  const SMP = {
+    lead: .05,
+    glock: { slot: 2.4, notes: [86, 88, 90, 93, 95, 98, 100, 102, 105, 107] },
+    vibe: { slot: 4, notes: [50, 52, 54, 57, 59, 62, 64, 66, 69, 71, 74, 76, 78, 81, 83] },
+    harp: { slot: 3, notes: [52, 55, 59, 62, 65, 69, 72, 76, 79, 83, 86, 89, 93] },
+    step: { slot: .3 }, cards: { slot: 1.3 }, latch: { slot: .45 }, thud: { slot: .6 }, rock: { slot: 1 }, gong: { slot: 6 }, tam: { slot: 7 }
+  };
+  const smp = {};
+  function loadSamples() {
+    Object.keys(SMP).forEach(k => {
+      if (k === 'lead') return;
+      fetch(`audio/sfx/${k}.mp3`).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
+        .then(a => new Promise((ok, no) => { const q = ac.decodeAudioData(a, ok, no); if (q && q.catch) q.catch(no); })).then(b => { smp[k] = b; }).catch(() => {});
+    });
+  }
+  // 播第 i 格：rate 变调，dur 截短（带渐出），lp 低通，p 声像，wet 混响（0 干声，1 正常，>1 更远）
+  function slot(k, i, { v = .5, when = 0, rate = 1, dur = 0, lp = 0, p = 0, wet = 1, att = 0 } = {}) {
+    const b = smp[k]; if (!b) return false; if (!live()) return true;
+    const S = SMP[k], t = ac.currentTime + when, full = (S.slot - SMP.lead) / rate, len = dur ? Math.min(dur, full) : full;
+    const s = ac.createBufferSource(); s.buffer = b; s.playbackRate.value = rate;
+    const g = ac.createGain(); g.gain.setValueAtTime(att ? 0 : v, t); if (att) g.gain.linearRampToValueAtTime(v, t + att);
+    if (dur && dur < full) { g.gain.setValueAtTime(v, t + len * .55); g.gain.exponentialRampToValueAtTime(.0005, t + len); }
+    let node = g; if (lp) { const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; f.Q.value = .5; g.connect(f); node = f; }
+    node = pan(node, p); node.connect(wet ? sfx : dry); if (wet > 1) node.connect(wetBus);
+    s.connect(g); s.start(t, i * S.slot + SMP.lead - .004); s.stop(t + len + .02);
+    return true;
+  }
+  // 乐器音：挑最近的采样音再变调，m 是 MIDI 音高；LVL 把三件乐器的响度拉齐
+  const LVL = { vibe: 3, glock: 4.5, harp: 1.6 };
+  function inst(k, m, v, when = 0, o = {}) {
+    const ns = SMP[k].notes; v *= LVL[k]; let i = 0; ns.forEach((n, j) => { if (Math.abs(n - m) < Math.abs(ns[i] - m)) i = j; });
+    return slot(k, i, Object.assign({ v, when, rate: Math.pow(2, (m - ns[i]) / 12), p: (m - 74) / 34 }, o));
+  }
+  const rnd = n => Math.random() * n | 0;
+  // 竖琴拨弦序列 / 钢片琴星光点点
+  const harp = (ms, v, when = 0, gap = .09, o) => ms.forEach((m, k) => inst('harp', m, v * (1 - k * .03), when + k * gap + Math.random() * .012, o) || bell(m, v * .3, when + k * gap, 1.6));
+  const glint = (n, v, when = 0, lo = 10, span = 5) => { for (let k = 0; k < n; k++) { const m = pent(lo + rnd(span)), w = when + k * .08 + Math.random() * .04, a = v * (.55 + Math.random() * .45); inst('glock', m, a, w, { lp: 6500, wet: 2, dur: 1.6 }) || bell(m, a * .4, w, .9, .6); } };
+  const piano = (m, v, when = 0, dur = 0) => note(m, v, when, sfx, dur);
   const sparkle = (n, v, when = 0, lo = 10, span = 5) => { for (let i = 0; i < n; i++) bell(pent(lo + (Math.random() * span | 0)), v * (.6 + Math.random() * .4), when + i * .07 + Math.random() * .03, .9, .6); };
   // 切出页面（换标签页、切到别的应用、锁屏）时整体静音暂停，回来再接着放
   function setHidden(h) {
@@ -174,36 +219,58 @@ export function createAudio(onToggle) {
   }
   return {
     init, note, setHidden,
-    get running() { return !!ac && ac.state === 'running' && pool.some(v => v.url && !v.el.paused); }, _dbg: () => ({ ac: ac && ac.state, hidden, playing: pool.filter(v => !v.el.paused).map(v => v.url) }),
+    get running() { return !!ac && ac.state === 'running' && pool.some(v => v.url && !v.el.paused); }, _dbg: () => ({ ac: ac && ac.state, hidden, playing: pool.filter(v => !v.el.paused).map(v => v.url), samples: Object.keys(smp) }), _nodes: () => ({ ac, master, bgm }),
     setMood(m) { if (m === mood) return; mood = m; barN = 0; if (ac) bgmTick(); },
     toggle() { on = !on; if (master) master.gain.setTargetAtTime(on ? .9 : 0, ac.currentTime, .2); onToggle && onToggle(on); },
     get on() { return on; },
-    hover(i) { if (throttle('h', 70)) bell(pent(7 + i % 5), .05, 0, 1.1, .7); },
-    deal() { hiss(.05, 0, .7, 1800, 5000, 'bandpass', 1.2, .25); [5, 6, 7, 8, 9].forEach((d, i) => bell(pent(d), .06, .1 + i * .12, 1.4, .8)); pad(50, .05, 0, .8); },
-    locked() { bell(pent(3, 50), .07, 0, .5, .3); bell(pent(1, 50), .05, .12, .5, .3); },
-    back() { bell(pent(9), .045, 0, .9, .6); bell(pent(7), .04, .1, 1.1, .6); },
-    step() { if (throttle('st', 330)) hiss(.022, 0, .09, 900 + Math.random() * 300, 500, 'bandpass', 1, .005); },
+    hover(i) { if (!throttle('h', 70)) return; const m = pent(7 + i % 5); inst('vibe', m, .2, 0, { dur: 1.3, lp: 7000 }) || bell(m, .05, 0, 1.1, .7); inst('glock', m + 12, .035, .01, { dur: .9, lp: 6000, wet: 2 }); },
+    deal() { slot('cards', 0, { v: .42, lp: 7500, wet: .5 }) || hiss(.05, 0, .7, 1800, 5000, 'bandpass', 1.2, .25); slot('cards', 1, { v: .3, when: .28, rate: 1.05, lp: 7000, wet: .5 }); harp([5, 6, 7, 8, 9].map(d => pent(d)), .3, .1, .11); inst('vibe', 50, .16, .05, { dur: 2.5 }); },
+    locked() { slot('latch', 0, { v: .32, rate: .75, lp: 2400, wet: .6 }); inst('vibe', pent(3, 50), .22, 0, { dur: .32, lp: 2500 }) || bell(pent(3, 50), .07, 0, .5, .3); inst('vibe', pent(1, 50), .18, .11, { dur: .36, lp: 2200 }); },
+    back() { inst('vibe', pent(9), .17, 0, { dur: 1 }) || bell(pent(9), .045, 0, .9, .6); inst('vibe', pent(7), .15, .1, { dur: 1.3 }); },
+    step() { if (throttle('st', 330)) slot('step', rnd(5), { v: .16, rate: .9 + Math.random() * .18, lp: 3000, wet: 0 }) || hiss(.022, 0, .09, 900 + Math.random() * 300, 500, 'bandpass', 1, .005); },
     lamp(i) {
       const r = root(), ch = [0, 2, 3, 5, 7].map(d => pent(d + (i % 3), r));
-      dip(.3, 2.4); sub(110, 70, .12, 0, .5);
-      pad(r - 12, .07, 0, 1.4, .35); pad(ch[2] - 12, .045, .05, 1.4, .4);
-      ch.forEach((m, k) => bell(m, .11, .05 + k * .1, 2.2));
-      sparkle(5, .035, .55, 11, 4);
+      dip(.3, 2.6); sub(110, 70, .1, 0, .5); hiss(.03, 0, .5, 600, 3000, 'bandpass', .8, .2);
+      inst('vibe', r - 12, .26, 0) || pad(r - 12, .07, 0, 1.4, .35); inst('vibe', ch[2] - 12, .16, .04); piano(r - 24, .22, 0, 1.6);
+      harp(ch, .34, .06, .1);
+      ch.forEach((m, k) => inst('vibe', m + 12, .07, .1 + k * .1, { dur: 2.4 }));
+      glint(5, .07, .6, 11, 4);
     },
-    card() { const r = root(); dip(.25, 3); pad(r - 12, .08, 0, 2, .5); pad(pent(2, r) - 12, .05, .1, 2, .5); pad(pent(3, r), .03, .3, 1.6, .6); [0, 1, 2, 3, 4, 5, 6, 7, 8].forEach((d, k) => bell(pent(d + 3, r), .085, k * .08, 2, .9)); sparkle(8, .03, .8, 12, 4); },
-    stone() { if (!throttle('sn', 140)) return; dip(.35, 1.2); sub(75, 38, .22, 0, .7); hiss(.09, 0, .9, 380, 120, 'lowpass', .6, .05); },
-    finale() { duck(12); const r = root(); sub(90, 45, .2, 0, 1.6); pad(r - 24, .09, 0, 6, 1.5, 1200); pad(r - 12, .07, .3, 6, 1.5); pad(pent(2, r) - 12, .05, .6, 6, 1.5); pad(pent(3, r), .035, 1, 5, 2); for (let k = 0; k < 18; k++) bell(pent(k % 10 + 3, r), .07, .6 + k * .22, 2.4, .8); sparkle(12, .03, 4.4, 12, 5); },
-    fall() { dip(.4, 1.2); hiss(.07, 0, 1.1, 2400, 300, 'bandpass', .9, .15); bell(pent(7), .07, 0, 1.2, .6); bell(pent(5), .06, .2, 1.3, .6); bell(pent(3), .055, .4, 1.6, .6); },
-    ghost() { if (throttle('g', 160)) bell(pent(10 + (Math.random() * 5 | 0)), .035, 0, 1, .5); },
-    shadow(k) { if (throttle('sh', 260)) bell(pent(5 + Math.min(4, k * 5 | 0), root()), .05, 0, 1, .7); },
+    card() {
+      const r = root(); dip(.25, 3.2);
+      slot('tam', 0, { v: .2, rate: .85, lp: 2600, att: .3 }); piano(r - 24, .3, 0, 2.2); piano(pent(2, r) - 12, .18, .05, 2);
+      inst('vibe', r - 12, .26, 0) || pad(r - 12, .08, 0, 2, .5); inst('vibe', pent(2, r) - 12, .18, .08); inst('vibe', pent(3, r), .14, .2);
+      harp([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(d => pent(d + 2, r)), .28, 0, .055);
+      glint(9, .085, .75, 12, 4);
+    },
+    stone() {
+      if (!throttle('sn', 140)) return; const rep = !throttle('sn2', 700); last.sn2 = performance.now();
+      dip(.35, 1.2);
+      if (!slot('rock', rnd(3), { v: rep ? .34 : .5, rate: .5 + Math.random() * .14, lp: 1500, wet: 1.4 })) { sub(75, 38, .22, 0, .7); hiss(.09, 0, .9, 380, 120, 'lowpass', .6, .05); return; }
+      if (!rep) { slot('thud', rnd(3), { v: .7, rate: .75 + Math.random() * .1, lp: 1200 }); sub(70, 36, .14, 0, .8); }
+      hiss(.04, 0, rep ? .5 : .9, 320, 110, 'lowpass', .6, .05);
+    },
+    finale() {
+      duck(12); const r = root(), g = Math.pow(2, (r === 59 ? -3 : 0) / 12);
+      slot('gong', 0, { v: .38, rate: g, lp: 4000, wet: 1.6 }) || sub(90, 45, .2, 0, 1.6); slot('tam', 0, { v: .22, rate: .7, lp: 1800, att: .8 });
+      piano(r - 24, .32, 0, 4); piano(r - 12, .2, .02, 4);
+      pad(r - 24, .06, 0, 6, 1.5, 1200); pad(r - 12, .045, .3, 6, 1.5);
+      [r - 12, pent(2, r) - 12, pent(3, r) - 12, pent(5, r) - 12].forEach((m, k) => inst('vibe', m, .2, .2 + k * .12));
+      harp([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(d => pent(d + 2, r)), .26, .5, .07);
+      for (let k = 0; k < 16; k++) { const m = pent(k % 8 + 10, r); inst('glock', m, .07, 1.6 + k * .22, { lp: 6500, wet: 2 }) || bell(m, .06, 1.6 + k * .22, 2.4, .8); }
+      glint(10, .05, 4.6, 12, 5);
+    },
+    fall() { dip(.4, 1.2); hiss(.07, 0, 1.1, 2400, 300, 'bandpass', .9, .15); harp([pent(9), pent(7), pent(5), pent(3)], .24, 0, .16, { lp: 5000, wet: 2 }); },
+    ghost() { if (!throttle('g', 160)) return; const m = pent(10 + rnd(5)); inst('glock', m, .06, 0, { lp: 6500, wet: 2, dur: 1.4 }) || bell(m, .035, 0, 1, .5); },
+    shadow(k) { if (!throttle('sh', 260)) return; const m = pent(5 + Math.min(4, k * 5 | 0), root()); inst('vibe', m, .2, 0, { dur: 1.2 }) || bell(m, .05, 0, 1, .7); },
     howl() {
       if (!live()) return; dip(.3, 2.6); const t = ac.currentTime, o = ac.createOscillator(), vib = ac.createOscillator(), vg = ac.createGain(), g = ac.createGain(), lp = ac.createBiquadFilter();
       const f = hz(pent(3, 59) - 12); o.type = 'triangle'; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 1.5, t + .7); o.frequency.setValueAtTime(f * 1.5, t + 1.6); o.frequency.exponentialRampToValueAtTime(f * 1.12, t + 2.4);
       vib.frequency.value = 5; vg.gain.value = 4; vib.connect(vg); vg.connect(o.frequency); lp.type = 'lowpass'; lp.frequency.value = 1400;
       g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.07, t + .5); g.gain.setValueAtTime(.07, t + 1.6); g.gain.exponentialRampToValueAtTime(.0005, t + 2.6);
       o.connect(lp); lp.connect(g); g.connect(sfx); [o, vib].forEach(x => { x.start(t); x.stop(t + 2.7); });
-      pad(59 - 12, .05, 0, 1.6, .5); bell(pent(5, 59), .05, .7, 2);
+      slot('tam', 0, { v: .14, rate: .6, lp: 1200, att: .6, dur: 3.5 }) || pad(59 - 12, .05, 0, 1.6, .5); inst('vibe', pent(5, 59), .16, .7) || bell(pent(5, 59), .05, .7, 2);
     },
-    wrong() { dip(.45, .9); bell(pent(1, 50), .08, 0, .7, .25); bell(pent(0, 50) - 12, .08, .09, .9, .2); hiss(.03, 0, .25, 500, 200); }
+    wrong() { dip(.45, .9); piano(pent(0, 38), .45, 0, .6); piano(pent(1, 38), .36, .06, .6); slot('thud', 0, { v: .3, rate: 1.3, lp: 700 }) || hiss(.03, 0, .25, 500, 200); inst('vibe', pent(1, 50), .12, .02, { dur: .5, lp: 1800 }) || bell(pent(1, 50), .08, 0, .7, .25); }
   };
 }
