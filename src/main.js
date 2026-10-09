@@ -50,9 +50,9 @@ function layoutView() {
 function toView(cx, cy) { return view.rot ? [cy, innerWidth - cx] : [cx, cy]; }
 // 设置：画质（高 / 中等）与光点皮肤。手机默认中等：画布不按高分屏放大，倒影和月光阴影隔帧更新
 const SET_KEY = 'chenxingye3d_set';
-const SET = { q: TOUCH ? 'mid' : 'high', skin: 'gold', fps: '60' };
+const SET = { q: TOUCH ? 'mid' : 'high', skin: 'gold', fps: TOUCH ? '60' : 'max' }; // 帧率默认：电脑无上限，手机 60
 try { Object.assign(SET, JSON.parse(localStorage.getItem(SET_KEY)) || {}); } catch (e) {}
-if (!['max', '60', '30'].includes(SET.fps)) SET.fps = '60'; // 旧存档里的「自动」改成 60
+if (!['max', '60', '30'].includes(SET.fps)) SET.fps = TOUCH ? '60' : 'max'; // 旧存档里的「自动」按设备默认
 function saveSet() { try { localStorage.setItem(SET_KEY, JSON.stringify(SET)); } catch (e) {} }
 function resize() {
   layoutView();
@@ -798,7 +798,7 @@ $('again2').addEventListener('click', () => { $('end').classList.remove('on'); b
 
 /* ================= 主循环 ================= */
 let moonPending = true;
-// 帧率：默认最多 60 帧（120/144Hz 屏幕不再白白多画一倍）；可选无上限或 30 帧；暂停时只画 10 帧
+// 帧率：电脑默认无上限，手机默认 60；可选 30 帧；暂停时只画 10 帧
 const PERF = { on: /[?&]perf\b/.test(location.search), el: null, n: 0, t0: 0, ms: 0, sh: 0, calls: 0, fps: 0 };
 function fpsCap() {
   if (S.mode === 'paused' || document.body.classList.contains('loading')) return 10;
