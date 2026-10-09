@@ -1199,7 +1199,7 @@ export function buildSun(ctx) {
     progress: () => `${S.rays}${S.gotCard ? 1 : 0}${R1.on ? 1 : 0}${R2.on ? 1 : 0}${gate2.opening ? 1 : 0}${S.twins ? 1 : 0}${S.bridgeDown ? 1 : 0}${S.bridgeList.length}${R4.on ? 1 : 0}${RN.on ? 1 : 0}${RE.on ? 1 : 0}${S.wheel ? 1 : 0}${DISC.k % 8}`,
     MW, MH, mapMarks: () => [...[R1, R2, R3a, R3b, R4, RN, RE].map(r => ({ x: r.cx, z: r.cz, kind: 'lamp', done: r.on })), { x: card.x, z: card.z, kind: 'card', done: card.taken }, { x: altar.x, z: altar.z, kind: 'goal', done: S.done }],
     hud: () => ({ label: '日光', dots: [R1.on, R2.on, S.twins, R4.on, S.wheel], have: S.gotCard, line: S.done ? '牌已归位' : S.gotCard ? '持有　XIX 太阳' : '太阳之牌　未寻得' }),
-    _: { L, S, LA, MA1, MA2, LB, MB1, MC1, MC2, MD, ME, R1, R2, R3a, R3b, prism, gate, gate2, gate3, card, altar, machine, unlock, get segs() { return segs; }, onBridge, mirrorAt,
+    _: { L, S, carve, LA, MA1, MA2, LB, MB1, MC1, MC2, MD, ME, R1, R2, R3a, R3b, prism, gate, gate2, gate3, card, altar, machine, unlock, get segs() { return segs; }, onBridge, mirrorAt,
       LF, F1, F2, F3, F4, LW, LS, DM, R4, RN, RE, DISC, field, fieldAt, crankPos, turnDisc, pierAt }
   };
   return LV;
