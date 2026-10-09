@@ -700,7 +700,7 @@ function update(dt) {
 // 快走进下一个场景小节点时，身后还有牌没捡、灯没亮：温柔地提一句（每个节点只说一次）
 // 节点位置按关卡的区段分界（关卡可以用 LV.nodes 覆盖）
 const NODE_X = { 1: [23.5, 36.5, 49.5, 67, 88], 2: [18, 25, 40.5, 48.5, 55, 84], 3: [18, 35, 51, 64.6, 82] };
-const LAMP_LEFT = { 星灯: '还有星灯没有亮', 月相: '还有月相石没有醒来', 日光: '还有日光没有被唤起' };
+const LAMP_LEFT = { 星灯: '星灯未亮', 月相: '月相石未醒', 日光: '日光未起' };
 function nodeHints() {
   if (S.mode !== 'play' || S.cine || P.vx < .3 || !LV.mapMarks) return;
   const xs = LV.nodes || NODE_X[S.level] || [];
@@ -710,11 +710,10 @@ function nodeHints() {
   S.hints['node' + B] = 1;
   if (!left.length) return;
   const card = left.some(m => m.kind === 'card'), lamp = left.some(m => m.kind === 'lamp');
-  const lab = LV.hud().label, lampTxt = LAMP_LEFT[lab] || `还有${lab}在等你`;
-  const msg = card && lamp ? `身后${lampTxt}，还落着一张牌。不急，想回去的话，路一直都在`
-    : card ? '身后好像还落着一张牌，它在等你。不急，想回去的话，路一直都在'
-    : `身后${lampTxt}。不急，想回去的话，路一直都在`;
-  const el = $('lost'); el.textContent = msg; el.classList.add('on'); lostT = 5.5; AU.ghost();
+  const lab = LV.hud().label;
+  const lamp1 = LAMP_LEFT[lab] || `${lab}未亮`;
+  const msg = card && lamp ? `身后还有${lamp1}，还落着一张牌` : card ? "身后还落着一张牌" : `身后还有${lamp1}`;
+  const el = $('lost'); el.innerHTML = '<i>✦</i>' + msg; el.classList.add('on'); lostT = 5.5; AU.ghost();
 }
 let lostT = 0;
 

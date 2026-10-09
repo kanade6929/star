@@ -518,6 +518,7 @@ export function buildStar(ctx) {
   const INLET = [79.25, 80.75, 5.85];               // 女神像前的跃池口：游到这里的星鱼会跃回池里
   const fishM = new THREE.MeshStandardMaterial({ color: 0xffc070, roughness: .4, emissive: 0xff9a3a, emissiveIntensity: .55 });
   const finM = new THREE.MeshBasicMaterial({ color: 0xffd890, transparent: true, opacity: .8, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
+  const FISH_GAP = .52;   // 两条鱼中心的最小距离（鱼身长约 .48）
   const fishGeo = new THREE.SphereGeometry(.15, 8, 6), tailGeo = new THREE.PlaneGeometry(.34, .28); tailGeo.translate(0, -.14, 0);
   const HOMES = [[73.5, 6.3], [74.6, 6.9], [75.3, 5.9], [79.7, 10.6], [80.7, 11.1], [81.4, 10.3], [85.3, 6.4], [86.0, 7.5], [85.1, 7.9]];
   const fishes = HOMES.map(([x, z], i) => {
@@ -674,6 +675,8 @@ export function buildStar(ctx) {
     const tx = clamp(rx, SEA[0], SEA[1]), tz = clamp(rz, SEA[2], SEA[3]);
     const over = Math.hypot(rx - tx, rz - tz) < 1.6;   // 光离海太远（在岸上很里面）就不算
     let nFollow = 0;
+    // 跟随的鱼按名次排成一圈（多了排第二圈），不再挤到同一个点上
+    const fol = fishes.filter(f => f.st === 'follow'), nF = fol.length;
     fishes.forEach((f, i) => {
       if (f.st === 'rise' || f.st === 'star') return;
       if (f.st === 'leap') {
@@ -700,7 +703,11 @@ export function buildStar(ctx) {
         let wx, wz, sp;
         if (f.st === 'follow') {
           nFollow++;
-          const a = T * 1.1 + i * 2.1; wx = clamp(tx + Math.cos(a) * .75, SEA[0], SEA[1]); wz = clamp(tz + Math.sin(a) * .55, SEA[2], SEA[3]);
+          let k2 = fol.indexOf(f); if (k2 < 0) k2 = nF;
+          const ring = k2 < 5 ? 0 : 1, nIn = ring ? Math.max(1, Math.max(nF, k2 + 1) - 5) : Math.min(5, Math.max(nF, k2 + 1));
+          const slot = ring ? k2 - 5 : k2, rr = ring ? 1.35 : (nIn < 2 ? .7 : .8);
+          const a = T * (ring ? -.7 : 1.1) + slot / nIn * 6.2832 + ring * .6;
+          wx = clamp(tx + Math.cos(a) * rr, SEA[0], SEA[1]); wz = clamp(tz + Math.sin(a) * rr * .72, SEA[2], SEA[3]);
           sp = 2.0;
         } else { wx = f.home[0] + Math.cos(T * .45 + f.ph) * .7; wz = f.home[1] + Math.sin(T * .6 + f.ph) * .45; sp = .6; }
         const dx = wx - f.x, dz = wz - f.z, dd = Math.hypot(dx, dz) || 1, v = Math.min(sp, dd * 2.2);
@@ -723,6 +730,16 @@ export function buildStar(ctx) {
       f.tail.rotation.y = Math.sin(T * (f.st === 'follow' ? 14 : 7) + f.ph) * .55;
       if (f.st === 'follow' && Math.random() < dt * 10) fx.emit(f.x, f.y + .05, f.z, { vy: .15, life: .7, c: GOLD, tw: 6, a: .8 });
     });
+    // 鱼有体积：游动中的鱼两两之间保持距离，互相推开，不会叠在一起穿模
+    const sw = fishes.filter(f => f.st === 'follow' || f.st === 'idle');
+    for (let it = 0; it < 2; it++) for (let a = 0; a < sw.length; a++) for (let b = a + 1; b < sw.length; b++) {
+      const A = sw[a], B = sw[b], dx = B.x - A.x, dz = B.z - A.z, d = Math.hypot(dx, dz), m = FISH_GAP;
+      if (d < m) {
+        const ux = d > 1e-4 ? dx / d : Math.cos(a + b), uz = d > 1e-4 ? dz / d : Math.sin(a + b), push = (m - d) / 2;
+        A.x -= ux * push; A.z -= uz * push; B.x += ux * push; B.z += uz * push;
+      }
+    }
+    sw.forEach(f => { REEF.forEach(r => { const ex = f.x - r.x, ez = f.z - r.z, e = Math.hypot(ex, ez), m = r.r + .17; if (e < m) { f.x = r.x + ex / (e || 1) * m; f.z = r.z + ez / (e || 1) * m; } }); f.x = clamp(f.x, SEA[0], SEA[1]); f.z = clamp(f.z, SEA[2], SEA[3]); f.g.position.set(f.x, f.y, f.z); });
     S.nFollow = nFollow;
     inletM.opacity = S.fishOn && S.fishHome < 9 ? .2 + (nFollow ? .25 : 0) + Math.sin(T * 3) * .06 : 0;
     inletRing.scale.setScalar(1 + Math.sin(T * 3) * .05);

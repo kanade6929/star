@@ -216,8 +216,11 @@ export function buildMoon(ctx) {
   /* ================= 犬与狼 ================= */
   const statueM = toon({ color: 0xb4b8d8, roughness: .3, metalness: .1, normalMap: ntex(cRuin, 3) });
   const eyeMat = (c) => new THREE.MeshStandardMaterial({ color: 0x111111, emissive: c, emissiveIntensity: .1 });
+  // 犬与狼是玻璃雕像：平时半透明、微微泛色；被光（犬）或影子（狼）罩住时整只亮起来，犬蓝、狼紫
+  const glassM = (c, e) => new THREE.MeshStandardMaterial({ color: c, roughness: .06, metalness: .15, transparent: true, opacity: .58, emissive: e, emissiveIntensity: .12, depthWrite: true });
   const addBeast = (x, z, wolf) => {
     const g0 = new THREE.Group(); g0.position.set(x + .5, 0, z + .5);
+    const statueM = glassM(wolf ? 0xc9b4ff : 0xb4d4ff, wolf ? 0xa274ff : 0x5aa8ff);
     const ped = new THREE.Mesh(new THREE.BoxGeometry(.9, .35, .9), paleM); ped.position.y = .175; g0.add(ped);
     const body = new THREE.Mesh(new THREE.BoxGeometry(.42, .5, .62), statueM); body.position.set(0, .62, -.05); body.rotation.x = -.35; g0.add(body);
     const head = new THREE.Mesh(new THREE.BoxGeometry(.34, .3, .34), statueM); head.position.set(0, 1.02, .14); g0.add(head);
@@ -227,10 +230,15 @@ export function buildMoon(ctx) {
     if (wolf) head.rotation.x = -.45;
     const em = eyeMat(wolf ? 0xff8aa0 : 0xffd27a);
     [-1, 1].forEach(s => { const e = new THREE.Mesh(new THREE.BoxGeometry(.05, .05, .02), em); e.position.set(s * .08, 1.06 + (wolf ? .05 : 0), .31); g0.add(e); });
-    g0.rotation.y = wolf ? Math.PI : 0; // 犬朝南（看向庭院中心），狼朝北
+    // 犬朝南（看向庭院中心），狼朝北
+    // 玻璃里的一团芯光
+    const core = new THREE.Mesh(new THREE.SphereGeometry(.2, 10, 8), new THREE.MeshBasicMaterial({ color: wolf ? 0xb48cff : 0x7cc0ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    core.position.set(0, .78, .02); g0.add(core);
+    g0.rotation.y = wolf ? Math.PI : 0;
     g0.scale.setScalar(1.45);
-    shadowAll(g0); root.add(g0);
-    return { x: x + .5, z: z + .5, g: g0, em, ok: 0 };
+    shadowAll(g0); core.castShadow = false; root.add(g0);
+    const glow = new THREE.PointLight(wolf ? 0xa47cff : 0x6ab4ff, 0, 3.2, 1.6); glow.position.set(x + .5, 1.2, z + .5); root.add(glow);
+    return { x: x + .5, z: z + .5, g: g0, em, ok: 0, glass: statueM, core, glow };
   };
 
   /* ================= 月洞门（圆形石门）+ 门柱 ================= */
@@ -565,7 +573,7 @@ export function buildMoon(ctx) {
   const LILAC = [.85, .82, 1], CORALc = [1, .6, .7], SILVER = [.86, .9, 1];
   const B = {
     qA: fx.beacon(qA.x, 1.0, qA.z, 0xc8b8ff, 1.2), qC: fx.beacon(qC.x, 1.0, qC.z, 0xc8b8ff, 1.2),
-    dog: fx.beacon(dog.x, 1.3, dog.z, 0xffcf7a, .9), wolf: fx.beacon(wolf.x, 1.3, wolf.z, 0xff8aa0, .9),
+    dog: fx.beacon(dog.x, 1.3, dog.z, 0x8cc4ff, .9), wolf: fx.beacon(wolf.x, 1.3, wolf.z, 0xb898ff, .9),
     m1: fx.beacon(11.5, 3.3, 7.5, 0x9fe0ff, .8), m3: fx.beacon(25.5 + OB, 3.3, 7.5, 0x9fe0ff, .8), m2: fx.beacon(19.5 + OB, 3.3, 7.5, 0x9fe0ff, .8),
     qD: fx.beacon(qD.x, 1.0, qD.z, 0xc8b8ff, 1.2), qE: fx.beacon(qE.x, 1.0, qE.z, 0xc8b8ff, 1.2), tide: fx.beacon(MIR[0], 2.7, MIR[1], 0xd8c8ff, 1.1),
     hub: fx.beacon(HUB[0], 1.6, HUB[1], 0x8ff0e0, 1.3),
@@ -660,6 +668,9 @@ export function buildMoon(ctx) {
     dog.ok += ((dogOk || S.solvedB ? 1 : 0) - dog.ok) * (1 - Math.exp(-dt * 6));
     wolf.ok += ((wolfOk || S.solvedB ? 1 : 0) - wolf.ok) * (1 - Math.exp(-dt * 6));
     dog.em.emissiveIntensity = .1 + dog.ok * 3; wolf.em.emissiveIntensity = .1 + wolf.ok * 3;
+    [dog, wolf].forEach((b, i) => { const k = b.ok, pul = 1 + Math.sin(T * 3 + i) * .08 * k;
+      b.glass.emissiveIntensity = (.12 + k * 1.5) * pul; b.glass.opacity = .58 + k * .2;
+      b.core.material.opacity = k * .55 * pul; b.glow.intensity = k * 1.4 * pul; });
     S._dogOk = dogOk; S._wolfOk = wolfOk;
     // 月洞门
     if (gate.opening && gate.open < 1) {
