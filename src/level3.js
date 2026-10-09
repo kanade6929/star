@@ -25,6 +25,8 @@ const DC = [73.5, 7.5];      // 日轮岛的圆心
 const D_IN = 3.0, D_COL = 3.5, D_RA = 4.7, PIER_W = .55; // 岛面、柱廊、栈桥的半径
 const Q45 = Math.PI / 4;
 const ALT = [90.5, 7.5];     // 日台
+// 通关时升起的机械太阳：在北面拱廊（z=2.5）之外、云海之上，最低的光芒也不碰到拱廊和水池
+const SUN_S = .72, SUN_Z = -.5, SUN_Y = 1.1;
 
 /* ---------- 地图 ----------
   空格=云海  .砂岩步道  ,晨光草甸  #白砖墙  G花园门  M可转的镜子  m固定的金镜  R向日葵（受光的花）  P棱镜
@@ -69,7 +71,7 @@ function buildMap() {
   pts([[57, 7], [57, 3], [61, 3], [61, 10]], 'M'); set(63, 7, 'S');
   // 每面镜子四周留一圈空地：光开出的路在镜子拐角处能绕过去；西边入口处也留两格，从透镜旁边走得进花海
   [[57, 7], [57, 3], [61, 3], [61, 10]].forEach(([mx, mz]) => { for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (dx || dz) set(mx + dx, mz + dz, ','); });
-  set(54, 6, ','); set(54, 8, ',');
+  fill(54, 5, 54, 9, ','); set(55, 6, ','); set(55, 8, ','); // 入口放宽：从透镜两侧都能顺畅地走进花海
   // E：日轮岛。西岸透镜与花海的终点，北岸一朵花，南岸一块透镜，东岸一朵花和城门
   fill(65, 5, 68, 11, '.'); set(66, 7, 'L'); set(66, 10, 'R');
   fill(72, 1, 74, 2, '.'); set(73, 1, 'R');
@@ -124,10 +126,19 @@ function sunFaceCanvas() {
     const ring = Math.abs(d - 27) < 1.2, ring2 = Math.abs(d - 22) < .6;
     px(x, y, ring ? '#ffe9a8' : ring2 ? '#ffd270' : d < 18 ? '#ffc84a' : '#f6a832');
   }
-  // 安详闭着的眼睛与微笑：几何化的「太阳的脸」
-  for (let i = -5; i <= 5; i++) { const y = Math.round(28 - Math.sqrt(30 - i * i * .9) * .5 + 2); px(22 + i, y, '#a8501e'); px(41 + i, y, '#a8501e'); }
-  for (let i = -8; i <= 8; i++) px(31 + i, Math.round(40 + Math.sqrt(Math.max(0, 70 - i * i)) * .45), '#a8501e');
-  [[18, 36], [19, 36], [44, 36], [45, 36]].forEach(([x, y]) => px(x, y, '#ff9a6a'));
+  // 平面图腾（不画脸）：十二道尖芒的日轮 + 内圈同心环 + 外圈十二颗圆点
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const dx = x - cx, dy = y - cx, d = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
+    if (d > 18) continue;
+    const tip = 7 + 10 * Math.pow(Math.abs(Math.cos(a * 6)), 4);      // 十二道尖芒
+    const tip2 = 7 + 6.5 * Math.pow(Math.abs(Math.sin(a * 6)), 6);    // 错开的短芒
+    if (d < 4.2) px(x, y, '#fff1cf');
+    else if (d < 5.6) px(x, y, '#e48e52');
+    else if (d < 7) px(x, y, '#ffd270');
+    else if (d < tip) px(x, y, d > tip - 1.4 ? '#e48e52' : '#ffe2a0');
+    else if (d < tip2) px(x, y, '#f6b85a');
+  }
+  for (let i = 0; i < 12; i++) { const a = (i + .5) / 12 * Math.PI * 2, rx = Math.round(cx + Math.cos(a) * 22), ry = Math.round(cx + Math.sin(a) * 22); px(rx, ry, '#e48e52'); px(rx + 1, ry, '#e48e52'); px(rx, ry + 1, '#e48e52'); px(rx + 1, ry + 1, '#e48e52'); }
   return c;
 }
 // 日轮岛的岛面：八格钟面，中央一轮太阳
@@ -428,7 +439,7 @@ export function buildSun(ctx) {
     const halo = billboard(haloT, 3.6, 3.6, true, camQuat); halo.material.color.set(0xffd08a); halo.material.opacity = 0; halo.position.y = 1.2; g0.add(halo);
     const light = new THREE.PointLight(0xffd0a0, 0, 14, 1.2); light.position.y = 2; g0.add(light);
     // 巨大的机械太阳：藏在云海下，通关时被两根巨臂托起来
-    const big = new THREE.Group(); big.position.set(cx, -8, .6); root.add(big);
+    const big = new THREE.Group(); big.position.set(cx, -8, SUN_Z); big.scale.setScalar(SUN_S); root.add(big);
     const faceT = tex(sunFaceCanvas()); faceT.wrapS = faceT.wrapT = THREE.ClampToEdgeWrapping;
     const faceM = new THREE.MeshStandardMaterial({ map: faceT, emissive: 0xffb050, emissiveMap: faceT, emissiveIntensity: .2, roughness: .5 });
     const face = new THREE.Mesh(new THREE.CircleGeometry(2.5, 40), faceM); face.quaternion.copy(camQuat); big.add(face);
@@ -472,7 +483,7 @@ export function buildSun(ctx) {
       const f = flowers[i], c = f.c, tgt = c.open && T >= c.dl ? 1 : 0;
       f.k += (tgt - f.k) * (1 - Math.exp(-dt * (tgt ? 3.5 : 2.2)));
       // 让路：朝路的两侧弯下去；人走近时也会往旁边让一点
-      const side = (f.x - c.x - .5) * c.px + (f.z - c.z - .5) * c.pz >= 0 ? 1 : -1;
+      const side = (f.x - (c.ax ?? c.x + .5)) * c.px + (f.z - (c.az ?? c.z + .5)) * c.pz >= 0 ? 1 : -1; // 往光束两侧倒，让出一整条路
       let lx = c.px * side * f.k * 1.05, lz = c.pz * side * f.k * 1.05;
       const dpx = f.x - P.x, dpz = f.z - P.z, dp = Math.hypot(dpx, dpz);
       if (dp < 1 && dp > .01) { const w = (1 - dp) * .5; lx += dpx / dp * w; lz += dpz / dp * w; }
@@ -747,9 +758,19 @@ export function buildSun(ctx) {
     return out;
   }
   const crossesField = s => fieldCellsOn(s, true).length > 0;
+  // 光束凝住时让出的路：光束两侧各再让一格，走起来不挤
+  const CARVE_W = 1.05;
+  function fieldCellsNear(s) {
+    const out = [], dx = s.bx - s.ax, dz = s.bz - s.az, L2 = dx * dx + dz * dz || 1;
+    field.forEach(c => {
+      const t = clamp(((c.x + .5 - s.ax) * dx + (c.z + .5 - s.az) * dz) / L2, 0, 1);
+      if (Math.hypot(s.ax + dx * t - c.x - .5, s.az + dz * t - c.z - .5) <= CARVE_W) out.push(c);
+    });
+    return out;
+  }
   function carve(s) {
-    const cells = fieldCellsOn(s, false), dx = s.bx - s.ax, dz = s.bz - s.az, len = Math.hypot(dx, dz) || 1;
-    cells.forEach(c => { c.n++; c.dl = S.T + Math.hypot(c.x + .5 - s.ax, c.z + .5 - s.az) * .07; c.px = -dz / len; c.pz = dx / len; });
+    const cells = fieldCellsNear(s), dx = s.bx - s.ax, dz = s.bz - s.az, len = Math.hypot(dx, dz) || 1;
+    cells.forEach(c => { c.n++; c.dl = S.T + Math.hypot(c.x + .5 - s.ax, c.z + .5 - s.az) * .07; c.px = -dz / len; c.pz = dx / len; c.ax = s.ax; c.az = s.az; });
     S.carves.push({ from: s.from, cells });
     AU.stone(); AU.lamp(2); shake(.05, .3); flash(.1);
     cells.forEach((c, i) => setTimeout(() => { for (let j = 0; j < 6; j++) fx.emit(c.x + Math.random(), .9 + Math.random() * .5, c.z + Math.random(), { vy: .3, vx: (Math.random() - .5) * .8, vz: (Math.random() - .5) * .8, g: -1.2, life: 1.4, c: Math.random() < .5 ? [1, .8, .3] : [1, .65, .2], a: .9 }); }, i * 70));
@@ -1098,7 +1119,7 @@ export function buildSun(ctx) {
     sea.uniforms.trail.value = S.trail; sea.uniforms.spin.value += dt * (.04 + S.trail * .6); sea.uniforms.pole.value.set(altar.x, altar.z - 6);
     // 巨臂把机械太阳从云海里托起来：沉重、缓慢
     const up = smooth(2, 7, e);
-    altar.big.position.y = -8 + up * 10.4;
+    altar.big.position.y = -8 + up * (8 + SUN_Y);
     if (up > 0 && up < 1) { shake(.05, .2); if (Math.random() < dt * 30) fx.emit(altar.x + (Math.random() - .5) * 6, CLOUD_Y + .2, .6 + (Math.random() - .5), { vy: 1 + Math.random(), g: -2, life: 1.2, c: [1, .85, .65], a: .8 }); }
     if (up >= 1 && !S.sunUp) { S.sunUp = true; AU.stone(); shake(.12, .6); flash(.35); }
     const shine = smooth(6.5, 9.5, e);
@@ -1173,7 +1194,7 @@ export function buildSun(ctx) {
     onFallFrame(P) { if (!S._splash && P.y < CLOUD_Y) { S._splash = true; fx.burst(P.x, CLOUD_Y + .1, P.z, 22, { c: [1, .85, .75], sp: 1.4, up: 2, g: -5, life: 1 }); } },
     ambient() { return .3 + S.day * .14; },
     reset, update, logic, nearest, interact, finaleStart, finale, idle,
-    finaleCam: () => [altar.x - .5, altar.z - 3.4],
+    finaleCam: () => [altar.x - .5, altar.z - 5.6],
     finaleOrb: () => [altar.x - 1.8, altar.z + 1.2],
     progress: () => `${S.rays}${S.gotCard ? 1 : 0}${R1.on ? 1 : 0}${R2.on ? 1 : 0}${gate2.opening ? 1 : 0}${S.twins ? 1 : 0}${S.bridgeDown ? 1 : 0}${S.bridgeList.length}${R4.on ? 1 : 0}${RN.on ? 1 : 0}${RE.on ? 1 : 0}${S.wheel ? 1 : 0}${DISC.k % 8}`,
     MW, MH, mapMarks: () => [...[R1, R2, R3a, R3b, R4, RN, RE].map(r => ({ x: r.cx, z: r.cz, kind: 'lamp', done: r.on })), { x: card.x, z: card.z, kind: 'card', done: card.taken }, { x: altar.x, z: altar.z, kind: 'goal', done: S.done }],

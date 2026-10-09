@@ -692,6 +692,7 @@ function update(dt) {
 
   // 提示
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('on'); }
+  if (lostT > 0) { lostT -= dt; if (lostT <= 0 || S.mode !== 'play') { lostT = 0; $('lost').classList.remove('on'); } }
   if (play && !P.falling && !S.cine) { const n = nearest(); n ? showPrompt(n.label, n.x, n.y, n.z) : showPrompt(null); } else showPrompt(null);
   S.fade = lerp(S.fade, S.fadeTo, 1 - Math.exp(-dt * (S.fadeTo ? 9 : 3)));
 }
@@ -704,7 +705,7 @@ function nodeHints() {
   if (S.mode !== 'play' || S.cine || P.vx < .3 || !LV.mapMarks) return;
   const xs = LV.nodes || NODE_X[S.level] || [];
   const B = xs.find(b => P.x > b - 2.6 && P.x < b);
-  if (B === undefined || S.hints['node' + B] || toastT > .6) return; // 别的提示还在说，先等它说完
+  if (B === undefined || S.hints['node' + B]) return;
   const left = LV.mapMarks().filter(m => !m.done && m.x < B && m.x < P.x - 3 && (m.kind === 'lamp' || m.kind === 'card'));
   S.hints['node' + B] = 1;
   if (!left.length) return;
@@ -713,8 +714,9 @@ function nodeHints() {
   const msg = card && lamp ? `身后${lampTxt}，还落着一张牌。不急，想回去的话，路一直都在`
     : card ? '身后好像还落着一张牌，它在等你。不急，想回去的话，路一直都在'
     : `身后${lampTxt}。不急，想回去的话，路一直都在`;
-  toast(msg, 5); AU.ghost();
+  const el = $('lost'); el.textContent = msg; el.classList.add('on'); lostT = 5.5; AU.ghost();
 }
+let lostT = 0;
 
 // 在一个地方停留太久：根据当前进度给出提示，先含蓄、再明确
 function idleHints(dt) {

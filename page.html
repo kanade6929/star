@@ -69,6 +69,11 @@ body.cine #help,body.cine #hud{opacity:0!important}
 #skip{position:fixed;right:max(16px,calc(2.2*var(--vw)));bottom:calc(calc(9*var(--vh)) + 14px);font-size:clamp(11px,calc(.9*var(--vw)),12px);color:rgba(239,232,220,.5);letter-spacing:.1em;opacity:0;transition:opacity 1s;pointer-events:none;z-index:2}
 #skip.on{opacity:1}
 #toast{z-index:2}
+/* 遗失提醒：画面中上方的淡黄色小签，和底部的普通提示分开 */
+#lost{position:fixed;left:50%;top:max(calc(21*var(--vh)),112px);transform:translate(-50%,-6px);width:max-content;max-width:calc(100% - 48px);z-index:2;pointer-events:none;
+  font-size:clamp(13px,calc(1.2*var(--vw)),16px);letter-spacing:.12em;line-height:1.6;color:#5a3e1c;background:rgba(255,240,196,.9);
+  padding:.5em 1.5em .5em 1.62em;border-radius:999px;box-shadow:0 0 0 1px rgba(255,226,160,.7),0 4px 22px rgba(255,214,140,.35);opacity:0;transition:opacity .9s,transform .9s}
+#lost.on{opacity:1;transform:translate(-50%,0)}
 #loader{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:0 16px;background:radial-gradient(60% 55% at 50% 46%,color-mix(in srgb,var(--lc) 7%,transparent),transparent 70%),var(--night);
   opacity:0;pointer-events:none;transition:opacity 1.1s cubic-bezier(.45,0,.25,1);--lc:#cfe3ff}
 #loader.on{opacity:1;pointer-events:auto;transition-duration:.95s}
@@ -286,7 +291,7 @@ body.touchdev .foot{display:none}
 #pause{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(60% 70% at 50% 50%,rgba(5,4,15,.35),rgba(5,4,15,.82));transition:opacity .6s,visibility .6s}
 #pause.off{opacity:0;visibility:hidden;pointer-events:none}
 #pause.pmore .pwrap{display:none}
-body.paused #chapter,body.paused #prompt,body.paused #toast,body.paused #help{opacity:0!important}
+body.paused #chapter,body.paused #prompt,body.paused #toast,body.paused #lost,body.paused #help{opacity:0!important}
 .pwrap{display:flex;flex-direction:column;align-items:center}
 .proman{font-weight:300;color:var(--gold);letter-spacing:.5em;padding-left:.5em;font-size:max(14px,calc(var(--u)*2.2))}
 #pauseNav{padding-top:calc(var(--u)*4)}
@@ -369,6 +374,7 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
 <div id="help"><div><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> 移动　<span class="key">Shift</span> 奔跑　<span class="key">E</span> 互动</div><div>鼠标 引导星光　<span class="key">M</span> 琴声　<span class="key">Esc</span> 暂停　<span class="key">Tab</span> 地图</div></div>
 <div id="map" aria-hidden="true"><div class="mwrap"><button class="mclose" id="mapClose" aria-label="关闭地图"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6L18 18M18 6L6 18"/></svg></button><div class="mtitle" id="mapTitle">星</div><canvas id="mapc"></canvas><div class="mleg"><span><i class="lg lamp"></i><b id="mapLamp">星灯</b></span><span><i class="lg pcard"></i>牌</span><span><i class="lg goal"></i>终点</span><span><i class="lg me"></i>你</span><span class="dim kb"><span class="key">Tab</span> 关闭</span></div></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
+<div id="lost" role="status" aria-live="polite"></div>
 <div id="bars" aria-hidden="true"><i></i><i></i></div>
 <button id="skip"><span class="kb"><span class="key">E</span> </span>跳过<svg class="tch" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6l6 6-6 6M13 6l6 6-6 6"/></svg></button>
 <div id="chapter"><div><div class="num">XVII</div><div class="name">星</div><div class="line">在无光之处，星辰等待被唤醒</div></div></div>
