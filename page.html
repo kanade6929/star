@@ -243,6 +243,7 @@ body.touchdev .foot{display:none}
 /* 暂停 / 结算 */
 #pause{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(60% 70% at 50% 50%,rgba(5,4,15,.35),rgba(5,4,15,.82));transition:opacity .6s,visibility .6s}
 #pause.off{opacity:0;visibility:hidden;pointer-events:none}
+#pause.pmore .pwrap{display:none}
 body.paused #chapter,body.paused #prompt,body.paused #toast,body.paused #help{opacity:0!important}
 .pwrap{display:flex;flex-direction:column;align-items:center}
 .proman{font-weight:300;color:var(--gold);letter-spacing:.5em;padding-left:.5em;font-size:max(14px,calc(var(--u)*2.2))}
@@ -352,7 +353,6 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
       <nav class="vmenu" id="mainNav">
         <button class="vbtn" data-act="start"><span class="lbl">踏入夜色</span><small class="sub"></small></button>
         <button class="vbtn" data-act="chapters"><span class="lbl">章节</span></button>
-        <button class="vbtn" data-act="sound" aria-pressed="true"><span class="lbl">琴声</span><small class="snd">开</small></button>
         <button class="vbtn" data-act="more"><span class="lbl">更多</span></button>
       </nav>
     </div>
@@ -406,6 +406,10 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
     <div class="more">
       <div class="mhead"><span class="mrn">· 设置 ·</span><h2>更多</h2></div>
       <div class="mrow">
+        <div class="mlab">琴声<small>音乐与音效（M 键也能开关）</small></div>
+        <div class="seg" role="radiogroup" aria-label="琴声"><button role="radio" data-snd="on">开</button><button role="radio" data-snd="off">关</button></div>
+      </div>
+      <div class="mrow">
         <div class="mlab">画质<small>中等更省电、手机不易发烫</small></div>
         <div class="seg" role="radiogroup" aria-label="画质"><button role="radio" data-q="high">高</button><button role="radio" data-q="mid">中等</button></div>
       </div>
@@ -429,7 +433,7 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
   <nav class="vmenu" id="pauseNav">
     <button class="vbtn" data-act="resume"><span class="lbl">继续</span></button>
     <button class="vbtn" data-act="menu"><span class="lbl">回到主界面</span></button>
-    <button class="vbtn" data-act="sound" aria-pressed="true"><span class="lbl">琴声</span><small class="snd">开</small></button>
+    <button class="vbtn" data-act="more"><span class="lbl">更多</span></button>
   </nav>
 </div></div>
 <!--PIANO-->

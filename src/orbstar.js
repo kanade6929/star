@@ -88,7 +88,7 @@ export function makeOrbStar(layerFx) {
         vec3 c = col;
         // 彩棱：光晕外圈按方位角散开一圈淡淡的虹彩，慢慢转
         if (prism > .5) { vec3 rel = cp - center; float ang = atan(rel.z, rel.x) / 6.2832; float rr = smoothstep(.25, 1.1, h / R * 2.);
-          c = mix(col, rb(fract(ang + time * .06)) * .9 + col * .25, rr * .5); }
+          c = mix(col, (rb(fract(ang + time * .06)) * .45 + .55) * mix(vec3(1.), col, .3), rr * .45); } // 虹彩压成粉彩，不发脏
         gl_FragColor = vec4(c * a, 1.);
       }`
   });

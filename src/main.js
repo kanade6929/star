@@ -150,7 +150,15 @@ orb.g.add(orbLight);
 // 光点本体是一颗立体的四芒星，光晕是空气里的体积散射（不是贴图）
 const orbStar = makeOrbStar(LAYER_FX); orb.g.add(orbStar.g); let orbGlow = 1;
 // 星之彩棱的光尘：七色里偏冷的多一些
-const PRISM7 = [[1, .55, .6], [1, .78, .5], [.95, 1, .6], [.55, 1, .75], [.55, .85, 1], [.6, .7, 1], [.82, .62, 1], [.6, .82, 1], [.75, .9, 1]];
+// 彩棱的配色：薄桃 → 樱粉 → 淡紫 → 长春花蓝 → 冰蓝 → 薄荷，相邻两色才互相过渡（来回走，不会从薄荷直接混到薄桃变脏）
+// 冷色饱和度压低、明度提高
+const PRISM_PAL = [0xffc6ae, 0xffb8d6, 0xd8bcff, 0xb2c8ff, 0xaee4ff, 0xb4efda].map(h => new THREE.Color(h));
+const PRISM7 = PRISM_PAL.map(c => { const s = c.clone().convertLinearToSRGB(); return [s.r, s.g, s.b]; });
+function prismAt(t, out) { // t 任意实数，来回扫过整组颜色
+  const n = PRISM_PAL.length - 1, u = (1 - Math.cos(t)) / 2 * n, i = Math.min(n - 1, Math.floor(u)), f = u - i;
+  return out.copy(PRISM_PAL[i]).lerp(PRISM_PAL[i + 1], f * f * (3 - 2 * f));
+}
+const _goldC = new THREE.Color(); const lum = c => c.r * .2126 + c.g * .7152 + c.b * .0722;
 const prismCol = new THREE.Color(), glowCol = new THREE.Color();
 function applySkin() {
   orbStar.setSkin(SET.skin);
@@ -321,6 +329,7 @@ addEventListener('keydown', e => {
   if (S.mode === 'menu') { menuKey(e, k); return; }
   keys[k] = true;
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
+  if (k === 'escape' && S.mode === 'paused' && inPauseMore()) { AU.back(); pauseMore(false); return; }
   if ((k === 'escape' && !mapOn || k === 'p') && k !== 'tab') { if (S.mode === 'play' || S.mode === 'intro') pause(); else if (S.mode === 'paused') resume(); }
   if (k === 'm' && !e.repeat) AU.toggle();
   if (k === 'tab') { e.preventDefault(); if (!e.repeat) toggleMap(); }
@@ -617,10 +626,10 @@ function update(dt) {
   orb.k = (1 - near * (intro ? .55 : .35)) * fin * (S.mode === 'menu' ? .75 : 1);
   orbLight.intensity = (7 + Math.sin(T * 1.7) * .1) * orb.k;
   if (SET.skin === 'prism') {
-    // 彩棱：以冷蓝为主，缓慢地流过七种颜色（不会长时间停在暖色上）
-    const hue = (.6 + .34 * Math.sin(T * .33) + .06 * Math.sin(T * 1.3) + 1) % 1;
-    prismCol.setHSL(hue, .5, .66, THREE.SRGBColorSpace); orbLight.color.copy(prismCol);
-    orbStar.setColor(glowCol.setHSL((hue * .4 + .6 * .6) % 1, .55, .68, THREE.SRGBColorSpace));
+    // 彩棱：在一组和谐的浅色之间缓缓来回流动；亮度按金色星光补齐，再略亮一点
+    prismAt(T * .21, prismCol); orbLight.color.copy(prismCol);
+    orbLight.intensity *= clamp(lum(_goldC.set(LV.light.orb)) / Math.max(lum(prismCol), .05), 1, 1.4) * 1.08;
+    orbStar.setColor(prismAt(T * .21 + .5, glowCol));
   }
   orbGlow = fin * (intro ? .5 : S.mode === 'menu' ? .35 : 1 - near * .55);
   // 光尘拖尾：划得越快留下越多，沿路径均匀撒开
@@ -703,7 +712,7 @@ let prog = { done: [] };
 try { prog = JSON.parse(localStorage.getItem(PROG_KEY)) || prog; } catch (e) {}
 function saveProg() { try { localStorage.setItem(PROG_KEY, JSON.stringify(prog)); } catch (e) {} }
 const menu = $('menu');
-function syncSound() { document.querySelectorAll('[data-act="sound"]').forEach(b => { b.setAttribute('aria-pressed', AU.on); b.querySelector('.snd').textContent = AU.on ? '开' : '关'; }); }
+function syncSound() { document.querySelectorAll('#vMore [data-snd]').forEach(b => b.setAttribute('aria-checked', (b.dataset.snd === 'on') === !!AU.on)); }
 function nextLevel() { if (!prog.done.includes(1)) return 1; if (!prog.done.includes(2)) return 2; if (!prog.done.includes(3)) return 3; return 1; }
 function refreshMenu() {
   [1, 2, 3].forEach(n => { document.querySelector(`.tcard[data-n="${n}"] .st`).textContent = prog.done.includes(n) ? '已完成' : '可进入'; });
@@ -724,21 +733,22 @@ function showView(v) {
 function menuAct(act) {
   if (act === 'start') begin(nextLevel());
   else if (act === 'chapters') showView('chap');
-  else if (act === 'sound') AU.toggle();
   else if (act === 'more') showView('more');
 }
 function refreshMore() {
   document.querySelectorAll('#vMore [data-q]').forEach(b => b.setAttribute('aria-checked', b.dataset.q === SET.q));
   document.querySelectorAll('#vMore [data-skin]').forEach(b => b.setAttribute('aria-checked', b.dataset.skin === SET.skin));
   document.querySelectorAll('#vMore [data-fps]').forEach(b => b.setAttribute('aria-checked', b.dataset.fps === SET.fps));
+  syncSound();
 }
+document.querySelectorAll('#vMore [data-snd]').forEach(b => b.addEventListener('click', () => { if ((b.dataset.snd === 'on') !== !!AU.on) AU.toggle(); syncSound(); }));
 document.querySelectorAll('#vMore [data-fps]').forEach((b, i) => b.addEventListener('click', () => { if (SET.fps === b.dataset.fps) return; SET.fps = b.dataset.fps; saveSet(); refreshMore(); AU.hover(i + 2); }));
 document.querySelectorAll('#vMore [data-q]').forEach((b, i) => b.addEventListener('click', () => { if (SET.q === b.dataset.q) return; SET.q = b.dataset.q; saveSet(); applyQuality(); refreshMore(); AU.hover(i + 2); }));
 document.querySelectorAll('#vMore [data-skin]').forEach((b, i) => b.addEventListener('click', () => {
   if (SET.skin === b.dataset.skin) return; SET.skin = b.dataset.skin; saveSet(); applySkin(); refreshMore(); AU.hover(i + 4);
   fx.bloom(orb.x, orb.y, orb.z, 24, SET.skin === 'prism' ? [.6, .82, 1] : [1, .85, .55], { w: 2, vr: 1.2, up: .3 });
 }));
-$('back2').addEventListener('click', () => { AU.back(); showView('main'); });
+$('back2').addEventListener('click', () => { AU.back(); if (inPauseMore()) pauseMore(false); else showView('main'); });
 document.querySelectorAll('.vbtn').forEach((b, i) => {
   b.addEventListener('click', () => { const a = b.dataset.act; if (b.closest('#pause')) pauseAct(a); else menuAct(a); });
   b.addEventListener('mouseenter', () => AU.hover(i));
@@ -802,8 +812,15 @@ function begin(n = 1) {
 const pauseEl = $('pause');
 let pausedFrom = 'play';
 function pause() { if (S.loading) return; pausedFrom = S.mode; S.mode = 'paused'; pauseEl.classList.remove('off'); document.body.classList.add('paused'); setTimeout(() => pauseEl.querySelector('.vbtn').focus(), 50); }
-function resume() { S.mode = pausedFrom; pauseEl.classList.add('off'); document.body.classList.remove('paused'); document.activeElement && document.activeElement.blur(); }
-function pauseAct(a) { if (a === 'resume') resume(); else if (a === 'menu') toMenu(); else if (a === 'sound') AU.toggle(); }
+function resume() { if (inPauseMore()) pauseMore(false); S.mode = pausedFrom; pauseEl.classList.add('off'); document.body.classList.remove('paused'); document.activeElement && document.activeElement.blur(); }
+function pauseAct(a) { if (a === 'resume') resume(); else if (a === 'menu') toMenu(); else if (a === 'more') pauseMore(true); }
+// 暂停菜单里的「更多」：把同一个设置面板借到暂停层里显示
+const vMore = $('vMore'), vMoreHome = vMore.parentNode;
+function pauseMore(on) {
+  if (on) { pauseEl.appendChild(vMore); pauseEl.classList.add('pmore'); vMore.classList.remove('off'); refreshMore(); setTimeout(() => document.querySelector('#vMore .seg [aria-checked="true"]').focus({ preventScroll: true }), 200); }
+  else { pauseEl.classList.remove('pmore'); vMore.classList.add('off'); vMoreHome.appendChild(vMore); setTimeout(() => pauseEl.querySelector('[data-act="more"]').focus(), 50); }
+}
+const inPauseMore = () => pauseEl.classList.contains('pmore');
 // 主界面：她躺在星空里的石台上熟睡，镜头更近
 function toDream() {
   Object.assign(P, { x: DREAM[0] + .15, z: DREAM[1] + .2, lie: true, crouch: 0, act: null, dir: 'down' });
