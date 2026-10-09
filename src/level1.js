@@ -493,8 +493,10 @@ export function buildStar(ctx) {
     const bm = new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
     const beam = new THREE.Mesh(new THREE.CylinderGeometry(.045, .045, 1, 6, 1, true), bm); beam.layers.set(LAYER_FX); beam.visible = false; skyG.add(beam); L.hide.push(beam);
     // 连成后的光桥
-    const pl = new THREE.Mesh(bevelBox(.6, .1, len, .03), plankM); pl.position.set((A.x + Bn.x) / 2, -.14, (A.z + Bn.z) / 2); pl.rotation.y = Math.atan2(dx, dz); pl.receiveShadow = pl.castShadow = true; plankG.add(pl);
-    return { i, a: A, b: Bn, len, bm, beam, drawn: false, k: 0, from: A };
+    // 通向东岸 I 的那段：光桥只铺到岸边为止，不压到地板上
+    const vis = b === 'I' ? len * (86.95 - A.x) / (Bn.x - A.x) : len;
+    const pl = new THREE.Mesh(bevelBox(.6, .1, vis, .03), plankM); pl.position.set(A.x + dx / len * vis / 2, -.14, A.z + dz / len * vis / 2); pl.rotation.y = Math.atan2(dx, dz); pl.receiveShadow = pl.castShadow = true; plankG.add(pl);
+    return { i, a: A, b: Bn, len, vis, bm, beam, drawn: false, k: 0, from: A };
   });
   const C = { done: false, finT: 0, desc: 0, rise: 0, fly: 0 };
   // 礁石：星鱼游不过去，也挡住星光（星鱼看不见礁石后面的光）
@@ -754,7 +756,7 @@ export function buildStar(ctx) {
       e.k = clamp(e.k + (e.drawn ? dt / .35 : -dt / .5), 0, 1);
       e.beam.visible = e.k > .005;
       if (e.beam.visible) {
-        const A = e.a, Bn = e.b, L2 = e.len * e.k;
+        const A = e.a, Bn = e.b, L2 = (e.len + (e.vis - e.len) * de) * e.k;
         const ux = (Bn.x - A.x) / e.len, uz = (Bn.z - A.z) / e.len;
         e.beam.position.set(A.x + ux * L2 / 2, SY, A.z + uz * L2 / 2); e.beam.scale.set(1, Math.max(.001, L2), 1);
         e.beam.quaternion.setFromUnitVectors(Y_AXIS, new THREE.Vector3(ux, 0, uz));

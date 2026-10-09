@@ -468,10 +468,38 @@ export function buildMoon(ctx) {
     curb(70, 1.5, 70, 6); curb(70, 9, 70, 10.8);
     [[70, 1.5], [84, 1.5], [70, 10.8], [84, 10.8], [70, 6], [70, 9]].forEach(([x, z]) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(.16, .2, .5, 8), paleM); m.position.set(x, LAKE_Y + .5, z); m.castShadow = true; root.add(m); });
   }
-  // 镜线：湖面上一道淡淡的银线，跟着月镜一起转
-  const axisM = new THREE.MeshBasicMaterial({ color: 0xd8c8ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  // 镜线：从月镜两侧向外延伸的一道柔光，越远越淡、越细，表面有光缓缓向外流（不是虚线）
+  // 光束着色器：u 沿长度 0..1，v 横向 -1..1；mode 0 = 镜线（中间亮、两端渐隐），1 = 牵引光（两端亮、中段淡）
+  const beamMat = (color, mode) => new THREE.ShaderMaterial({
+    uniforms: { uCol: { value: new THREE.Color(color) }, uK: { value: 0 }, uT: { value: 0 }, uLen: { value: 1 } },
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
+    fragmentShader: `uniform vec3 uCol; uniform float uK, uT, uLen; varying vec2 vUv;
+      void main(){
+        float u = vUv.x, v = abs(vUv.y * 2. - 1.);
+        float a;
+        if (${mode}. < .5) {
+          float d = abs(u * 2. - 1.);                     // 离镜子的距离 0..1
+          float near = smoothstep(.07, .16, d);            // 镜子本身那一段留空
+          float fall = pow(1. - d, 1.6);                   // 向外渐隐
+          float w = mix(.55, .12, d);                      // 越远越细
+          float core = smoothstep(w, w * .25, v);
+          float flow = .75 + .25 * sin(d * uLen * 2.2 - uT * 2.4);   // 光沿镜线向外流
+          a = core * fall * near * flow;
+        } else {
+          float ends = max(exp(-u * uLen * 1.4), exp(-(1. - u) * uLen * 1.4));
+          float pulse = smoothstep(.35, 0., abs(fract(u - uT * .35) - .5) * 2. - .65) * .35;
+          float core = smoothstep(.9, .15, v);
+          a = core * (ends * .8 + .15 + pulse);
+        }
+        a *= uK; if (a < .003) discard;
+        gl_FragColor = vec4(uCol * a, 1.);
+      }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide
+  });
+  const AXIS_HALF = 6.5;
+  const axisM = beamMat(0xd8c8ff, 0); axisM.uniforms.uLen.value = AXIS_HALF;
   const axisG = new THREE.Group(); axisG.position.set(MIR[0], LAKE_Y + .035, MIR[1]); root.add(axisG);
-  for (let k = -12; k <= 12; k++) { if (Math.abs(k) < 2) continue; const m = new THREE.Mesh(new THREE.PlaneGeometry(.62, .05), axisM); m.rotation.x = -Math.PI / 2; m.position.x = k * .82; m.layers.set(LAYER_FX); axisG.add(m); }
+  { const m = new THREE.Mesh(new THREE.PlaneGeometry(AXIS_HALF * 2, .16), axisM); m.rotation.x = -Math.PI / 2; m.layers.set(LAYER_FX); axisG.add(m); }
   L.hide.push(axisG);
   // 镜中月：星光的倒影。偏紫的一团光，带一盏不投影的灯
   const PHC = 0xd0a8ff;
@@ -482,10 +510,9 @@ export function buildMoon(ctx) {
   ph.light = new THREE.PointLight(PHC, 0, 5.5, 1.3); ph.g.add(ph.light);
   ph.poolM = new THREE.MeshBasicMaterial({ map: haloT, color: PHC, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
   ph.pool = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 4.6), ph.poolM); ph.pool.rotation.x = -Math.PI / 2; ph.pool.layers.set(LAYER_FX); root.add(ph.pool); L.hide.push(ph.pool);
-  // 星光 → 镜中月 的一道虚线（垂直穿过镜线）
-  const linkM = new THREE.LineDashedMaterial({ color: 0xd8c8ff, transparent: true, opacity: 0, dashSize: .25, gapSize: .2, depthWrite: false });
-  const linkGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
-  const link = new THREE.Line(linkGeo, linkM); link.layers.set(LAYER_FX); link.frustumCulled = false; root.add(link); L.hide.push(link);
+  // 星光 → 镜中月：一缕细细的牵引光，两端亮、中段淡，有光点从星光流向倒影
+  const linkM = beamMat(0xd8c8ff, 1);
+  const link = new THREE.Mesh(new THREE.PlaneGeometry(1, .09), linkM); link.layers.set(LAYER_FX); link.frustumCulled = false; root.add(link); L.hide.push(link);
   // 镜月石
   const moonStones = [];
   for (let z = 0; z < MH; z++) for (let x = 0; x < MW; x++) if (grid[z][x] === 'u') {
@@ -679,8 +706,11 @@ export function buildMoon(ctx) {
     ph.light.intensity = ph.k * (3.2 + Math.sin(T * 2.3) * .2);
     ph.halo.material.opacity = ph.k * (.42 + Math.sin(T * 2.3) * .05);
     ph.pool.position.set(ph.x, LAKE_Y + .05, ph.z); ph.poolM.opacity = ph.k * .22;
-    axisM.opacity = ph.k * (.32 + Math.sin(T * 1.6) * .06);
-    { const pos = linkGeo.attributes.position; pos.setXYZ(0, orb.x, orb.y - .1, orb.z); pos.setXYZ(1, ph.x, orb.y - .1, ph.z); pos.needsUpdate = true; link.computeLineDistances(); linkM.opacity = ph.k * .35; }
+    axisM.uniforms.uK.value = ph.k * (.5 + Math.sin(T * 1.6) * .06); axisM.uniforms.uT.value = T;
+    { const dx = ph.x - orb.x, dz = ph.z - orb.z, d = Math.hypot(dx, dz) || .001;
+      link.position.set((orb.x + ph.x) / 2, orb.y - .1, (orb.z + ph.z) / 2); link.scale.set(d, 1, 1);
+      link.rotation.set(-Math.PI / 2, 0, -Math.atan2(dz, dx));
+      linkM.uniforms.uLen.value = d; linkM.uniforms.uT.value = T; linkM.uniforms.uK.value = ph.k * .42; }
     mirM.emissiveIntensity = .15 + ph.k * (.25 + Math.sin(T * 1.6) * .06);
     if (ph.k > .5 && Math.random() < dt * 8) fx.emit(ph.x + (Math.random() - .5) * .4, orb.y, ph.z + (Math.random() - .5) * .4, { vy: -.3, life: .9, c: [.85, .7, 1], tw: 8 });
     // 镜月石：镜中月照着（2.3 以内）、真的星光又没照着（2 以外）才浮上来；离开后留 0.35 秒余地

@@ -53,12 +53,12 @@ export function makeOrbStar(layerFx) {
         float f = .34 + .8 * max(dot(vN, L), 0.);
         // 棱镜色散：切面朝向 + 时间 → 色相，整体压在冰蓝里
         float hue = fract(dot(vN, vec3(.37, .61, .23)) * 1.6 + time * .12);
-        vec3 ice = vec3(.55, .78, 1.15);
-        vec3 c = mix(ice * f * .55, rb(hue) * (.25 + f * .5), .68);
+        vec3 warm = vec3(1.05, .86, .58);   // 暖金白的晶体，切面折出七彩
+        vec3 c = mix(warm * f * .6, rb(hue) * (.25 + f * .55), .55);
         float spec = pow(max(dot(reflect(-L, vN), vV), 0.), 14.);
         c += vec3(.7, .85, 1.) * spec * .4;
         float core = 1. - smoothstep(0., .26, vR);
-        c = mix(c, vec3(.8, .92, 1.08), core * .35) * k;
+        c = mix(c, vec3(1.05, .96, .82), core * .35) * k;
         gl_FragColor = vec4(c, 1.);
       }`
   });
@@ -88,7 +88,9 @@ export function makeOrbStar(layerFx) {
         vec3 c = col;
         // 彩棱：光晕外圈按方位角散开一圈淡淡的虹彩，慢慢转
         if (prism > .5) { vec3 rel = cp - center; float ang = atan(rel.z, rel.x) / 6.2832; float rr = smoothstep(.25, 1.1, h / R * 2.);
-          c = mix(col, (rb(fract(ang + time * .06)) * .45 + .55) * mix(vec3(1.), col, .3), rr * .45); } // 虹彩压成粉彩，不发脏
+          // 内圈暖金，外圈按方位角散开一圈七色（像光穿过棱镜后的色散），颜色跟着时间慢慢转
+          vec3 disp = rb(fract(ang * 2. + time * .08)) * .7 + .3;
+          c = mix(col, disp * mix(vec3(1.), col, .35), rr * .62); }
         gl_FragColor = vec4(c * a, 1.);
       }`
   });
