@@ -132,8 +132,10 @@ function buildParts() {
   [[-4, -3, -2, -5], [1, 2, 3, 4]].forEach(([a, b, c2, tail]) => {
     [a, b, c2].forEach(x => [15, 16, 17].forEach(y => eyesSmile.set(x, y, 5, C.skin)));
     eyesSmile.set(tail, 17, 5, C.skin);
-    eyesSmile.set(a, 15, 5, C.lash); eyesSmile.set(b, 16, 5, C.lash); eyesSmile.set(c2, 15, 5, C.lash);
   });
+  // 每只笑眼 4 格：两端低、中间两格高
+  [[-5, -4, -3, -2], [1, 2, 3, 4]].forEach(([p, q, r, s]) => { eyesSmile.set(p, 15, 5, C.lash); eyesSmile.set(q, 16, 5, C.lash); eyesSmile.set(r, 16, 5, C.lash); eyesSmile.set(s, 15, 5, C.lash); });
+  [[-5, 15], [4, 15]].forEach(([x, y]) => { head.del(x, y, 5); eyesOpen.set(x, y, 5, C.skin); eyesShut.set(x, y, 5, C.skin); });
   [-1, 0].forEach(x => { head.del(x, 13, 5); eyesOpen.set(x, 13, 5, C.skin); eyesShut.set(x, 13, 5, C.skin); eyesSmile.set(x, 13, 5, C.blush); });
   P.eyesOpen = { p: eyesOpen, pivot: [0, 13, 0] }; P.eyesShut = { p: eyesShut, pivot: [0, 13, 0] }; P.eyesSmile = { p: eyesSmile, pivot: [0, 13, 0] };
   // 后发：短发的后脑下半部分，到后颈为止，中间鼓一点，下沿参差；和头上的那层严丝合缝
