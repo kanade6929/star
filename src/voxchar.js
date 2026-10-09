@@ -8,8 +8,8 @@ const hex = h => new THREE.Color(h).convertSRGBToLinear();
 const C = Object.fromEntries(Object.entries({
   hair: '#ece8fc', hairS: '#cdc6ee', hairD: '#a29ad6', skin: '#fde8dc', skinS: '#f3d0c4', blush: '#f6a8bc',
   lash: '#25194a', iris1: '#2f2f86', iris2: '#5468d0', iris3: '#9cc2ff', white: '#ffffff',
-  dress: '#33408f', dressS: '#27306e', dressL: '#5062bc', collar: '#f3efff', ribbon: '#e8c98e',
-  cape: '#262d6c', lining: '#7a5cbc', trim: '#e8c98e', sock: '#f1edff', shoe: '#3b2c4c', pin: '#ffe39a'
+  dress: '#4058b4', dressS: '#33479a', dressL: '#6c88dc', collar: '#f3efff', ribbon: '#f4cf6a',
+  cape: '#34519e', lining: '#7a5cbc', trim: '#f4cf6a', sock: '#f1edff', shoe: '#3b2c4c', pin: '#ffe39a'
 }).map(([k, v]) => [k, hex(v)]));
 
 /* ---------- 体素部件 ---------- */
@@ -161,9 +161,9 @@ function buildParts() {
   P.ahoge = { p: ah, pivot: [0, 26, 1] };
   // 披风：一层薄布、深蓝、金边；分上下两段，下摆单独再晃一下，看起来软
   const cape = new Part(), capeLow = new Part();
-  for (let y = 4; y < 13; y++) {
+  for (let y = 2; y < 13; y++) {
     const w = y > 10 ? 3 : 4;
-    (y < 9 ? capeLow : cape).box(-w, y, -4, w, y + 1, -3, y === 4 ? C.trim : C.cape);
+    (y < 9 ? capeLow : cape).box(-w, y, -4, w, y + 1, -3, y === 2 ? C.trim : C.cape);
   }
   P.cape = { p: cape, pivot: [0, 12.5, -3.5] };
   P.capeLow = { p: capeLow, pivot: [0, 9, -3.5] };
