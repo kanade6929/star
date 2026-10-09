@@ -35,6 +35,8 @@ export class PixelPipeline {
     this.quadScene = new THREE.Scene(); this.quadScene.add(this.quad);
     this.mirrorCam = new THREE.OrthographicCamera();
     this.mirrorY = 0; this.hideInReflection = [];
+    // 倒影按需：画面里没有反光材质（水面、抛光地面）时整遍跳过
+    this.reflList = null; this.reflSeen = false; this.frustum = new THREE.Frustum(); this._pm = new THREE.Matrix4();
     this.clip = [new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)];
 
     this.brightMat = new THREE.ShaderMaterial({
@@ -210,13 +212,26 @@ export class PixelPipeline {
     REFL.tReflect.value = this.reflRT.texture;
     hidden.forEach(o => o.visible = true);
   }
+  // 关卡换了就清空，下一帧重新收集
+  resetReflection() { this.reflList = null; }
+  reflectionVisible(scene, cam) {
+    if (!this.reflList) { this.reflList = []; scene.traverse(o => { if (o.isMesh && [].concat(o.material).some(m => m && m.userData.reflK)) this.reflList.push(o); }); }
+    cam.updateMatrixWorld();
+    this.frustum.setFromProjectionMatrix(this._pm.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
+    for (const o of this.reflList) {
+      let v = true; for (let q = o; q && v; q = q.parent) v = q.visible;
+      if (v && o.parent && this.frustum.intersectsObject(o)) return true;
+    }
+    return false;
+  }
   render(scene, cam, opt = {}) {
     const r = this.r, U = this.compMat.uniforms;
     this.frameN++;
     const mid = this.quality === 1;
     // 阴影只在主画面这一遍更新：倒影那一遍开着裁剪面，在那里画阴影会编出另一套阴影着色器
     r.shadowMap.needsUpdate = false;
-    if (opt.reflect !== false && (!mid || this.frameN % 2 === 0 || opt.force)) this.renderReflection(scene, cam);
+    const seen = opt.force || this.reflectionVisible(scene, cam), first = seen && !this.reflSeen; this.reflSeen = seen;
+    if (opt.reflect !== false && seen && (!mid || this.frameN % 2 === 0 || first || opt.force)) this.renderReflection(scene, cam);
     r.shadowMap.needsUpdate = this.shadowDirty !== false; // 场景里没有东西动过时沿用上一帧的阴影贴图
     // 1) 颜色 + 深度
     cam.layers.enableAll();

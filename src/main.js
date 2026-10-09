@@ -84,6 +84,40 @@ function snapMoon(c) {
   moon.target.position.copy(mC); moon.position.copy(mC).add(D);
 }
 
+/* ================= 灯光池 ================= */
+// 关卡里不投影的点光源、聚光灯都是「虚拟灯」：每帧挑出照得到画面的那几盏，交给固定数量的真灯去画。
+// 每个像素要算的灯从 14~17 盏降到最多 8+4 盏，关卡再大灯再多也不变；换关时灯数不变，不用为此重编着色器
+const POOL_P = 8, POOL_S = 4, poolP = [], poolS = [];
+for (let i = 0; i < POOL_P; i++) { const l = new THREE.PointLight(0xffffff, 0, 1, 1); l.userData.pool = true; scene.add(l); poolP.push(l); }
+for (let i = 0; i < POOL_S; i++) { const l = new THREE.SpotLight(0xffffff, 0, 0, .5, .85, 1.2); l.userData.pool = true; scene.add(l, l.target); poolS.push(l); }
+let virt = null; const poolStat = { p: 0, s: 0 };
+const _lw = new THREE.Vector3(), _lt = new THREE.Vector3(), _sph = new THREE.Sphere(), _fr = new THREE.Frustum(), _m4 = new THREE.Matrix4();
+function poolLights() {
+  if (!virt) { virt = []; scene.traverse(o => { if ((o.isPointLight || o.isSpotLight) && !o.castShadow && !o.userData.pool) { o.visible = false; o.userData.wp = new THREE.Vector3(); o.userData.wt = new THREE.Vector3(); virt.push(o); } }); }
+  scene.updateMatrixWorld(); cam.updateMatrixWorld();
+  _fr.setFromProjectionMatrix(_m4.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
+  const cP = [], cS = [];
+  for (const l of virt) {
+    if (l.intensity <= 1e-4 || !l.parent) continue;
+    let v = true; for (let q = l.parent; q && v; q = q.parent) v = q.visible; if (!v) continue;
+    const U = l.userData; U.wp.setFromMatrixPosition(l.matrixWorld);
+    if (l.isSpotLight) { U.wt.setFromMatrixPosition(l.target.matrixWorld); _sph.center.copy(U.wt); _sph.radius = U.wp.distanceTo(U.wt) * Math.tan(l.angle) * 1.2 + 1; }
+    else { _sph.center.copy(U.wp); _sph.radius = (l.distance || 60) + .5; }
+    if (!_fr.intersectsSphere(_sph)) continue;
+    U.d = _sph.center.distanceToSquared(camFocus) - _sph.radius * _sph.radius * .25;
+    (l.isSpotLight ? cS : cP).push(l);
+  }
+  poolStat.p = cP.length; poolStat.s = cS.length;
+  // 超出数量时留离画面中心近的（性能面板会提示，按预算不应发生）
+  if (cP.length > POOL_P) cP.sort((a, b) => a.userData.d - b.userData.d);
+  if (cS.length > POOL_S) cS.sort((a, b) => a.userData.d - b.userData.d);
+  poolP.forEach((r, i) => { const l = cP[i]; if (!l) { r.intensity = 0; return; }
+    r.color.copy(l.color); r.intensity = l.intensity; r.distance = l.distance; r.decay = l.decay; r.position.copy(l.userData.wp); });
+  poolS.forEach((r, i) => { const l = cS[i]; if (!l) { r.intensity = 0; return; }
+    r.color.copy(l.color); r.intensity = l.intensity; r.distance = l.distance; r.decay = l.decay; r.angle = l.angle; r.penumbra = l.penumbra;
+    r.position.copy(l.userData.wp); r.target.position.copy(l.userData.wt); });
+}
+
 /* ================= 角色 ================= */
 // 主角是真正立体的体素小人：正面、侧面、背面都是同一个身体，直接投出和身形一致的影子
 const pc = new VoxChar();
@@ -215,6 +249,7 @@ const ctx = { THREE, camQuat, P, orb, orbNear, S, fx, AU, toast, holdToast, cine
 const BUILDERS = { 1: buildStar, 2: buildMoon, 3: buildSun };
 function loadLevel(n) {
   if (root) disposeGroup(root);
+  virt = null;
   fx.clear();
   root = new THREE.Group(); scene.add(root); ctx.group = root;
   LV = BUILDERS[n](ctx);
@@ -225,7 +260,7 @@ function loadLevel(n) {
   if (scene.environment) scene.environment.dispose();
   scene.environment = makeEnv(renderer, ...lg.env);
   pipe.setPalette(LV.palette, LV.tintLo, LV.tintHi);
-  pipe.mirrorY = LV.mirrorY; pipe.hideInReflection = LV.hideInReflection || [];
+  pipe.mirrorY = LV.mirrorY; pipe.hideInReflection = LV.hideInReflection || []; pipe.resetReflection();
   document.querySelector('#pause .proman').textContent = `${LV.roman}　${LV.name}`;
   const ch = $('chapter'); ch.querySelector('.num').textContent = LV.roman; ch.querySelector('.name').textContent = LV.name; ch.querySelector('.line').textContent = LV.motto;
   AU.setMood(LV.mood);
@@ -814,6 +849,7 @@ function frame(now) {
   const dt = clamp((now - last) / 1000, .001, .05); last = now;
   const w0 = performance.now();
   if (S.mode !== 'paused') update(dt);
+  poolLights();
   // 暂停时画面静止：阴影贴图沿用上一帧（角色待机、漂浮的装饰每帧都在动，游戏中无法跳过）
   const dirty = S.mode !== 'paused' || needWarm > 0 || shadowForce > 0; if (shadowForce > 0) shadowForce--;
   if (dirty) moonPending = true;
@@ -833,7 +869,7 @@ function perfTick(now, ms, sh) {
   if (P_.on) {
     if (!P_.el) { P_.el = document.createElement('div'); P_.el.style.cssText = 'position:fixed;left:6px;top:6px;z-index:99;font:11px/1.4 monospace;color:#cfe;background:rgba(0,0,0,.55);padding:4px 7px;border-radius:4px;pointer-events:none;white-space:pre'; document.body.appendChild(P_.el); }
     const R_ = renderer.info.render;
-    P_.el.textContent = `${(P_.n / sec).toFixed(0)} fps (上限 ${fpsCap() > 100 ? '无' : fpsCap()})  CPU ${(P_.ms / P_.n).toFixed(1)}ms\n绘制 ${(P_.calls / P_.n).toFixed(0)}/帧  三角 ${(R_.triangles / 1000).toFixed(0)}k\n阴影重画 ${(100 * P_.sh / P_.n).toFixed(0)}%  画布 ${pipe.devW}×${pipe.devH}  像素 ${pipe.w}×${pipe.h}`;
+    P_.el.textContent = `${(P_.n / sec).toFixed(0)} fps (上限 ${fpsCap() > 100 ? '无' : fpsCap()})  CPU ${(P_.ms / P_.n).toFixed(1)}ms\n绘制 ${(P_.calls / P_.n).toFixed(0)}/帧  三角 ${(R_.triangles / 1000).toFixed(0)}k\n灯 ${poolStat.p}/${POOL_P}+${poolStat.s}/${POOL_S}  阴影重画 ${(100 * P_.sh / P_.n).toFixed(0)}%  画布 ${pipe.devW}×${pipe.devH}  像素 ${pipe.w}×${pipe.h}`;
   }
   P_.fps = P_.n / sec; P_.n = 0; P_.ms = 0; P_.sh = 0; P_.calls = 0; P_.t0 = now;
 }
@@ -848,6 +884,6 @@ setTimeout(() => document.querySelector('#mainNav .vbtn').focus({ preventScroll:
 // 调试/测试钩子
 window.__G = { scene, AU, fx,
   sim(sec) { if (loadDone) loadDone(); for (let t = 0; t < sec; t += 1 / 30) update(1 / 30); return [S.mode, LV.progress(), P.x.toFixed(1), P.z.toFixed(1), P.falling]; },
-  S, P, orb, PERF, SET, get LV() { return LV; }, get mouse() { return mouse; }, set mouse(v) { mouse.seen = false; },
+  S, P, orb, PERF, SET, poolLights, poolStat, get LV() { return LV; }, get mouse() { return mouse; }, set mouse(v) { mouse.seen = false; },
   begin, toMenu, interact, setMouse, mouseWorld, keys, update, pipe, cam, loadLevel, skipIntro, nearest, warmup, render() { pipe.render(scene, cam, { time: T, fade: S.fade, focus: focusUV, dofK, flash: S.flash, vig }); }
 };
