@@ -50,8 +50,9 @@ function layoutView() {
 function toView(cx, cy) { return view.rot ? [cy, innerWidth - cx] : [cx, cy]; }
 // 设置：画质（高 / 中等）与光点皮肤。手机默认中等：画布不按高分屏放大，倒影和月光阴影隔帧更新
 const SET_KEY = 'chenxingye3d_set';
-const SET = { q: TOUCH ? 'mid' : 'high', skin: 'gold', fps: 'auto' };
+const SET = { q: TOUCH ? 'mid' : 'high', skin: 'gold', fps: '60' };
 try { Object.assign(SET, JSON.parse(localStorage.getItem(SET_KEY)) || {}); } catch (e) {}
+if (!['max', '60', '30'].includes(SET.fps)) SET.fps = '60'; // 旧存档里的「自动」改成 60
 function saveSet() { try { localStorage.setItem(SET_KEY, JSON.stringify(SET)); } catch (e) {} }
 function resize() {
   layoutView();
@@ -696,7 +697,7 @@ function refreshMore() {
   document.querySelectorAll('#vMore [data-skin]').forEach(b => b.setAttribute('aria-checked', b.dataset.skin === SET.skin));
   document.querySelectorAll('#vMore [data-fps]').forEach(b => b.setAttribute('aria-checked', b.dataset.fps === SET.fps));
 }
-document.querySelectorAll('#vMore [data-fps]').forEach((b, i) => b.addEventListener('click', () => { if (SET.fps === b.dataset.fps) return; SET.fps = b.dataset.fps; PERF.auto30 = false; saveSet(); refreshMore(); AU.hover(i + 2); }));
+document.querySelectorAll('#vMore [data-fps]').forEach((b, i) => b.addEventListener('click', () => { if (SET.fps === b.dataset.fps) return; SET.fps = b.dataset.fps; saveSet(); refreshMore(); AU.hover(i + 2); }));
 document.querySelectorAll('#vMore [data-q]').forEach((b, i) => b.addEventListener('click', () => { if (SET.q === b.dataset.q) return; SET.q = b.dataset.q; saveSet(); applyQuality(); refreshMore(); AU.hover(i + 2); }));
 document.querySelectorAll('#vMore [data-skin]').forEach((b, i) => b.addEventListener('click', () => {
   if (SET.skin === b.dataset.skin) return; SET.skin = b.dataset.skin; saveSet(); applySkin(); refreshMore(); AU.hover(i + 4);
@@ -748,7 +749,7 @@ function begin(n = 1) {
     if (!LV || S.level !== n) loadLevel(n);
     pipe.setZoom(1); pipe.setupCamera(cam);
     stickHome();
-    resetLevel(); needWarm = 2; shadowForce = 2; PERF.auto30 = false; PERF.slowT = 0; PERF.ema = 16.7; // 黑屏时以游戏镜头再预热一遍
+    resetLevel(); needWarm = 2; shadowForce = 2; // 黑屏时以游戏镜头再预热一遍
     menu.classList.add('hide'); document.body.classList.add('playing'); $('end').classList.remove('on');
     $('deck').classList.remove('picking'); document.querySelectorAll('.tcard').forEach(c => c.classList.remove('chosen'));
     S.mode = 'intro'; S.introT = 0; S.chShown = false; camFocus.set(P.x, 0, P.z); camVel.set(0, 0, 0);
@@ -797,12 +798,12 @@ $('again2').addEventListener('click', () => { $('end').classList.remove('on'); b
 
 /* ================= 主循环 ================= */
 let moonPending = true;
-// 帧率：默认最多 60 帧（120/144Hz 屏幕不再白白多画一倍）；「自动」在设备跟不上时改成稳定的 30 帧；暂停时只画 10 帧
-const PERF = { on: /[?&]perf\b/.test(location.search), el: null, n: 0, t0: 0, ms: 0, sh: 0, calls: 0, fps: 0, auto30: false, slowT: 0, ema: 16.7 };
+// 帧率：默认最多 60 帧（120/144Hz 屏幕不再白白多画一倍）；可选无上限或 30 帧；暂停时只画 10 帧
+const PERF = { on: /[?&]perf\b/.test(location.search), el: null, n: 0, t0: 0, ms: 0, sh: 0, calls: 0, fps: 0 };
 function fpsCap() {
   if (S.mode === 'paused' || document.body.classList.contains('loading')) return 10;
-  if (SET.fps === '30' || (SET.fps === 'auto' && PERF.auto30)) return 30;
-  return 60;
+  if (SET.fps === '30') return 30;
+  return SET.fps === 'max' ? 1000 : 60; // 无上限：跟着屏幕刷新率走
 }
 let last = performance.now(), lastDraw = 0;
 function frame(now) {
@@ -824,22 +825,15 @@ function frame(now) {
   pipe.render(scene, cam, { time: T, fade: S.fade, grade: 0, focus: focusUV, dofK, flash: S.flash, vig });
   perfTick(now, performance.now() - w0, pipe.shadowDirty);
 }
-// 帧率统计 + 「自动」降到 30 帧；网址加 ?perf 显示性能面板
+// 帧率统计；网址加 ?perf 显示性能面板
 function perfTick(now, ms, sh) {
   const P_ = PERF; P_.n++; P_.ms += ms; P_.sh += sh ? 1 : 0; P_.calls += renderer.info.render.calls;
-  const iv = Math.min(now - (P_.prev || now), 100); P_.prev = now;
-  if (S.mode === 'play' && fpsCap() === 60) {
-    P_.ema += (iv - P_.ema) * .05;
-    // 连续 4 秒平均低于 45 帧：这台设备画不满 60，改成稳定 30 帧，忽快忽慢更难受也更烫
-    P_.slowT = P_.ema > 22 ? P_.slowT + iv / 1000 : 0;
-    if (P_.slowT > 4 && SET.fps === 'auto') { P_.auto30 = true; P_.slowT = 0; }
-  }
   if (now - P_.t0 < 1000) return;
   const sec = (now - P_.t0) / 1000;
   if (P_.on) {
     if (!P_.el) { P_.el = document.createElement('div'); P_.el.style.cssText = 'position:fixed;left:6px;top:6px;z-index:99;font:11px/1.4 monospace;color:#cfe;background:rgba(0,0,0,.55);padding:4px 7px;border-radius:4px;pointer-events:none;white-space:pre'; document.body.appendChild(P_.el); }
     const R_ = renderer.info.render;
-    P_.el.textContent = `${(P_.n / sec).toFixed(0)} fps (上限 ${fpsCap()}${P_.auto30 ? ' 自动' : ''})  CPU ${(P_.ms / P_.n).toFixed(1)}ms\n绘制 ${(P_.calls / P_.n).toFixed(0)}/帧  三角 ${(R_.triangles / 1000).toFixed(0)}k\n阴影重画 ${(100 * P_.sh / P_.n).toFixed(0)}%  画布 ${pipe.devW}×${pipe.devH}  像素 ${pipe.w}×${pipe.h}`;
+    P_.el.textContent = `${(P_.n / sec).toFixed(0)} fps (上限 ${fpsCap() > 100 ? '无' : fpsCap()})  CPU ${(P_.ms / P_.n).toFixed(1)}ms\n绘制 ${(P_.calls / P_.n).toFixed(0)}/帧  三角 ${(R_.triangles / 1000).toFixed(0)}k\n阴影重画 ${(100 * P_.sh / P_.n).toFixed(0)}%  画布 ${pipe.devW}×${pipe.devH}  像素 ${pipe.w}×${pipe.h}`;
   }
   P_.fps = P_.n / sec; P_.n = 0; P_.ms = 0; P_.sh = 0; P_.calls = 0; P_.t0 = now;
 }
