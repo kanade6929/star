@@ -453,6 +453,18 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
 </head>
 <body>
 <canvas id="c" aria-label="辰星夜 游戏画面"></canvas>
+<script>
+// 手机竖着拿时，页面一出来就转成横屏（主程序加载前先做，载入界面也是横的；之后由 main.js 的 layoutView 接手）
+(function () {
+  function lay() {
+    var r = matchMedia('(pointer: coarse)').matches && innerHeight > innerWidth, b = document.body, s = document.documentElement.style;
+    b.classList.toggle('rot', r); b.style.width = r ? innerHeight + 'px' : ''; b.style.height = r ? innerWidth + 'px' : '';
+    var w = r ? innerHeight : innerWidth, h = r ? innerWidth : innerHeight;
+    s.setProperty('--vw', w / 100 + 'px'); s.setProperty('--vh', h / 100 + 'px'); s.setProperty('--W', innerWidth + 'px');
+  }
+  lay(); addEventListener('resize', lay);
+})();
+</script>
 <div id="boot" aria-live="polite"><svg class="bstar" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 8 L57 43 L92 50 L57 57 L50 92 L43 57 L8 50 L43 43 Z"/></svg><div class="bbar"><i id="bootFill"></i></div><div class="bmsg" id="bootMsg">星光聚拢中</div></div>
 <div id="ptr" aria-hidden="true"></div>
 <div id="oops" hidden style="position:fixed;left:16px;right:16px;bottom:16px;z-index:99;padding:10px 14px;border:1px solid #6a5a3a;border-radius:4px;background:#0b0a18;color:#e8dcc0;font:12px/1.6 monospace;white-space:pre-wrap"></div>
