@@ -22,7 +22,7 @@ const CRYST = .8;            // 光束跨过云海持续这么久，就凝成金
 const BRIDGE_W = .56;        // 金桥的半宽
 const CLOUD_Y = -1.2;
 const DC = [73.5, 7.5];      // 日轮岛的圆心
-const D_IN = 3.0, D_COL = 3.5, D_RA = 4.7, PIER_W = .55; // 岛面、柱廊、栈桥的半径
+const D_IN = 3.0, D_COL = 3.5, D_RA = 4.7, PIER_W = .72; // 岛面、柱廊、栈桥的半径
 const Q45 = Math.PI / 4;
 const ALT = [90.5, 7.5];     // 日台
 // 通关时升起的机械太阳：在北面拱廊（z=2.5）之外、云海之上，最低的光芒也不碰到拱廊和水池
@@ -569,12 +569,12 @@ export function buildSun(ctx) {
     GATES.forEach((g, gi) => {
       const c = Math.cos(g), sn = Math.sin(g);
       [-1, 1].forEach(sd => {
-        const x = c * 3.25 - sn * .85 * sd, z = sn * 3.25 + c * .85 * sd;
+        const x = c * 3.25 - sn * 1.0 * sd, z = sn * 3.25 + c * 1.0 * sd;
         const py = new THREE.Mesh(new THREE.BoxGeometry(.36, 2.1, .36), creamM); py.position.set(x, 1.05, z); py.rotation.y = -g; discG.add(py);
         const top = new THREE.Mesh(new THREE.ConeGeometry(.26, .4, 4), brassM); top.position.set(x, 2.3, z); top.rotation.y = -g + Math.PI / 4; discG.add(top);
       });
       const sunD = new THREE.Mesh(new THREE.CylinderGeometry(.3, .3, .06, 18), gateSunMs[gi]); sunD.rotation.z = Math.PI / 2; sunD.rotation.y = -g; sunD.position.set(c * 3.3, 2.05, sn * 3.3); discG.add(sunD);
-      const lint = new THREE.Mesh(new THREE.BoxGeometry(.3, .16, 2.0), brassM); lint.position.set(c * 3.25, 1.98, sn * 3.25); lint.rotation.y = -g; discG.add(lint);
+      const lint = new THREE.Mesh(new THREE.BoxGeometry(.3, .16, 2.3), brassM); lint.position.set(c * 3.25, 1.98, sn * 3.25); lint.rotation.y = -g; discG.add(lint);
       // 栈桥：门外伸出去的一段石桥
       const pl = D_RA + .1 - (D_COL - .2), pm = (D_RA + .1 + D_COL - .2) / 2;
       const pier = new THREE.Mesh(bevelBox(pl, .3, PIER_W * 2, .04), creamM); pier.position.set(c * pm, -.3, sn * pm); pier.rotation.y = -g; discG.add(pier);
@@ -595,7 +595,7 @@ export function buildSun(ctx) {
   }
 
   /* ================= 城门塔与水园 ================= */
-  const poolM = reflective(toon({ color: 0xa8e4ee, normalMap: ntex(TX.waterTex(), 3, 3), normalScale: new THREE.Vector2(1.4, 1.4), transparent: true, opacity: .42, roughness: .05, metalness: .15, emissive: 0x2a7080, emissiveIntensity: .16, depthWrite: false }), .7, .6);
+  const poolM = reflective(toon({ color: 0xa8e4ee, normalMap: ntex(TX.waterTex(), 3, 3), normalScale: new THREE.Vector2(.55, .55), transparent: true, opacity: .42, roughness: .22, metalness: .15, emissive: 0x2a7080, emissiveIntensity: .16, depthWrite: false }), .7, .6);
   // 水底的焦散光纹：两层亮线错开流动
   const causT = tex(causticCanvas(64), 1); causT.repeat.set(7, 5);
   const causM = new THREE.MeshBasicMaterial({ map: causT, color: 0xfff2c8, transparent: true, opacity: .2, blending: THREE.AdditiveBlending, depthWrite: false });
@@ -1048,7 +1048,7 @@ export function buildSun(ctx) {
     // 旗帜飘动
     flags.forEach((f, j) => { const a = f.flag.geometry.attributes.position, b = f.base; for (let i = 0; i < a.count; i++) { const x = b[i * 3] + f.len / 2; a.array[i * 3 + 2] = b[i * 3 + 2] + Math.sin(T * 4 + x * 5 + j) * .08 * x / f.len * 2 * .5; } a.needsUpdate = true; });
     updateField(dt, T, !S.fieldInit); S.fieldInit = true;
-    poolM.normalMap.offset.set(T * .015, -T * .01); causT.offset.set(Math.sin(T * .21) * .08 + T * .006, Math.cos(T * .17) * .06 - T * .004); causM.opacity = .12 + Math.sin(T * 1.3) * .03;
+    poolM.normalMap.offset.set(T * .008, -T * .005);   // 水波慢慢流；太快、太强时低分辨率下高光会一闪一闪 causT.offset.set(Math.sin(T * .21) * .08 + T * .006, Math.cos(T * .17) * .06 - T * .004); causM.opacity = .12 + Math.sin(T * 1.3) * .03;
     // 天色
     const dayGoal = S.done ? S.day : [0, .16, .32, .46, .58, .7][S.rays];
     if (!S.done) S.day += (dayGoal - S.day) * (1 - Math.exp(-dt * .6));

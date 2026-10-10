@@ -646,7 +646,7 @@ export function buildMoon(ctx) {
       if (solid && !m.solid && m.k < .3 && Math.hypot(P.x - m.cx, P.z - m.cz) < 6) { if (Math.random() < .5) AU.ghost(); fx.emit(m.cx, .05, m.cz, { vy: .3, life: .7, c: LILAC, tw: 6, a: .8 }); }
       m.solid = solid;
       m.k += ((solid ? 1 : 0) - m.k) * (1 - Math.exp(-dt * (solid ? 10 : 6)));
-      const k = m.k, flick = .5 + .5 * Math.sin(T * 9 + m.ph);
+      const k = m.k, flick = .5 + .5 * Math.sin(T * 2.2 + m.ph);   // 慢慢呼吸，不要快闪
       m.mat.opacity = .16 + k * .8 + (1 - k) * flick * .08;
       m.mat.emissive.setRGB(.72 + (1 - k) * .28, .7 - (1 - k) * .2, 1 - (1 - k) * .35);
       m.mat.emissiveIntensity = .08 + k * .16 + (1 - k) * flick * .3;
@@ -675,7 +675,8 @@ export function buildMoon(ctx) {
       if (kk > .5 && Math.random() < dt * 5) fx.emit(q.x + (Math.random() - .5) * .3, 1, q.z + (Math.random() - .5) * .3, { vy: .45, life: 1.6, c: SILVER, tw: 6 });
     });
     // 犬与狼：眼睛分别亮起
-    const dogOk = !S.solvedB && litAt(dog.x, dog.z) && orb.z - dog.z > .35;
+    // 犬只认近处、面前的星光：光点要在它前方 3 格以内（以前整片都能把它点亮，太容易误触）
+    const dogOk = !S.solvedB && litAt(dog.x, dog.z) && orb.z - dog.z > .35 && Math.hypot(orb.x - dog.x, orb.z - dog.z) < 3;
     const wolfOk = !S.solvedB && shadowedAt(wolf.x, wolf.z);
     dog.ok += ((dogOk || S.solvedB ? 1 : 0) - dog.ok) * (1 - Math.exp(-dt * 6));
     wolf.ok += ((wolfOk || S.solvedB ? 1 : 0) - wolf.ok) * (1 - Math.exp(-dt * 6));
@@ -744,7 +745,7 @@ export function buildMoon(ctx) {
       if (solid && !m.solid && m.k < .3 && Math.hypot(P.x - m.cx, P.z - m.cz) < 7) { if (Math.random() < .5) AU.ghost(); fx.emit(m.cx, .05, m.cz, { vy: .35, life: .7, c: [.85, .7, 1], tw: 6, a: .8 }); }
       m.solid = solid;
       m.k += ((solid ? 1 : 0) - m.k) * (1 - Math.exp(-dt * (solid ? 10 : 5)));
-      const k = m.k, flick = .5 + .5 * Math.sin(T * 8 + m.ph);
+      const k = m.k, flick = .5 + .5 * Math.sin(T * 2 + m.ph);   // 慢慢呼吸，不要快闪
       m.mat.opacity = .12 + k * .84 + (1 - k) * flick * .06;
       m.mat.emissiveIntensity = .1 + k * .3 + (1 - k) * flick * .2;
       m.mat.userData.reflK.value = .1 + k * .3;

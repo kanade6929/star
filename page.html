@@ -210,6 +210,10 @@ body.short .seg button{font-size:13px;padding:.38em .95em .38em 1.15em}
 body.short .skins{gap:8px}
 body.short .skin{grid-template-columns:auto auto;grid-template-rows:auto auto;justify-items:start;align-items:center;column-gap:8px;row-gap:0;width:auto;padding:5px 12px 5px 8px}
 body.short .skin .sw{grid-row:1/3;width:24px;height:24px}
+/* 说明小字删掉后：手机上每格的标题和选项居中；两端的「支持作者」一行也居中 */
+body.short .mrow{align-items:center}
+body.short .mlab{justify-content:center}
+.mrow.msup,body.short .mrow.msup{justify-content:center;gap:18px}
 body.short #vMore .back{bottom:max(6px,calc(var(--u)*2))}
 /* 开场和过场（上下黑边）时，手机上的摇杆、按钮、跳过都先藏起来；黑边收起后再一起渐显 */
 #touch{transition:opacity 1.2s ease}
@@ -396,6 +400,13 @@ body.rot{position:fixed;left:0;top:0;transform-origin:0 0;transform:translateX(v
 #touch button{position:fixed;width:64px;height:64px;border-radius:50%;border:1px solid var(--gold-dim);background:rgba(10,8,26,.4);color:var(--gold);font:inherit;font-size:16px;pointer-events:auto}
 #tE{right:max(16px,calc(4*var(--vw)),calc(env(safe-area-inset-right) + 10px));bottom:max(24px,calc(6*var(--vh)))}
 #tM{right:max(16px,calc(4*var(--vw)),calc(env(safe-area-inset-right) + 10px));top:calc(max(16px,calc(3*var(--vh))) + 54px);width:44px!important;height:44px!important;font-size:13px!important}
+/* 电脑端的地图按钮：和手机一样是一个单独的图标，下面标着快捷键 Tab */
+#mapBtn{position:fixed;top:max(18px,calc(3.2*var(--vh)));right:max(18px,calc(2.6*var(--vw)));width:44px;height:44px;border-radius:50%;border:1px solid var(--gold-dim);background:rgba(10,8,26,.4);display:grid;place-items:center;padding:0;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .6s,background .3s,border-color .3s,box-shadow .3s;z-index:6}
+#mapBtn svg{width:46%;height:46%;fill:none;stroke:var(--gold);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+#mapBtn .key{position:absolute;top:100%;left:50%;transform:translate(-50%,7px);font-size:10px;letter-spacing:.05em;opacity:.75}
+#mapBtn:hover,#mapBtn:focus-visible{outline:none;background:rgba(232,201,142,.16);border-color:var(--gold);box-shadow:0 0 14px rgba(255,214,150,.25)}
+body.playing:not(.touchdev):not(.cine):not(.paused):not(.loading) #mapBtn{opacity:1;pointer-events:auto}
+body:has(#end.on) #mapBtn,body:has(#fin.on) #mapBtn{opacity:0!important;pointer-events:none!important}
 #map{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(5,4,15,.55);opacity:0;pointer-events:none;transition:opacity .35s;z-index:8}
 #map.on{opacity:1;pointer-events:auto}
 #map .mwrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding:22px 26px;border:1px solid var(--gold-dim);background:rgba(10,8,26,.72);max-width:94%}
@@ -440,7 +451,8 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
     <div id="cardline" class="dim">遗失的牌　未寻得</div>
   </div>
 </div>
-<div id="help"><div><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> 移动　<span class="key">Shift</span> 奔跑　<span class="key">E</span> 互动</div><div>鼠标 引导星光　<span class="key">M</span> 琴声　<span class="key">Esc</span> 暂停　<span class="key">Tab</span> 地图</div></div>
+<div id="help"><div><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> 移动　<span class="key">Shift</span> 奔跑　<span class="key">E</span> 互动</div><div>鼠标 引导星光　<span class="key">M</span> 琴声　<span class="key">Esc</span> 暂停</div></div>
+<button id="mapBtn" aria-label="地图（Tab）"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5l5-2 6 2 5-2v13l-5 2-6-2-5 2zM9 4.5v13M15 6.5v13"/></svg><span class="key">Tab</span></button>
 <div id="map" aria-hidden="true"><div class="mwrap"><button class="mclose" id="mapClose" aria-label="关闭地图"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6L18 18M18 6L6 18"/></svg></button><div class="mtitle" id="mapTitle">星</div><canvas id="mapc"></canvas><div class="mleg"><span><i class="lg lamp"></i><b id="mapLamp">星灯</b></span><span><i class="lg pcard"></i>牌</span><span><i class="lg goal"></i>终点</span><span><i class="lg me"></i>你</span><span class="dim kb"><span class="key">Tab</span> 关闭</span></div></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="lost" role="status" aria-live="polite"></div>
@@ -558,26 +570,26 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
     <div class="more">
       <div class="mhead"><span class="mrn">· 设置 ·</span><h2>更多</h2></div>
       <div class="mrow">
-        <div class="mlab">琴声<small>音乐与音效（M 键也能开关）</small></div>
+        <div class="mlab">琴声</div>
         <div class="seg" role="radiogroup" aria-label="琴声"><button role="radio" data-snd="on">开</button><button role="radio" data-snd="off">关</button></div>
       </div>
       <div class="mrow">
-        <div class="mlab">画质<small>中等更省电、手机不易发烫</small></div>
+        <div class="mlab">画质</div>
         <div class="seg" role="radiogroup" aria-label="画质"><button role="radio" data-q="high">高</button><button role="radio" data-q="mid">中等</button></div>
       </div>
       <div class="mrow">
-        <div class="mlab">帧率<small>无上限更顺滑，但更费电、更容易发烫</small></div>
+        <div class="mlab">帧率</div>
         <div class="seg" role="radiogroup" aria-label="帧率"><button role="radio" data-fps="max">无上限</button><button role="radio" data-fps="60">60</button><button role="radio" data-fps="30">30</button></div>
       </div>
       <div class="mrow">
-        <div class="mlab">光点皮肤<small>引导星光的样子</small></div>
+        <div class="mlab">光点皮肤</div>
         <div class="skins" role="radiogroup" aria-label="光点皮肤">
           <button class="skin" role="radio" data-skin="gold"><i class="sw gold"></i><b>金色星光</b><small>初始</small></button>
-          <button class="skin" role="radio" data-skin="prism"><i class="sw prism"></i><b>星之彩棱</b><small id="prismSub">支持后点亮</small><i class="lock" aria-hidden="true"><svg viewBox="0 0 12 14"><path d="M3 6V4.2a3 3 0 0 1 6 0V6"/><rect x="1.5" y="6" width="9" height="7" rx="1.5"/></svg></i></button>
+          <button class="skin" role="radio" data-skin="prism"><i class="sw prism"></i><b>星之彩棱</b><small id="prismSub">支持者礼物</small><i class="lock" aria-hidden="true"><svg viewBox="0 0 12 14"><path d="M3 6V4.2a3 3 0 0 1 6 0V6"/><rect x="1.5" y="6" width="9" height="7" rx="1.5"/></svg></i></button>
         </div>
       </div>
       <div class="mrow msup">
-        <button class="sup" id="supBtn"><svg class="heart" viewBox="0 0 32 28" aria-hidden="true"><defs><linearGradient id="hgHeart" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb8c8"/><stop offset=".55" stop-color="#f6cf8e"/><stop offset="1" stop-color="#c9b6ff"/></linearGradient></defs><path d="M16 25.5C9 20.6 3 15.6 3 9.6 3 6 5.8 3.2 9.2 3.2c2.9 0 5.1 1.9 6.8 4.6 1.7-2.7 3.9-4.6 6.8-4.6 3.4 0 6.2 2.8 6.2 6.4 0 6-6 11-13 15.9Z"/></svg><span class="supt"><b>支持作者</b><small>微信扫码随心支持，送你七彩光点</small></span></button>
+        <button class="sup" id="supBtn"><svg class="heart" viewBox="0 0 32 28" aria-hidden="true"><defs><linearGradient id="hgHeart" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb8c8"/><stop offset=".55" stop-color="#f6cf8e"/><stop offset="1" stop-color="#c9b6ff"/></linearGradient></defs><path d="M16 25.5C9 20.6 3 15.6 3 9.6 3 6 5.8 3.2 9.2 3.2c2.9 0 5.1 1.9 6.8 4.6 1.7-2.7 3.9-4.6 6.8-4.6 3.4 0 6.2 2.8 6.2 6.4 0 6-6 11-13 15.9Z"/></svg><span class="supt"><b>支持作者</b></span></button>
         <div class="redeemed" id="redeemed">已收到心意 · 谢谢你</div>
       </div>
     </div>

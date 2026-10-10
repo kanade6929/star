@@ -426,6 +426,8 @@ addEventListener('pointerdown', () => {
 $('tE').addEventListener('pointerdown', e => { e.preventDefault(); if (S.mode === 'play' && !S.cine) interact(); else if (S.mode === 'intro') skipIntro(); });
 $('tP').addEventListener('pointerdown', e => { e.preventDefault(); if (S.mode === 'play') pause(); });
 $('tM').addEventListener('pointerdown', e => { e.preventDefault(); toggleMap(); });
+$('mapBtn').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); toggleMap(); });
+$('mapBtn').addEventListener('click', e => e.preventDefault());
 $('map').addEventListener('pointerdown', e => { e.preventDefault(); toggleMap(false); });
 $('skip').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); if (S.mode === 'intro') skipIntro(); });
 
@@ -544,7 +546,17 @@ function updatePlayer(dt, canMove) {
   const okAt = (x, z) => !blocked(x, z) && !(safeHere && LV.hole(x, z));
   const slide = (x, z, d, alongX) => {
     if (okAt(x, z)) return [x, z];
-    if (blocked(x, z) || !safeHere) return null;
+    if (blocked(x, z)) {
+      // 撞在门框、柱子的边上：旁边挪一点就能过去时，顺着滑进门里，不用对得很准
+      const ad = Math.abs(d);
+      for (const off of [.1, .2, .3, .4]) for (const s of [1, -1]) {
+        if (!okAt(alongX ? x : x + s * off, alongX ? z + s * off : z)) continue;
+        const nx = alongX ? P.x : P.x + s * ad * .85, nz = alongX ? P.z + s * ad * .85 : P.z;
+        return okAt(nx, nz) ? [nx, nz] : null;
+      }
+      return null;
+    }
+    if (!safeHere) return null;
     // 前面是空的：试着朝两侧偏一点，沿着边缘或斜桥继续走
     for (const s of [1, -1]) { const nx = alongX ? x : x + s * Math.abs(d) * .9, nz = alongX ? z + s * Math.abs(d) * .9 : z; if (okAt(nx, nz) && !LV.hole(nx, nz)) return [nx, nz]; }
     return null;
@@ -789,7 +801,7 @@ function menuAct(act) {
 function refreshMore() {
   document.querySelectorAll('#vMore [data-q]').forEach(b => b.setAttribute('aria-checked', b.dataset.q === SET.q));
   document.querySelectorAll('#vMore [data-skin]').forEach(b => b.setAttribute('aria-checked', b.dataset.skin === SET.skin));
-  const pb = document.querySelector('#vMore [data-skin="prism"]'); pb.classList.toggle('locked', !prismOpen); $('prismSub').textContent = prismOpen ? '支持者礼物' : '支持后点亮';
+  const pb = document.querySelector('#vMore [data-skin="prism"]'); pb.classList.toggle('locked', !prismOpen); 
   document.querySelector('#vMore .msup').classList.toggle('done', prismOpen);
   document.querySelectorAll('#vMore [data-fps]').forEach(b => b.setAttribute('aria-checked', b.dataset.fps === SET.fps));
   syncSound();
