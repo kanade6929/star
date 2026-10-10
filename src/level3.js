@@ -1066,6 +1066,11 @@ export function buildSun(ctx) {
 
   function logic(dt) {
     const h = S.hints;
+    // 进入区域：只显示地名
+    if (!h.b && P.x > 12.8) { h.b = 1; toast('云海', 2.6); }
+    if (!h.f && P.x > 51) { h.f = 1; toast('向日葵花海', 2.6); }
+    if (!h.disc && P.x > 64.6) { h.disc = 1; toast('日轮岛', 2.6); }
+    if (!h.d && P.x > 82) { h.d = 1; toast('清透水园', 2.6); }
   }
 
   function nearest() {

@@ -608,7 +608,7 @@ export function buildMoon(ctx) {
         run(k) { L.towers.forEach((t, i) => { t.top.rotation.y = (i ? -1 : 1) * easeBack(k) * Math.PI * .5; t.winM.emissiveIntensity = .9 + k * 2; }); gate.glow.material.opacity = k * .9; gate.dm.emissiveIntensity = k * .6; } },
       { dur: 3, focus: [gx - 3, gz], start() { gate.opening = true; AU.stone(); },
         run(k, dt) { if (Math.random() < dt * 3) AU.stone(); shake(.07, .2); gate.glow.material.opacity = .9 - k * .5; } },
-      { dur: .9, focus: [gx - 3, gz], start() { wakePhase(qB); fx.sigil(25.5 + OB, .05, 7.5, 0xe0dcff, 'moon', 4.4, 2.4); fx.ring(gx - .5, .05, gz, 0xd8d4ff, 4, 1.3); toast('上弦。光与影各占一半，月洞门开了', 3.8); } }
+      { dur: .9, focus: [gx - 3, gz], start() { wakePhase(qB); fx.sigil(25.5 + OB, .05, 7.5, 0xe0dcff, 'moon', 4.4, 2.4); fx.ring(gx - .5, .05, gz, 0xd8d4ff, 4, 1.3); toast(`上弦。月洞门开了　${S.phases} / 5`, 3.6); } }
     ]);
   }
 
@@ -773,6 +773,11 @@ export function buildMoon(ctx) {
 
   function logic(dt) {
     const h = S.hints, t = ctx.S.t;
+    // 进入区域：只显示地名
+    if (!h.court && P.x > 20 + OB) { h.court = 1; toast('犬狼之庭', 2.6); }
+    if (!h.r && P.x > 40.6) { h.r = 1; toast('幻墙回廊', 2.6); }
+    if (!h.t && P.x > 67.6) { h.t = 1; toast('镜湖', 2.6); }
+    if (!h.e && P.x > 84) { h.e = 1; toast('月池', 2.6); }
     // 弱引导：只点出地名和意象，答案交给画面（月相石在影子里发紫光、玻璃犬狼被点亮、月石在影子里成形）
     // 犬与狼：同时成立并保持一会儿
     if (!S.solvedB) {
@@ -797,7 +802,7 @@ export function buildMoon(ctx) {
       // 时机不对：不弹字，石头缩一下、抖一抖
       if ((n.q === qE && !phLit(qE)) || litAt(n.q.x, n.q.z)) { n.q.shy = .5; AU.wrong(); fx.burst(n.q.x, 1, n.q.z, 8, { c: CORALc, sp: .6, life: .6 }); return; }
       wakePhase(n.q);
-      toast(n.q.name, 2.6);
+      toast(`${n.q.name}　${S.phases} / 5`, 2.6);
     } else if (n.type === 'mirror') {
       S.mirT += Math.PI / 4; S.hints.turned = 1; AU.stone(); shake(.05, .45);
       fx.ring(MIR[0], .05, MIR[1], 0xd8c8ff, 2.6, .9); fx.sigil(MIR[0], .06, MIR[1], 0xd8c8ff, 'moon', 2.4, 1.4);

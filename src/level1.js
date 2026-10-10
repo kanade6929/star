@@ -825,7 +825,7 @@ export function buildStar(ctx) {
     B.lamps[i].on = false;
     alignRing(i);
     // 只在大的节点给一句氛围文字；普通的星灯只有光和声音
-    const lampLine = S.lampsLit === 5 ? '五盏星灯俱明' : l === polarisLamp ? '北斗指向北极星' : l === constLamp ? '宝瓶座的中心，升起一盏星灯' : i === 0 ? '虚空下，巨大的星仪转动了一环' : ''; if (lampLine) toast(lampLine, 3.6);
+    const lampLine = S.lampsLit === 5 ? '五盏星灯俱明' : l === polarisLamp ? '北斗指向北极星' : l === constLamp ? '宝瓶座的中心，升起一盏星灯' : i === 0 ? '虚空下，巨大的星仪转动了一环' : ''; toast(lampLine ? `${lampLine}　${S.lampsLit} / 5` : `星灯　${S.lampsLit} / 5`, lampLine ? 3.6 : 2.4);
     ctx.updateHud();
   }
 
@@ -951,6 +951,12 @@ export function buildStar(ctx) {
     if (!h.move && t > .8) { h.move = 1; toast('夜色很深。移动鼠标，星光会跟着你', 4.5); }
     if (!h.lamp && Math.hypot(P.x - lamps[0].x, P.z - lamps[0].z) < 3.2 && !lamps[0].lit) { h.lamp = 1; toast('把星光引到灯碗上，走近按 E 点燃', 4); }
     if (!S.waking && P.x > 70.6) wakeConst();
+    // 进入区域：只显示地名
+    if (!h.void && P.x > 10.5) { h.void = 1; toast('虚空', 2.6); }
+    if (!h.c && P.x > 25) { h.c = 1; toast('星纹石碑', 2.6); }
+    if (!h.d && P.x > 37.2) { h.d = 1; toast('暗厅', 2.6); }
+    if (!h.f && P.x > 49.6) { h.f = 1; toast('七星浮岛', 2.6); }
+    if (!h.e && P.x > 88.5) { h.e = 1; toast('星之泉', 2.6); }
     // 日晷：光、石碑、星纹三点一线时，影子落在星纹上
     if (!rune.solved) {
       const v1x = rune.x - ob.x, v1z = rune.z - ob.z, v2x = ob.x - orb.x, v2z = ob.z - orb.z;
