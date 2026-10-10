@@ -774,7 +774,6 @@ export function buildMoon(ctx) {
   function logic(dt) {
     const h = S.hints, t = ctx.S.t;
     // 进入区域：只显示地名
-    if (!h.court && P.x > 20 + OB) { h.court = 1; toast('犬狼之庭', 2.6); }
     if (!h.r && P.x > 40.6) { h.r = 1; toast('幻墙回廊', 2.6); }
     if (!h.t && P.x > 67.6) { h.t = 1; toast('镜湖', 2.6); }
     if (!h.e && P.x > 84) { h.e = 1; toast('月池', 2.6); }
