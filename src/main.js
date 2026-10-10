@@ -805,7 +805,9 @@ const supBox = $('supBox'), supOn = () => !supBox.classList.contains('off');
 function openSup() { supBox.classList.remove('off'); AU.hover(6); setTimeout(() => $('supDone').focus({ preventScroll: true }), 250); }
 function closeSup() {
   if (!supOn()) return; supBox.classList.add('off'); AU.back();
-  if (!prismOpen) { prismOpen = true; try { localStorage.setItem(UNLOCK_KEY, 'prism'); } catch (e) {} if (!$('fin').classList.contains('on')) toast('感谢支持，我会继续努力创作', 3.5); setSkin('prism', 1); }
+  const thank = !prismOpen || $('fin').classList.contains('on');
+  if (!prismOpen) { prismOpen = true; try { localStorage.setItem(UNLOCK_KEY, 'prism'); } catch (e) {} setSkin('prism', 1); }
+  if (thank) toast('感谢支持，我会继续努力创作', 3.5);
   if ($('fin').classList.contains('on')) setTimeout(() => $('finSup').focus({ preventScroll: true }), 50);
   else setTimeout(() => $('supBtn').focus({ preventScroll: true }), 50);
 }
