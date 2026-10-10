@@ -513,8 +513,8 @@ export function buildStar(ctx) {
   // 星鱼：三群，每群三尾
   const SEA = [72.35, 86.65, 5.35, 11.65];        // 星鱼能游的范围
   const FISH_Y = -.35;
-  // 光点浮在 1.6 高处，画面上看它「正下方」的海面，要往南偏一点（俯视 58°）
-  const FOFF = (1.6 - FISH_Y) / Math.tan(58 * Math.PI / 180);
+  // 光点浮在 1.6 高处，画面上看它「正下方」的海面，要往南偏一点（偏多少看镜头俯角）
+  const foff = () => (1.6 - FISH_Y) * ctx.visK;
   const INLET = [79.25, 80.75, 5.85];               // 女神像前的跃池口：游到这里的星鱼会跃回池里
   const fishM = new THREE.MeshStandardMaterial({ color: 0xffc070, roughness: .4, emissive: 0xff9a3a, emissiveIntensity: .55 });
   const finM = new THREE.MeshBasicMaterial({ color: 0xffd890, transparent: true, opacity: .8, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
@@ -670,7 +670,7 @@ export function buildStar(ctx) {
   }
   function updateFish(dt, T) {
     // 光点在画面上「正下方」的那片海
-    const rx = orb.x, rz = orb.z - FOFF;
+    const rx = orb.x, rz = orb.z - foff();
     const tx = clamp(rx, SEA[0], SEA[1]), tz = clamp(rz, SEA[2], SEA[3]);
     const over = Math.hypot(rx - tx, rz - tz) < 1.6;   // 光离海太远（在岸上很里面）就不算
     let nFollow = 0;

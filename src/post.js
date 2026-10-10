@@ -120,9 +120,9 @@ export class PixelPipeline {
           vec4 e = texture2D(tEdge, (p + .5) / res); // 已描边的颜色 + 抖动阈值
           vec3 c = e.rgb;
           vec2 fuv = (vUv * inner + 1. + shift) / res;
-          // 景深（移轴）：椭圆形的清晰区，往外缓慢过渡，最多只糊到六成
-          vec2 fd = vec2((vUv.x - focus.x) * .62, (vUv.y - focus.y) * 1.05);
-          float blurK = smoothstep(.2, .78, length(fd)) * .62 * dofK;
+          // 景深：焦点周围清晰，往画面四周慢慢糊开，四角最糊（左右也要看得出）
+          vec2 fd = vec2((vUv.x - focus.x) * .9, (vUv.y - focus.y) * 1.02);
+          float blurK = smoothstep(.2, .62, length(fd)) * .95 * dofK;
           vec3 cb = texture2D(tDof, fuv).rgb;
           c = mix(c, cb, clamp(blurK, 0., 1.));
           // 泛光（平滑采样，像截图里那种溢出的光）
@@ -150,14 +150,15 @@ export class PixelPipeline {
     if (tintLo) this.compMat.uniforms.tintLo.value.set(...tintLo);
     if (tintHi) this.compMat.uniforms.tintHi.value.set(...tintHi);
   }
-  // 镜头拉近：整数倍放大像素（主界面用）
-  setZoom(z) { if (z === this.zoom) return; this.zoom = z; if (this.css) this.resize(...this.css); }
+  // 镜头拉近：z 按整数倍放大像素（主界面用）；f 是额外的细调倍数（镜头「近」用，像素块可以不是整数倍）
+  setZoom(z, f = 1) { if (z === this.zoom && f === this.fine) return; this.zoom = z; this.fine = f; if (this.css) this.resize(...this.css); }
   resize(cssW, cssH, dpr) {
     this.css = [cssW, cssH, dpr];
     const devW = Math.round(cssW * dpr), devH = Math.round(cssH * dpr);
     // 按画面面积定像素大小：横屏、竖屏、宽屏看到的范围都差不多
     this.scale = Math.max(1, Math.round(Math.sqrt(devW * devH) / (576 / this.zoom)));
-    this.w = Math.ceil(devW / this.scale); this.h = Math.ceil(devH / this.scale);
+    const sc = this.scale * (this.fine || 1);
+    this.w = Math.ceil(devW / sc); this.h = Math.ceil(devH / sc);
     const W = this.w + 2, H = this.h + 2;
     this.colorRT.setSize(W, H); this.normalRT.setSize(W, H); this.reflRT.setSize(W, H); this.edgeRT.setSize(W, H);
     this.edgeMat.uniforms.res.value.set(W, H);
@@ -262,7 +263,7 @@ export class PixelPipeline {
     const dw = this.dofA.width, dh = this.dofA.height;
     let src = this.colorRT.texture;
     for (let i = 0; i < (mid ? 2 : 3); i++) {
-      const rad = mid ? 1.5 + i * 1.5 : 1 + i;
+      const rad = mid ? 2 + i * 2.5 : 1.5 + i * 1.5;
       this.blurMat.uniforms.tSrc.value = src; this.blurMat.uniforms.dir.value.set(rad / dw, 0);
       r.setRenderTarget(this.dofB); r.render(this.quadScene, this.quadCam);
       this.blurMat.uniforms.tSrc.value = this.dofB.texture; this.blurMat.uniforms.dir.value.set(0, rad / dh);

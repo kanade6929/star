@@ -26,12 +26,17 @@ const pipe = new PixelPipeline(renderer);
 const scene = new THREE.Scene();
 scene.environmentIntensity = .26; // 环境反射只留一点：暗处靠局部的强光来照亮
 const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 90);
-const ELEV0 = 58 * Math.PI / 180;
+// 镜头远近（「更多」里选）：远 = 俯视 58°；近 = 机位压低到 46°，更贴近主角
+const ELEV_OF = { far: 58 * Math.PI / 180, near: 44 * Math.PI / 180 };
+const ZOOM_OF = { far: 1, near: 1.22 };
+const CUT_DZ = { far: 0, near: 1.4 }; // 过关演出：近镜头画面小一圈，镜头再往北一点，天上升起的月亮、太阳才完整 // 近：画面再拉近一些（俯角压低后地面纵深变长，拉近后纵深和远差不多，人物更大）
+let ELEV0 = ELEV_OF.far;
 const camDir = e => new THREE.Vector3(0, -Math.sin(e), -Math.cos(e));
-const CAM_DIR = camDir(ELEV0);
 const CAM_DIST = 30;
-cam.position.set(0, 0, 0); cam.lookAt(CAM_DIR); cam.updateMatrixWorld();
-const camQuat = cam.quaternion.clone();
+const camQuat = new THREE.Quaternion();
+const _camM = new THREE.Matrix4();
+function aimCamQuat() { camQuat.setFromRotationMatrix(_camM.lookAt(new THREE.Vector3(), camDir(ELEV0), new THREE.Vector3(0, 1, 0))); }
+aimCamQuat();
 
 // 手机竖着拿时，把整个游戏转 90° 横过来显示（全程横屏）
 const TOUCH = matchMedia('(pointer: coarse)').matches;
@@ -50,9 +55,11 @@ function layoutView() {
 function toView(cx, cy) { return view.rot ? [cy, innerWidth - cx] : [cx, cy]; }
 // 设置：画质（高 / 中等）与光点皮肤。手机默认中等：画布不按高分屏放大，倒影和月光阴影隔帧更新
 const SET_KEY = 'chenxingye3d_set';
-const SET = { q: TOUCH ? 'mid' : 'high', skin: 'gold', fps: TOUCH ? '60' : 'max' }; // 帧率默认：电脑无上限，手机 60
+const SET = { q: TOUCH ? 'mid' : 'high', skin: 'gold', fps: TOUCH ? '60' : 'max', cam: 'near' }; // 帧率默认：电脑无上限，手机 60；镜头默认近
 try { Object.assign(SET, JSON.parse(localStorage.getItem(SET_KEY)) || {}); } catch (e) {}
 if (!['max', '60', '30'].includes(SET.fps)) SET.fps = TOUCH ? '60' : 'max'; // 旧存档里的「自动」按设备默认
+if (!ELEV_OF[SET.cam]) SET.cam = 'near';
+ELEV0 = ELEV_OF[SET.cam]; aimCamQuat();
 function saveSet() { try { localStorage.setItem(SET_KEY, JSON.stringify(SET)); } catch (e) {} }
 function resize() {
   layoutView();
@@ -130,7 +137,17 @@ const P = { x: 2.5, z: 7.5, dir: 'down', vx: 0, vz: 0, run: 0, moving: false, fa
 /* ================= 光点（鼠标即光源） ================= */
 const ORB_Y = 1.6;
 // 光点浮在半空：俯视镜头下，它「看起来」盖住的是更北边一点的地面。机关判定按画面上的重合来算
-const VIS_K = 1 / Math.tan(ELEV0);
+let VIS_K = 1 / Math.tan(ELEV0);
+// 切换镜头远近：俯角、机关的画面重合判定、朝向镜头的光晕一起换，下一帧镜头就到新机位
+function applyCam() {
+  const q0 = camQuat.clone();
+  ELEV0 = ELEV_OF[SET.cam]; VIS_K = 1 / Math.tan(ELEV0); aimCamQuat();
+  if (S.mode !== 'menu') { pipe.setZoom(1, ZOOM_OF[SET.cam]); pipe.setupCamera(cam); }
+  // 暂停菜单里切换：游戏不跑 update，这里直接把镜头摆到新机位，背后的画面马上变
+  if (S.mode === 'paused') { S.elev = ELEV0; pipe.snap(cam, camFocus.clone().add(new THREE.Vector3(0, 0, -.6)), camDir(ELEV0), CAM_DIST); cam.updateMatrixWorld(); shadowForce = 2; }
+  if (Math.abs(q0.dot(camQuat)) > .999999) return;
+  scene.traverse(o => { if (Math.abs(o.quaternion.dot(q0)) > .99999) o.quaternion.copy(camQuat); });
+}
 function orbNear(x, z, y = 0) { return Math.hypot(orb.x - x, (orb.z - ORB_Y * VIS_K) - (z - y * VIS_K)); }
 const orb = { x: 6, z: 6, tx: 6, tz: 6, y: ORB_Y, g: new THREE.Group(), lift: 0, lock: null, k: 1, held: 0, px: 6, pz: 6 };
 const orbLight = new THREE.PointLight(0xffd88e, 7, 14, 1.38);   // 衰减放缓一点：光圈比以前大一圈，近处亮度不变
@@ -254,7 +271,7 @@ function cine(steps) { S.cine = { steps, i: 0, t: 0, started: false }; setBars(t
 
 /* ================= 关卡装载 ================= */
 let LV = null, root = null;
-const ctx = { THREE, camQuat, P, orb, orbNear, S, fx, AU, toast, holdToast, cine, shake, flash, hemi, moon, renderer, pipe, get T() { return T; }, updateHud };
+const ctx = { THREE, camQuat, P, orb, orbNear, S, fx, AU, toast, holdToast, cine, shake, flash, hemi, moon, renderer, pipe, get T() { return T; }, get visK() { return VIS_K; }, updateHud };
 const BUILDERS = { 1: buildStar, 2: buildMoon, 3: buildSun };
 function loadLevel(n) {
   if (root) disposeGroup(root);
@@ -662,12 +679,14 @@ function update(dt) {
   S.lowK = intro || S.lowK === undefined ? lowT : lerp(S.lowK, lowT, 1 - Math.exp(-dt * 1.2));
   if (Math.abs(S.lowK - lowT) < 1e-4) S.lowK = lowT;
   const lowK = S.lowK;
-  S.elev = ELEV0 - lowK * (20 * Math.PI / 180);
+  // 主界面的梦境镜头不受镜头远近影响；开场压低视角时，近镜头再往下压 12°（远镜头压 20°，都到 38° 或更低）
+  const e0 = S.mode === 'menu' ? ELEV_OF.far : ELEV0, eLow = Math.min(e0 - 12 * Math.PI / 180, 38 * Math.PI / 180);
+  S.elev = e0 - lowK * (e0 - eLow);
   const dir = camDir(S.elev);
   let target;
   if (S.mode === 'menu') target = tmpV.set(DREAM[0] + 5.2 + Math.sin(T * .1) * .25, 0, DREAM[1] - 1.1);
   else if (cineFocus) target = tmpV.set(cineFocus[0], 0, cineFocus[1]);
-  else if (S.mode === 'cut') { const f = LV.finaleCam(S.ev); target = tmpV.set(lerp(P.x, f[0], smooth(0, 2, S.ev)), 0, lerp(P.z, f[1], smooth(0, 2, S.ev))); }
+  else if (S.mode === 'cut') { const f = LV.finaleCam(S.ev), k = smooth(0, 2, S.ev); target = tmpV.set(lerp(P.x, f[0], k), 0, lerp(P.z, f[1] - CUT_DZ[SET.cam], k)); }
   else if (intro) target = tmpV.set(P.x, 0, P.z + .3 * lowK);
   else { const lk = .18 * Math.min(1, orb.held * 2); target = tmpV.set(P.x + (orb.x - P.x) * lk, 0, P.z + (orb.z - P.z) * lk); }
   // 镜头跟随用临界阻尼弹簧：换目标（演出结束回到主角）时速度连续，不会突然一顿；演出结束后跟随力度慢慢恢复
@@ -762,10 +781,12 @@ function refreshMore() {
   document.querySelectorAll('#vMore [data-q]').forEach(b => b.setAttribute('aria-checked', b.dataset.q === SET.q));
   document.querySelectorAll('#vMore [data-skin]').forEach(b => b.setAttribute('aria-checked', b.dataset.skin === SET.skin));
   document.querySelectorAll('#vMore [data-fps]').forEach(b => b.setAttribute('aria-checked', b.dataset.fps === SET.fps));
+  document.querySelectorAll('#vMore [data-cam]').forEach(b => b.setAttribute('aria-checked', b.dataset.cam === SET.cam));
   syncSound();
 }
 document.querySelectorAll('#vMore [data-snd]').forEach(b => b.addEventListener('click', () => { if ((b.dataset.snd === 'on') !== !!AU.on) AU.toggle(); syncSound(); }));
 document.querySelectorAll('#vMore [data-fps]').forEach((b, i) => b.addEventListener('click', () => { if (SET.fps === b.dataset.fps) return; SET.fps = b.dataset.fps; saveSet(); refreshMore(); AU.hover(i + 2); }));
+document.querySelectorAll('#vMore [data-cam]').forEach((b, i) => b.addEventListener('click', () => { if (SET.cam === b.dataset.cam) return; SET.cam = b.dataset.cam; saveSet(); applyCam(); refreshMore(); AU.hover(i + 3); }));
 document.querySelectorAll('#vMore [data-q]').forEach((b, i) => b.addEventListener('click', () => { if (SET.q === b.dataset.q) return; SET.q = b.dataset.q; saveSet(); applyQuality(); refreshMore(); AU.hover(i + 2); }));
 document.querySelectorAll('#vMore [data-skin]').forEach((b, i) => b.addEventListener('click', () => {
   if (SET.skin === b.dataset.skin) return; SET.skin = b.dataset.skin; saveSet(); applySkin(); refreshMore(); AU.hover(i + 4);
@@ -815,7 +836,7 @@ function begin(n = 1) {
   const t0 = performance.now();
   setTimeout(() => {
     if (!LV || S.level !== n) loadLevel(n);
-    pipe.setZoom(1); pipe.setupCamera(cam);
+    pipe.setZoom(1, ZOOM_OF[SET.cam]); pipe.setupCamera(cam);
     stickHome();
     resetLevel(); needWarm = 2; shadowForce = 2; // 黑屏时以游戏镜头再预热一遍
     menu.classList.add('hide'); document.body.classList.add('playing'); $('end').classList.remove('on');
@@ -943,6 +964,6 @@ setTimeout(() => document.querySelector('#mainNav .vbtn').focus({ preventScroll:
 // 调试/测试钩子
 window.__G = { scene, AU, fx,
   sim(sec) { if (loadDone) loadDone(); for (let t = 0; t < sec; t += 1 / 30) update(1 / 30); return [S.mode, LV.progress(), P.x.toFixed(1), P.z.toFixed(1), P.falling]; },
-  S, P, orb, PERF, SET, poolLights, poolStat, nodeHints, get LV() { return LV; }, get mouse() { return mouse; }, set mouse(v) { mouse.seen = false; },
+  S, P, orb, PERF, SET, applyCam, poolLights, poolStat, nodeHints, get LV() { return LV; }, get mouse() { return mouse; }, set mouse(v) { mouse.seen = false; },
   begin, toMenu, interact, setMouse, mouseWorld, keys, update, pipe, cam, loadLevel, skipIntro, nearest, warmup, render() { pipe.render(scene, cam, { time: T, fade: S.fade, focus: focusUV, dofK, flash: S.flash, vig }); }
 };
