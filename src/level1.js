@@ -570,13 +570,12 @@ export function buildStar(ctx) {
     best.state = 'fly'; best.anchor = null; a.isle = best;
     best.fly = { t: 0, a, from: [best.x, best.y, best.z], ctrl: planFlight(best, a), dur: 1.4 + Math.min(1.2, bd / 8) };
     AU.ghost(); fx.ring(a.cx, .02, a.cz, 0xffd89a, 2.6, .9);
-    if (!S.hints.summon) { S.hints.summon = 1; toast('星光牵来了一座浮岛', 3.2); }
+    if (!S.hints.summon) { S.hints.summon = 1; }
   }
   function newStar(a) {
     S.dipper = anchors.filter(q => q.visited).length;
     fx.sigil(a.cx, .04, a.cz, 0xffd89a, 'star', 2.6, 1.8); AU.lamp(S.dipper % 3);
     if (S.dipper === 7) completeDipper();
-    else toast(`北斗　${S.dipper} / 7`, 2.2);
     ctx.updateHud();
   }
   function completeDipper() {
@@ -642,7 +641,7 @@ export function buildStar(ctx) {
     cine([
       { dur: 1.6, focus: [80, 4.5], start() { AU.stone(); fx.sigil(80, .4, 3, 0xffd89a, 'star', 3.4, 2); flash(.08); toast('女神的水瓶空了。瓶里的九尾星鱼，散落在星海里', 4); } },
       { dur: 2.4, focus: [80, 8.5], start() { fishes.forEach((f, i) => setTimeout(() => fx.burst(f.x, FISH_Y + .2, f.z, 8, { c: GOLD, sp: .5, life: .7 }), i * 120)); } },
-      { dur: 1.2, focus: [80, 6.5], start() { S.fishOn = true; toast('星鱼追着光游', 3.6); } }
+      { dur: 1.2, focus: [80, 6.5], start() { S.fishOn = true; } }
     ]);
   }
   // 九尾星鱼归池：升上夜空化成宝瓶座 → 星线一条条连上 → 星座降到海面变成光桥 → 中心升起星灯
@@ -664,7 +663,7 @@ export function buildStar(ctx) {
         run(k) { edges.forEach((e, i) => { if (!e.drawn && k >= i / edges.length) { e.drawn = true; e.k = 0; e.beam.visible = true; AU.hover(i); } }); } },
       { dur: 2.6, focus: [80, 8.5], start() { AU.stone(); plankG.visible = true; },
         run(k, dt) { C.desc = k; shake(.04, .15); if (Math.random() < dt * 40) { const n = nodes[Math.random() * nodes.length | 0]; fx.emit(n.x + (Math.random() - .5), SY * (1 - k) + .2, n.z + (Math.random() - .5), { vy: -.5, life: .9, c: GOLD, tw: 8 }); } },
-        end() { C.desc = 1; AU.stone(); shake(.1, .5); nodes.forEach(n => { n.star.visible = false; n.halo.visible = false; fx.bloom(n.x, .3, n.z, 14, GOLD, { w: 1.2, vr: 1, up: .4 }); }); fx.ring(78.5, .04, 8.5, 0xffd89a, 6, 1.4); toast('星座落到星海上，化成了光桥', 3.4); } },
+        end() { C.desc = 1; AU.stone(); shake(.1, .5); nodes.forEach(n => { n.star.visible = false; n.halo.visible = false; fx.bloom(n.x, .3, n.z, 14, GOLD, { w: 1.2, vr: 1, up: .4 }); }); fx.ring(78.5, .04, 8.5, 0xffd89a, 6, 1.4); } },
       { dur: 1.9, focus: [78.5, 8.5], start() { showConstLamp(true); AU.stone(); }, run(k) { C.rise = k; }, end() { C.rise = 1; lightLamp(lamps.indexOf(constLamp)); } },
       { dur: 1.2, focus: [80, 8] }
     ]);
@@ -691,13 +690,13 @@ export function buildStar(ctx) {
         const d = Math.hypot(tx - f.x, tz - f.z), sees = S.fishOn && over && seeLight(f.x, f.z, tx, tz);
         if (f.st === 'idle' && sees && d < 3.3) {
           f.st = 'follow'; f.blind = 0; AU.hover(i); fx.burst(f.x, FISH_Y + .2, f.z, 8, { c: GOLD, sp: .6, life: .6 });
-          if (!S.hints.fish) { S.hints.fish = 1; toast('星鱼跟上来了', 2.8); }
+          if (!S.hints.fish) { S.hints.fish = 1; }
         } else if (f.st === 'follow') {
           f.blind = sees ? 0 : f.blind + dt;
           if (d > 4.4 || f.blind > .5) {
             f.st = 'idle'; f.home = [f.x, f.z]; fx.burst(f.x, FISH_Y + .2, f.z, 6, { c: [.6, .6, .8], sp: .4, life: .6 });
-            if (f.blind > .5 && !S.hints.reef) { S.hints.reef = 1; toast('星鱼看不见光了', 3); }
-            else if (d > 4.4 && !S.hints.lost) { S.hints.lost = 1; toast('星光走得太快，星鱼跟丢了', 3); }
+            if (f.blind > .5 && !S.hints.reef) { S.hints.reef = 1; }
+            else if (d > 4.4 && !S.hints.lost) { S.hints.lost = 1; }
           }
         }
         let wx, wz, sp;
@@ -721,7 +720,6 @@ export function buildStar(ctx) {
         if (f.st === 'follow' && f.x > INLET[0] && f.x < INLET[1] && f.z < INLET[2]) {
           f.st = 'leap'; f.t = 0; f.lx = f.x; f.lz = f.z; f.hx = 80 + ((S.fishHome % 3) - 1) * .7; f.hz = 2.8;
           S.fishHome++; AU.lamp(S.fishHome % 3); fx.bloom(f.x, 0, f.z, 18, GOLD, { w: 1, vr: .9, up: .6 }); fx.ring(80, FISH_Y + .03, 5.75, 0xffd89a, 2, .8);
-          toast(S.fishHome === 9 ? '九尾星鱼都回来了' : `星鱼归池　${S.fishHome} / 9`, 2.4);
           if (S.fishHome === 9) C.finT = 1.2;
         }
       }
@@ -826,7 +824,8 @@ export function buildStar(ctx) {
     flash(.25); shake(.05, .3);
     B.lamps[i].on = false;
     alignRing(i);
-    toast(S.lampsLit === 5 ? '五盏星灯俱明。去最东边的星之泉吧' : l === polarisLamp ? '北斗指向北极星。第四盏星灯亮了' : l === constLamp ? '宝瓶座的中心升起了第五盏星灯' : i === 0 ? '第一盏星灯。虚空下，巨大的星仪转动了一环' : `星灯　${S.lampsLit} / 5`, 3.8);
+    // 只在大的节点给一句氛围文字；普通的星灯只有光和声音
+    const lampLine = S.lampsLit === 5 ? '五盏星灯俱明' : l === polarisLamp ? '北斗指向北极星' : l === constLamp ? '宝瓶座的中心，升起一盏星灯' : i === 0 ? '虚空下，巨大的星仪转动了一环' : ''; if (lampLine) toast(lampLine, 3.6);
     ctx.updateHud();
   }
 
@@ -951,12 +950,7 @@ export function buildStar(ctx) {
     const h = S.hints, t = ctx.S.t;
     if (!h.move && t > .8) { h.move = 1; toast('夜色很深。移动鼠标，星光会跟着你', 4.5); }
     if (!h.lamp && Math.hypot(P.x - lamps[0].x, P.z - lamps[0].z) < 3.2 && !lamps[0].lit) { h.lamp = 1; toast('把星光引到灯碗上，走近按 E 点燃', 4); }
-    if (!h.void && P.x > 10.5) { h.void = 1; toast('虚空之上，有些路只在星光里显现', 4); }
-    if (!h.c && P.x > 25) { h.c = 1; toast('石碑静静立着，地上刻着星纹', 3.6); }
-    if (!h.d && P.x > 37.2) { h.d = 1; toast('暗厅。只有星光照到的地方，才看得见', 4); }
-    if (!h.f && P.x > 49.6) { h.f = 1; toast('七星浮岛。浮岛追着星光', 3.8); }
     if (!S.waking && P.x > 70.6) wakeConst();
-    if (!h.e && P.x > 88.5) { h.e = 1; toast('星之泉。祭坛静候', 3.6); }
     // 日晷：光、石碑、星纹三点一线时，影子落在星纹上
     if (!rune.solved) {
       const v1x = rune.x - ob.x, v1z = rune.z - ob.z, v2x = ob.x - orb.x, v2z = ob.z - orb.z;
@@ -1062,7 +1056,7 @@ export function buildStar(ctx) {
       return false;
     },
     ground(x, z) { const c = cell(Math.floor(x), Math.floor(z)); if (c === ' ') return onIsle(x, z) || onConst(x, z); return c !== '*'; },
-    onFall() { if (!S.hints.fall) { S.hints.fall = 1; setTimeout(() => toast('星光散了，脚下的路也就没了', 3.4), 900); } },
+    onFall() { if (!S.hints.fall) { S.hints.fall = 1; } },
     ambient(P) { return (P.x > 36.6 && P.x < 49.2) ? .1 : .24; },
     reset, update, logic, nearest, interact, finaleStart, finale, idle,
     finaleCam: () => [altar.x - 1, altar.z],

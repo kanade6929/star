@@ -774,7 +774,7 @@ export function buildSun(ctx) {
     S.carves.push({ from: s.from, cells });
     AU.stone(); AU.lamp(2); shake(.05, .3); flash(.1);
     cells.forEach((c, i) => setTimeout(() => { for (let j = 0; j < 6; j++) fx.emit(c.x + Math.random(), .9 + Math.random() * .5, c.z + Math.random(), { vy: .3, vx: (Math.random() - .5) * .8, vz: (Math.random() - .5) * .8, g: -1.2, life: 1.4, c: Math.random() < .5 ? [1, .8, .3] : [1, .65, .2], a: .9 }); }, i * 70));
-    if (!S.hints.carve) { S.hints.carve = 1; toast('向日葵让开了一条路', 3.4); }
+    if (!S.hints.carve) { S.hints.carve = 1; }
   }
   function onBridge(x, z) {
     for (const b of S.bridgeList) {
@@ -791,8 +791,8 @@ export function buildSun(ctx) {
     for (let i = S.carves.length - 1; i >= 0; i--) { const cv = S.carves[i]; if (cv.from === m) { cv.cells.forEach(c => { c.n = Math.max(0, c.n - 1); }); S.carves.splice(i, 1); closed = true; } }
     Object.keys(S.crys).forEach(k => { if (k.startsWith(m.id + '>')) delete S.crys[k]; });
     fx.ring(m.cx, .05, m.cz, 0xffd08a, 1.6, .6, { a: .6 }); AU.stone();
-    if (closed) { if (!S.hints.unclose) { S.hints.unclose = 1; toast('向日葵又合拢了', 3); } }
-    else if (!S.hints.unlock) { S.hints.unlock = 1; toast('光桥化成了金粉', 3); }
+    if (closed) { if (!S.hints.unclose) { S.hints.unclose = 1; } }
+    else if (!S.hints.unlock) { S.hints.unlock = 1; }
   }
   function crystallize(s) {
     const key = s.from.id + '>' + s.to.id || 'x';
@@ -810,7 +810,7 @@ export function buildSun(ctx) {
     AU.stone(); AU.lamp(2); flash(.15); shake(.05, .3);
     for (let i = 0; i < 40; i++) { const t = Math.random(); fx.emit(s.ax + dx * t, .05, s.az + dz * t, { vy: .4 + Math.random() * .6, life: 1.2, c: GOLDc, tw: 8 }); }
     fx.sigil(s.bx, .06, s.bz, 0xffd08a, 'sun', 2.2, 1.4);
-    if (!S.hints.bridge) { S.hints.bridge = 1; toast('光走过的路，凝成了金色的桥', 4); }
+    if (!S.hints.bridge) { S.hints.bridge = 1; }
   }
 
   /* ================= 事件 ================= */
@@ -828,7 +828,7 @@ export function buildSun(ctx) {
   function openGate() {
     gate.opening = true;
     cine([
-      { dur: 1.2, focus: [R1.cx, R1.cz - 1], start() { addRay(R1); toast('第一道日光。向日葵醒了', 3.4); } },
+      { dur: 1.2, focus: [R1.cx, R1.cz - 1], start() { addRay(R1); toast('第一道日光', 3.2); } },
       { dur: 2.2, focus: [11, 7.5], start() { AU.stone(); shake(.08, .4); flash(.12); },
         run(k, dt) { if (Math.random() < dt * 30) fx.emit(12.5, .2 + Math.random() * 2, 7.5 + (Math.random() - .5) * 3, { vy: .3, life: .9, c: GOLDc, tw: 8 }); } }
     ]);
@@ -836,7 +836,7 @@ export function buildSun(ctx) {
   function openGate2() {
     gate2.opening = true;
     cine([
-      { dur: 1.2, focus: [R2.cx, R2.cz + 1], start() { addRay(R2); toast('第二道日光。北岛的向日葵醒了', 3.4); } },
+      { dur: 1.2, focus: [R2.cx, R2.cz + 1], start() { addRay(R2); } },
       { dur: 2.2, focus: [27.5, 11], start() { AU.stone(); shake(.08, .4); flash(.12); toast('云对岸，庭院的门打开了', 3.4); },
         run(k, dt) { if (Math.random() < dt * 30) fx.emit(28.5, .2 + Math.random() * 2, 11.5 + (Math.random() - .5) * 3, { vy: .3, life: .9, c: GOLDc, tw: 8 }); } }
     ]);
@@ -844,7 +844,7 @@ export function buildSun(ctx) {
   function solveTwins() {
     S.twins = true;
     cine([
-      { dur: 1.4, focus: [40.5, 7.5], start() { bloomRecv(R3a); bloomRecv(R3b); flash(.25); shake(.06, .4); fx.sigil(prism.cx, .06, prism.cz, 0xffd08a, 'sun', 5, 2.4); toast('双生的向日葵一起开了', 3.4); } },
+      { dur: 1.4, focus: [40.5, 7.5], start() { bloomRecv(R3a); bloomRecv(R3b); flash(.25); shake(.06, .4); fx.sigil(prism.cx, .06, prism.cz, 0xffd08a, 'sun', 5, 2.4); } },
       { dur: 2.6, focus: [47.5, 6], start() { AU.stone(); shake(.12, .6); },
         run(k, dt) { machine.k = smooth(0, 1, k) * .25; if (Math.random() < dt * 30) fx.emit(48.8 + (Math.random() - .5) * 3, 3.2 + (Math.random() - .5) * 3, 3.6, { vy: .2, life: 1, c: GOLDc, tw: 8 }); } },
       { dur: 3.2, focus: [48.5, 7.5], start() { AU.stone(); },
@@ -856,17 +856,17 @@ export function buildSun(ctx) {
 
   function solveField() {
     cine([
-      { dur: 1.4, focus: [R4.cx - 1, R4.cz], start() { addRay(R4); toast('第四道日光。花海的尽头，是一座会转的岛', 3.8); } },
+      { dur: 1.4, focus: [R4.cx - 1, R4.cz], start() { addRay(R4); toast('第四道日光', 3.2); } },
       { dur: 2.6, focus: [DC[0] - 1, DC[1]], start() { AU.stone(); shake(.06, .4); DISC.from = DISC.shown; DISC.to = DISC.shown + Math.PI * 2; DISC.t = 0; DISC.show = true; },
         run(k, dt) { if (Math.random() < dt * 20) fx.emit(DC[0] + (Math.random() - .5) * 7, -.6, DC[1] + (Math.random() - .5) * 7, { vy: .8, life: 1, c: GOLDc, tw: 8 }); } }
     ]);
   }
   function wheelBloom(r) {
-    if (!(RN.on && RE.on)) { toast(r === RN ? '北岸的花开了。东岸那朵，还在等光' : '东岸的花开了。北岸那朵，还在等光', 3.8); fx.ring(r.cx, .04, r.cz, 0xffd08a, 2.6, 1); flash(.12); return; }
+    if (!(RN.on && RE.on)) { fx.ring(r.cx, .04, r.cz, 0xffd08a, 2.6, 1); flash(.12); return; }
     S.wheel = true;
     cine([
-      { dur: 1.3, focus: [r.cx, r.cz], start() { addRay(r); toast('第五道日光。日轮岛的两朵花都开了', 3.6); } },
-      { dur: 2.6, focus: [80.5, 7.5], start() { gate3.opening = true; AU.stone(); shake(.1, .5); flash(.12); toast('城门打开了。日台就在水园中央', 3.6); },
+      { dur: 1.3, focus: [r.cx, r.cz], start() { addRay(r); } },
+      { dur: 2.6, focus: [80.5, 7.5], start() { gate3.opening = true; AU.stone(); shake(.1, .5); flash(.12); toast('城门打开了', 3.2); },
         run(k, dt) { if (Math.random() < dt * 30) fx.emit(81.5, .2 + Math.random() * 2.4, 7.5 + (Math.random() - .5) * 3, { vy: .3, life: .9, c: GOLDc, tw: 8 }); } }
     ]);
   }
@@ -874,7 +874,7 @@ export function buildSun(ctx) {
   function turnDisc() {
     DISC.k++; DISC.turns++; DISC.from = DISC.shown; DISC.to = DISC.k * Q45; DISC.t = 0; DISC.show = false;
     AU.stone(); shake(.06, .3);
-    if (!S.hints.turn) { S.hints.turn = 1; setTimeout(() => toast('整座岛转动了', 3), 2200); }
+    
   }
   function updateDisc(dt) {
     const prev = DISC.shown;
@@ -1006,7 +1006,7 @@ export function buildSun(ctx) {
       // 花盘一直朝着它认的那一侧；光从背后来，花会抖一下
       let tx = r.cx + r.face[0], tz = r.cz + r.face[1];
       if (S.done) { tx = altar.x; tz = altar.big.position.z; }
-      if (wrongR.has(r)) { r.wrong += dt; r.head.rotation.z += Math.sin(T * 30) * .02; if (r.wrong > .8 && !S.hints.face) { S.hints.face = 1; toast('光照在了花的背面', 3.2); } }
+      if (wrongR.has(r)) { r.wrong += dt; r.head.rotation.z += Math.sin(T * 30) * .02;  }
       const old = r.head.quaternion.clone(); faceToward(r.head, tx, tz); r.q.copy(r.head.quaternion); r.head.quaternion.copy(old).slerp(r.q, 1 - Math.exp(-dt * 3));
       if (r.on && Math.random() < dt * 3) fx.emit(r.cx + (Math.random() - .5) * .8, BY + .3, r.cz + (Math.random() - .5) * .3, { vy: .3, life: 1.6, c: GOLDc, tw: 6 });
     });
@@ -1017,7 +1017,7 @@ export function buildSun(ctx) {
       S.twinHold = both ? S.twinHold + dt : Math.max(0, S.twinHold - dt * 1.5);
       if (both) { AU.shadow(S.twinHold); if (Math.random() < dt * 16) fx.emit(prism.cx + (Math.random() - .5), .1, prism.cz + (Math.random() - .5), { vy: .4, life: .8, c: GOLDc, tw: 8 }); }
       if (S.twinHold >= 1 && pv < 1) solveTwins();
-      if (!both && (hitR.has(R3a) || hitR.has(R3b)) && !S.hints.twin) { S.hints.twin = 1; toast('只照到了一朵', 3); }
+      
     }
     prism.lit += ((prismHit ? 1 : 0) - prism.lit) * (1 - Math.exp(-dt * 6));
     prism.cry.rotation.y += dt * (.5 + prism.lit * 2); prism.pm.emissiveIntensity = .2 + prism.lit * 1.4;
@@ -1066,16 +1066,6 @@ export function buildSun(ctx) {
 
   function logic(dt) {
     const h = S.hints;
-    if (!h.move && ctx.S.t > .8) { h.move = 1; toast('天快亮了。把光，送到最远的地方', 4.2); }
-    if (!h.m1 && Math.hypot(P.x - LA.cx, P.z - LA.cz) < 3.2) { h.m1 = 1; toast('一块透镜，在等光', 3.4); }
-    if (!h.m2 && Math.hypot(P.x - MA1.cx, P.z - MA1.cz) < 2.4) { h.m2 = 1; toast('铜镜只接光束', 3.2); }
-    if (!h.b && P.x > 12.8) { h.b = 1; toast('云海上没有路', 3.2); }
-    if (!h.g2 && S.rays >= 1 && P.x > 18 && P.z > 9 && !gate2.opening) { h.g2 = 1; setTimeout(() => toast('对岸的庭院门关着，光过不去', 3.4), 5200); }
-    if (!h.p && P.x > 35 && Math.hypot(P.x - prism.cx, P.z - prism.cz) < 4) { h.p = 1; toast('棱镜会把光分开', 3.2); }
-    if (!h.hedge && Math.hypot(P.x - 38.5, P.z - 9.5) < 3) { h.hedge = 1; toast('向日葵跟着光转', 3.2); }
-    if (!h.f && P.x > 51) { h.f = 1; toast('一整片向日葵，比人还高', 3.4); }
-    if (!h.disc && P.x > 64.6) { h.disc = 1; toast('日轮岛', 3); }
-    if (!h.d && P.x > 82) { h.d = 1; toast('清透水园。五道日光与牌，缺一不可', 3.8); }
   }
 
   function nearest() {
@@ -1184,7 +1174,7 @@ export function buildSun(ctx) {
       return false;
     },
     ground(x, z) { if (inDisc(x, z)) return !discHole(x, z); const c = cell(Math.floor(x), Math.floor(z)); return c === 'b' ? S.bridgeDown : c !== ' ' && c !== 'O' || onBridge(x, z); },
-    onFall() { if (!S.hints.fall) { S.hints.fall = 1; setTimeout(() => toast('云海托不住你', 3), 900); } S._splash = false; },
+    onFall() { if (!S.hints.fall) { S.hints.fall = 1; } S._splash = false; },
     onStep(P, dt) {
       if (cell(Math.floor(P.x), Math.floor(P.z)) === '~') {
         S.rip += dt; if (S.rip > .3) { S.rip = 0; fx.ring(P.x, .06, P.z + .05, 0xfff4e0, .9, .8, { a: .4 }); }
