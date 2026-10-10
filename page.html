@@ -158,6 +158,35 @@ body.touchdev #prompt .key{display:none}
 .skin[data-skin="prism"][aria-checked="true"] .sw{filter:drop-shadow(0 0 6px rgba(150,200,255,.8))}
 @keyframes swspin{to{filter:hue-rotate(360deg)}}
 #vMore .back{bottom:calc(var(--u)*3.5)}
+.skin{position:relative}
+.skin .lock{display:none;position:absolute;top:5px;right:6px;width:11px;height:13px}
+.skin .lock svg{width:100%;height:100%;fill:none;stroke:rgba(239,232,220,.7);stroke-width:1.3}
+.skin.locked .lock{display:block}
+.skin.locked .sw{filter:saturate(.35) brightness(.7);animation:none}
+.skin.locked b{color:rgba(239,232,220,.6)}
+.msup{flex-wrap:nowrap}
+.sup{display:flex;align-items:center;gap:12px;color:var(--bone);text-decoration:none;min-width:0;-webkit-tap-highlight-color:transparent}
+.sup .heart{width:30px;height:27px;flex:none;fill:none;stroke:url(#hg);stroke-width:1.8;stroke-linejoin:round;filter:drop-shadow(0 0 6px rgba(255,190,200,.35));transition:transform .4s,filter .4s}
+.sup:hover .heart,.sup:focus-visible .heart{transform:scale(1.12);filter:drop-shadow(0 0 10px rgba(255,190,200,.6))}
+.sup:focus-visible{outline:none}
+.supt{display:flex;flex-direction:column;gap:4px}
+.supt b{font-weight:400;font-size:15px;letter-spacing:.25em}
+.supt small{font-size:11px;letter-spacing:.12em;color:rgba(239,232,220,.5)}
+.redeem{display:flex;border:1px solid var(--gold-dim);border-radius:999px;padding:3px;gap:3px;flex:none}
+.redeem input{font:inherit;font-size:14px;letter-spacing:.15em;width:8.2em;padding:.4em .2em .4em 1em;border:0;background:none;color:#fbf3e2;outline:none;text-transform:uppercase}
+.redeem input::placeholder{color:rgba(239,232,220,.4);letter-spacing:.2em;text-transform:none}
+.redeem button{font:inherit;font-size:14px;letter-spacing:.2em;padding:.4em 1em .4em 1.2em;border:0;border-radius:999px;background:rgba(232,201,142,.2);color:#fbf3e2;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(232,201,142,.55);-webkit-tap-highlight-color:transparent}
+.redeem.bad{animation:shake .4s}
+@keyframes shake{20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
+.redeemed{display:none;font-size:13px;letter-spacing:.2em;color:rgba(246,207,142,.85)}
+.msup.done .redeem{display:none}.msup.done .redeemed{display:block}
+body.short .mrow.msup{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between}
+body.short .supt{flex-direction:row;align-items:baseline;gap:10px}
+body.short .supt b{font-size:14px}
+body.short .supt small{font-size:10px}
+body.short .redeem input,body.short .redeem button{font-size:13px}
+body.short .skin.locked{padding-right:20px}
+body.short .skin .lock{top:50%;right:7px;margin-top:-6px;width:10px;height:12px}
 /* 矮屏（手机横屏）：设置面板改成两列，标题横排，不再顶出屏幕、不压到「返回」 */
 body.short .more{top:45%;width:min(780px,calc(100% - 32px));display:grid;grid-template-columns:1fr 1fr;column-gap:28px;row-gap:10px;padding:14px 22px 16px}
 body.short .mhead{grid-column:1/-1;flex-direction:row;justify-content:center;align-items:baseline;gap:14px}
@@ -489,8 +518,13 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
         <div class="mlab">光点皮肤<small>引导星光的样子</small></div>
         <div class="skins" role="radiogroup" aria-label="光点皮肤">
           <button class="skin" role="radio" data-skin="gold"><i class="sw gold"></i><b>金色星光</b><small>初始</small></button>
-          <button class="skin" role="radio" data-skin="prism"><i class="sw prism"></i><b>星之彩棱</b><small>回馈奖励</small></button>
+          <button class="skin" role="radio" data-skin="prism"><i class="sw prism"></i><b>星之彩棱</b><small id="prismSub">支持后兑换</small><i class="lock" aria-hidden="true"><svg viewBox="0 0 12 14"><path d="M3 6V4.2a3 3 0 0 1 6 0V6"/><rect x="1.5" y="6" width="9" height="7" rx="1.5"/></svg></i></button>
         </div>
+      </div>
+      <div class="mrow msup">
+        <a class="sup" id="supBtn" href="https://afdian.com/a/kanade6929" target="_blank" rel="noopener"><svg class="heart" viewBox="0 0 32 28" aria-hidden="true"><defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb8c8"/><stop offset=".55" stop-color="#f6cf8e"/><stop offset="1" stop-color="#c9b6ff"/></linearGradient></defs><path d="M16 25.5C9 20.6 3 15.6 3 9.6 3 6 5.8 3.2 9.2 3.2c2.9 0 5.1 1.9 6.8 4.6 1.7-2.7 3.9-4.6 6.8-4.6 3.4 0 6.2 2.8 6.2 6.4 0 6-6 11-13 15.9Z"/></svg><span class="supt"><b>支持作者</b><small>在爱发电支持，会收到兑换码</small></span></a>
+        <div class="redeem" id="redeem"><input id="codeIn" maxlength="12" placeholder="兑换码" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="兑换码"><button id="codeOk">兑换</button></div>
+        <div class="redeemed" id="redeemed">彩棱已解锁 · 谢谢你</div>
       </div>
     </div>
     <button class="back" id="back2"><span class="kb"><span class="key">Esc</span>　</span>返回</button>

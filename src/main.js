@@ -54,6 +54,17 @@ const SET = { q: TOUCH ? 'mid' : 'high', skin: 'gold', fps: TOUCH ? '60' : 'max'
 try { Object.assign(SET, JSON.parse(localStorage.getItem(SET_KEY)) || {}); } catch (e) {}
 if (!['max', '60', '30'].includes(SET.fps)) SET.fps = TOUCH ? '60' : 'max'; // 旧存档里的「自动」按设备默认
 function saveSet() { try { localStorage.setItem(SET_KEY, JSON.stringify(SET)); } catch (e) {} }
+// 支持作者的兑换码：6 位随机 + 2 位校验（与 chenxingye/support/gen-codes.js 一致），纯前端校验
+const CODE_A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', UNLOCK_KEY = 'chenxingye3d_unlock';
+function codeOk(s) {
+  s = s.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (s.length !== 8 || ![...s].every(c => CODE_A.includes(c))) return false;
+  let h = 0x811c9dc5; for (const c of 'chenxingye-hug' + s.slice(0, 6)) { h ^= c.charCodeAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
+  return CODE_A[h & 31] + CODE_A[(h >>> 5) & 31] === s.slice(6);
+}
+let prismOpen = false;
+try { prismOpen = localStorage.getItem(UNLOCK_KEY) === 'prism'; } catch (e) {}
+if (SET.skin === 'prism' && !prismOpen) SET.skin = 'gold';
 function resize() {
   layoutView();
   pipe.quality = SET.q === 'mid' ? 1 : 0;
@@ -784,15 +795,29 @@ function menuAct(act) {
 function refreshMore() {
   document.querySelectorAll('#vMore [data-q]').forEach(b => b.setAttribute('aria-checked', b.dataset.q === SET.q));
   document.querySelectorAll('#vMore [data-skin]').forEach(b => b.setAttribute('aria-checked', b.dataset.skin === SET.skin));
+  const pb = document.querySelector('#vMore [data-skin="prism"]'); pb.classList.toggle('locked', !prismOpen); $('prismSub').textContent = prismOpen ? '支持者礼物' : '支持后兑换';
+  document.querySelector('#vMore .msup').classList.toggle('done', prismOpen);
   document.querySelectorAll('#vMore [data-fps]').forEach(b => b.setAttribute('aria-checked', b.dataset.fps === SET.fps));
   syncSound();
 }
 document.querySelectorAll('#vMore [data-snd]').forEach(b => b.addEventListener('click', () => { if ((b.dataset.snd === 'on') !== !!AU.on) AU.toggle(); syncSound(); }));
 document.querySelectorAll('#vMore [data-fps]').forEach((b, i) => b.addEventListener('click', () => { if (SET.fps === b.dataset.fps) return; SET.fps = b.dataset.fps; saveSet(); refreshMore(); AU.hover(i + 2); }));
 document.querySelectorAll('#vMore [data-q]').forEach((b, i) => b.addEventListener('click', () => { if (SET.q === b.dataset.q) return; SET.q = b.dataset.q; saveSet(); applyQuality(); refreshMore(); AU.hover(i + 2); }));
-document.querySelectorAll('#vMore [data-skin]').forEach((b, i) => b.addEventListener('click', () => {
-  if (SET.skin === b.dataset.skin) return; SET.skin = b.dataset.skin; saveSet(); applySkin(); refreshMore(); AU.hover(i + 4);
+function setSkin(k, i) {
+  if (SET.skin === k) return; SET.skin = k; saveSet(); applySkin(); refreshMore(); AU.hover(i + 4);
   fx.bloom(orb.x, orb.y, orb.z, 24, SET.skin === 'prism' ? [1, .88, .7] : [1, .85, .55], { w: 2, vr: 1.2, up: .3 });
+}
+function redeem() {
+  const inp = $('codeIn'), box = $('redeem');
+  if (!codeOk(inp.value)) { box.classList.remove('bad'); void box.offsetWidth; box.classList.add('bad'); toast(inp.value.trim() ? '兑换码好像不对' : '在这里输入兑换码', 2); inp.focus(); return; }
+  prismOpen = true; try { localStorage.setItem(UNLOCK_KEY, 'prism'); } catch (e) {}
+  inp.value = ''; inp.blur(); toast('星之彩棱已解锁，谢谢你的支持', 3.5); setSkin('prism', 1);
+}
+$('codeOk').addEventListener('click', redeem);
+$('codeIn').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') redeem(); else if (e.key === 'Escape') e.target.blur(); });
+document.querySelectorAll('#vMore [data-skin]').forEach((b, i) => b.addEventListener('click', () => {
+  if (b.dataset.skin === 'prism' && !prismOpen) { AU.hover(i + 4); const inp = $('codeIn'); inp.focus(); toast('在爱发电支持后会收到兑换码', 2.5); return; }
+  setSkin(b.dataset.skin, i);
 }));
 $('back2').addEventListener('click', () => { AU.back(); if (inPauseMore()) pauseMore(false); else showView('main'); });
 document.querySelectorAll('.vbtn').forEach((b, i) => {
