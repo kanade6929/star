@@ -224,15 +224,12 @@ body.touchdev #pause{background:radial-gradient(60% 70% at 50% 50%,rgba(5,4,15,.
 #menu.intro #mainNav .vbtn:nth-child(4){animation-delay:2.55s}
 /* 预载：星光沿着一条细线聚拢，下完后请玩家点一下开始（同时解锁声音） */
 #boot{position:fixed;inset:0;z-index:80;background:var(--night);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:0 16px;transition:opacity .8s ease;cursor:default}
-#boot.ready{cursor:pointer}
 #boot[hidden]{display:none}
 #boot.gone{opacity:0;pointer-events:none}
 #boot .bstar{width:min(30px,7vh);height:auto;fill:var(--gold);filter:drop-shadow(0 0 6px rgba(232,201,142,.55));animation:bootSpin 6s linear infinite,bootBreath 2.4s ease-in-out infinite}
 #boot .bbar{position:relative;width:min(200px,46vw);height:1px;background:rgba(232,201,142,.16)}
 #boot .bbar i{position:absolute;inset:0;background:linear-gradient(90deg,rgba(232,201,142,.35),var(--gold));transform-origin:0 50%;transform:scaleX(.04);transition:transform .35s ease-out;box-shadow:0 0 6px rgba(232,201,142,.6)}
-#boot.ready .bbar{opacity:0;transition:opacity 1s ease .3s}
 #boot .bmsg{font-family:var(--title);font-size:13px;letter-spacing:.5em;padding-left:.5em;color:rgba(239,232,220,.55);min-height:1.4em}
-#boot.ready .bmsg{color:var(--bone);animation:bootBreath 2.6s ease-in-out infinite}
 @keyframes bootSpin{to{transform:rotate(360deg)}}
 @keyframes bootBreath{0%,100%{opacity:.55}50%{opacity:1}}
 @media (prefers-reduced-motion:reduce){#boot *{animation:none!important}}

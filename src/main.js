@@ -481,7 +481,8 @@ function nearest() {
 }
 function interact() {
   const n = nearest(); if (!n) return;
-  if (n.type === 'finale') { S.ev = 0; S.mode = 'cut'; AU.finale(); setBars(true); LV.finaleStart(); updateHud(); return; }
+  if (n.type === 'finale') { S.ev = 0; S.mode = 'cut'; P.vx = P.vz = 0; P.moving = false; P.run = false;   // 插牌时立刻站定，不再保持走路动作
+    AU.finale(); setBars(true); LV.finaleStart(); updateHud(); return; }
   LV.interact(n);
   // 抬手触碰机关：转向目标
   P.reachT = 0; P.reachYaw = (Math.abs(n.x - P.x) + Math.abs(n.z - P.z) > .15) ? Math.atan2(n.x - P.x, n.z - P.z) : null;
@@ -789,6 +790,8 @@ let woke = false;
 function wake() { if (woke) { AU.init(); return; } woke = true; AU.init(); menu.classList.add('awake'); }
 addEventListener('pointerdown', wake, { capture: true });
 addEventListener('keydown', wake, { capture: true });
+// 手机浏览器只认「手指抬起 / 点击」才算玩家允许出声，按下那一刻不算；所以抬起时再解锁一次，声音第一下触摸就响
+['pointerup', 'touchend', 'click'].forEach(ev => addEventListener(ev, () => { if (!AU.running) AU.init(); }, { capture: true }));
 function showView(v) {
   $('vMain').classList.toggle('off', v !== 'main'); $('vChap').classList.toggle('off', v !== 'chap'); $('vMore').classList.toggle('off', v !== 'more');
   if (v === 'more') { refreshMore(); setTimeout(() => document.querySelector('#vMore .seg [aria-checked="true"]').focus({ preventScroll: true }), 300); return; }
@@ -990,14 +993,13 @@ function perfTick(now, ms, sh) {
   P_.fps = P_.n / sec; P_.n = 0; P_.ms = 0; P_.sh = 0; P_.calls = 0; P_.t0 = now;
 }
 loadLevel(1); AU.setMood(0);
-// 开场预载：主界面和下一幕的曲子、音效先整首下完（有进度条），再请玩家点一下开始。
-// 这一下同时解锁浏览器的声音，所以耳机提示一出来就有音乐。其余几首之后在后台慢慢下
+// 开场预载：主界面和下一幕的曲子、音效先整首下完（有进度条），下完直接进耳机提示和标志。
+// 浏览器允许自动出声时音乐立刻响；手机上要等玩家第一次触摸才能出声，那时曲子已在内存里，一碰就响。其余几首之后在后台慢慢下
 const boot = $('boot'); let bootReady = false, booted = false, bootFrames = 0, bootAudio = false;
 function bootCheck() {
   if (bootReady || !bootAudio || bootFrames < 3) return;
   bootReady = true; $('bootFill').style.transform = 'scaleX(1)';
-  $('bootMsg').textContent = TOUCH ? '轻触任意处开始' : '点击任意处开始';
-  boot.classList.add('ready');
+  setTimeout(bootGo, 350);
 }
 function bootGo() {
   if (booted) return; booted = true; AU.init();
@@ -1008,7 +1010,6 @@ AU.preload([0, nextLevel()], p => { if (!bootReady) $('bootFill').style.transfor
   .then(() => { bootAudio = true; bootCheck(); AU.prefetch([1, 2, 3]); });
 // 网络太慢时不让玩家一直等：20 秒后照样可以开始，没下完的曲子边下边播
 setTimeout(() => { bootAudio = true; bootCheck(); }, 20000);
-boot.addEventListener('pointerdown', () => { if (bootReady) bootGo(); });
 // 进主菜单就试着放背景音乐；浏览器不允许自动播放时，等第一次点击或按键再响
 AU.init(); setTimeout(() => { if (AU.running && !woke) { woke = true; menu.classList.add('awake'); } }, 1500);
 // 开场：先提示戴耳机，再是慢慢亮起的 Hug 工作室标志，然后才进主界面。点一下可以跳过
@@ -1027,8 +1028,9 @@ function runSplash() {
   splashT.push(setTimeout(() => $('sp2').classList.add('on'), 3900));
   splashT.push(setTimeout(() => endSplash(), 7000));
 }
-splash.addEventListener('pointerdown', () => endSplash(true));
-addEventListener('keydown', () => { if (!booted) { if (bootReady) bootGo(); return; } endSplash(true); }, { capture: true });
+// 手机上第一下触摸是用来让音乐响起的，不跳过开场；音乐响了之后再点才跳过
+splash.addEventListener('pointerdown', () => { if (AU.running || !TOUCH) endSplash(true); });
+addEventListener('keydown', () => { if (booted) endSplash(true); }, { capture: true });
 resetLevel(); refreshMenu(); syncSound(); S.mode = 'menu'; S.fadeTo = 0;
 toDream(); stickHome();
 requestAnimationFrame(frame);
