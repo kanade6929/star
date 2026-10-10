@@ -68,7 +68,7 @@ body.cine #bars i{transform:none}
 body.cine #help,body.cine #hud{opacity:0!important}
 #skip{position:fixed;right:max(16px,calc(2.2*var(--vw)));bottom:calc(calc(9*var(--vh)) + 14px);font-size:clamp(11px,calc(.9*var(--vw)),12px);color:rgba(239,232,220,.5);letter-spacing:.1em;opacity:0;transition:opacity 1s;pointer-events:none;z-index:2}
 #skip.on{opacity:1}
-#toast{z-index:2}
+#toast{z-index:40}
 /* 遗失提醒：画面中上方，两侧细金线夹着一行小字，和底部的普通提示分开 */
 #lost{position:fixed;left:50%;top:max(calc(19*var(--vh)),104px);transform:translate(-50%,-6px);width:max-content;max-width:calc(100% - 48px);z-index:2;pointer-events:none;
   display:flex;align-items:center;gap:.9em;font-size:clamp(12px,calc(1.1*var(--vw)),15px);letter-spacing:.24em;line-height:1.5;color:#f1dcae;
@@ -158,21 +158,19 @@ body.touchdev #prompt .key{display:none}
 .skin[data-skin="prism"][aria-checked="true"] .sw{filter:drop-shadow(0 0 6px rgba(150,200,255,.8))}
 @keyframes swspin{to{filter:hue-rotate(360deg)}}
 #vMore .back{bottom:calc(var(--u)*3.5)}
-.supbox{position:absolute;inset:0;z-index:5;display:grid;place-items:center;background:rgba(5,4,15,.72);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);opacity:1;transition:opacity .45s}
+.supbox{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:rgba(5,4,15,.72);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);opacity:1;transition:opacity .45s}
 .supbox.off{opacity:0;pointer-events:none}
 .supcard{display:flex;flex-direction:column;align-items:center;gap:clamp(8px,calc(var(--u)*1.6),14px);padding:clamp(14px,calc(var(--u)*3),26px) clamp(18px,calc(var(--u)*4),34px);transform:translateY(0);transition:transform .45s}
 .supbox.off .supcard{transform:translateY(10px)}
 .supcard .mrn{font-size:11px;letter-spacing:.5em;padding-left:.5em;color:var(--gold);opacity:.85}
 #supQr{width:min(300px,calc(var(--vh)*52),calc(var(--vw)*70));height:auto;border-radius:14px;box-shadow:0 0 40px rgba(255,214,150,.18);-webkit-touch-callout:default;user-select:none}
 .supl{margin:0;text-align:center;font-size:14px;letter-spacing:.2em;line-height:1.7;color:var(--bone)}
-.supl small{font-size:11px;letter-spacing:.12em;color:rgba(239,232,220,.5)}
+.supl small{display:block;margin-top:4px;font-size:12px;letter-spacing:.15em;color:rgba(246,207,142,.8)}
 .supbtns{display:flex;gap:10px}
 .sb{font:inherit;font-size:14px;letter-spacing:.2em;padding:.5em 1.2em .5em 1.4em;border:1px solid var(--gold-dim);border-radius:999px;background:none;color:rgba(239,232,220,.8);cursor:pointer;text-decoration:none;-webkit-tap-highlight-color:transparent;transition:background .3s,color .3s}
 .sb.main{background:rgba(232,201,142,.2);color:#fbf3e2;box-shadow:inset 0 0 0 1px rgba(232,201,142,.55)}
 .sb:hover,.sb:focus-visible{outline:none;color:#fbf3e2;background:rgba(232,201,142,.28)}
 .supside{display:flex;flex-direction:column;align-items:center;gap:clamp(8px,calc(var(--u)*1.6),14px)}
-.supaf{font-size:11px;letter-spacing:.15em;color:rgba(239,232,220,.45);text-decoration:none}
-.supaf:hover{color:var(--gold)}
 body.short .supcard{flex-direction:row;flex-wrap:nowrap;justify-content:center;max-width:min(640px,calc(100% - 32px));column-gap:24px}
 body.short .supcard .mrn{display:none}
 body.short #supQr{width:min(260px,calc(var(--vh)*70))}
@@ -182,9 +180,11 @@ body.short #supQr{width:min(260px,calc(var(--vh)*70))}
 .skin.locked .lock{display:block}
 .skin.locked .sw{filter:saturate(.35) brightness(.7);animation:none}
 .skin.locked b{color:rgba(239,232,220,.6)}
+.skin.shake{animation:shake .4s}
+@keyframes shake{20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
 .msup{flex-wrap:nowrap}
 .sup{font:inherit;border:0;background:none;padding:0;cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px;color:var(--bone);text-decoration:none;min-width:0;-webkit-tap-highlight-color:transparent}
-.sup .heart{width:30px;height:27px;flex:none;fill:none;stroke:url(#hg);stroke-width:1.8;stroke-linejoin:round;filter:drop-shadow(0 0 6px rgba(255,190,200,.35));transition:transform .4s,filter .4s}
+.sup .heart{width:30px;height:27px;flex:none;fill:none;stroke:url(#hgHeart);stroke-width:1.8;stroke-linejoin:round;filter:drop-shadow(0 0 6px rgba(255,190,200,.35));transition:transform .4s,filter .4s}
 .sup:hover .heart,.sup:focus-visible .heart{transform:scale(1.12);filter:drop-shadow(0 0 10px rgba(255,190,200,.6))}
 .sup:focus-visible{outline:none}
 .supt{display:flex;flex-direction:column;gap:4px}
@@ -356,7 +356,32 @@ body.short .card{height:auto;max-height:92%;aspect-ratio:auto;display:grid;grid-
 body.short #endRoman{grid-column:1/-1}
 body.short #end h2{grid-row:2/4;font-size:30px}
 body.short #end .btns{flex-direction:row}
-body.paused #touch,body:has(#end.on) #touch{display:none!important}
+body.paused #touch,body:has(#end.on) #touch,body:has(#fin.on) #touch{display:none!important}
+#fin{position:fixed;inset:0;z-index:20;display:grid;place-items:center;opacity:0;pointer-events:none;transition:opacity 2.5s;padding:0 16px;
+  background:radial-gradient(70% 70% at 50% 45%,rgba(40,44,96,.4),rgba(5,4,15,.9))}
+#fin.on{opacity:1;pointer-events:auto}
+body:has(#fin.on) #hud{opacity:0;transition:opacity 1.5s}
+.fcard{position:relative;display:flex;flex-direction:column;align-items:center;gap:clamp(12px,calc(2.6*var(--vh)),24px);padding:clamp(22px,calc(5*var(--vh)),46px) clamp(26px,calc(5*var(--vw)),64px);
+  border:1px solid var(--gold-dim);border-radius:6px;background:linear-gradient(180deg,rgba(18,16,50,.78),rgba(8,6,22,.88));box-shadow:0 0 70px rgba(150,170,255,.16),0 0 40px rgba(255,220,160,.12)}
+.fcard::before{content:"";position:absolute;inset:10px;border:1px solid rgba(232,201,142,.2);border-radius:3px;pointer-events:none}
+.froman{font-weight:300;color:var(--gold);letter-spacing:.4em;padding-left:.4em;font-size:clamp(12px,calc(1.4*var(--vw)),16px);opacity:.85}
+#fin h2{margin:0;font-family:var(--title);font-weight:400;font-size:clamp(30px,calc(5.4*var(--vh)),48px);letter-spacing:.4em;padding-left:.4em;color:#f7f1e7;text-shadow:0 0 24px rgba(255,226,170,.45)}
+#fin p{margin:0;text-align:center;font-size:clamp(13px,calc(1.25*var(--vw)),16px);letter-spacing:.2em;line-height:2.1;color:rgba(239,232,220,.85)}
+.fmoon{width:1.15em;height:1.15em;vertical-align:-.2em;margin-left:.35em;fill:#cfe0ff;filter:drop-shadow(0 0 6px rgba(190,210,255,.8))}
+.fbtns{display:flex;flex-direction:column;align-items:stretch;gap:.75em;margin-top:clamp(2px,calc(1*var(--vh)),10px);min-width:min(240px,70vw)}
+.fb{font:inherit;display:flex;align-items:center;justify-content:center;gap:.6em;font-size:clamp(13px,calc(1.2*var(--vw)),15px);letter-spacing:.25em;padding:.7em 1.4em .7em 1.65em;border:1px solid var(--gold-dim);border-radius:999px;background:transparent;color:var(--gold);cursor:pointer;text-decoration:none;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:background .3s,color .3s,box-shadow .3s}
+.fb svg{width:1.15em;height:1.15em;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round}
+.fb.main{color:#fbf3e2;background:rgba(232,201,142,.22);box-shadow:inset 0 0 0 1px rgba(232,201,142,.6),0 0 18px rgba(255,200,180,.18)}
+.fb.main svg{stroke:#ffc2cf}
+.fb.ghost{border-color:transparent;color:rgba(239,232,220,.6)}
+.fb:hover,.fb:focus-visible{outline:none;background:rgba(232,201,142,.16);color:#fbf3e2}
+.fb.main:hover,.fb.main:focus-visible{background:rgba(232,201,142,.32)}
+body.short .fcard{flex-direction:column;gap:8px;padding:16px 30px 18px}
+body.short #fin h2{font-size:26px}
+body.short #fin p{font-size:13px;line-height:1.85}
+body.short .fbtns{flex-direction:row;min-width:0;gap:10px}
+body.short .fb{padding:.55em 1.1em .55em 1.3em;font-size:13px}
+
 
 /* 触屏 */
 #touch{position:fixed;inset:0;pointer-events:none;display:none}
@@ -429,6 +454,25 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
   <p id="endLine">第一幕　星　完<br>下一幕　月　已在水边等你</p>
   <div class="btns"><button id="again2">前往月之章</button><button id="again">回到主界面</button></div>
 </div></div>
+<div id="fin" aria-hidden="true"><div class="fcard">
+  <div class="froman">XVII · XVIII · XIX</div>
+  <h2>恭喜通关</h2>
+  <p>到这已经通关 demo 全部内容了<br>感谢你玩我的游戏 ☺️<br>让我们在下一个深蓝色的梦里再见<svg class="fmoon" viewBox="0 0 24 24" aria-label="月亮"><path d="M15.5 3.2A9 9 0 1 0 20.8 15 7.2 7.2 0 0 1 15.5 3.2Z"/></svg></p>
+  <div class="fbtns">
+    <button class="fb main" id="finSup"><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M16 25.5C9 20.6 3 15.6 3 9.6 3 6 5.8 3.2 9.2 3.2c2.9 0 5.1 1.9 6.8 4.6 1.7-2.7 3.9-4.6 6.8-4.6 3.4 0 6.2 2.8 6.2 6.4 0 6-6 11-13 15.9Z"/></svg>支持作者</button>
+    <a class="fb" id="finBili" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6.5" width="18" height="13" rx="3"/><path d="M8 3.5l2.5 3M16 3.5l-2.5 3M9 12v2M15 12v2"/></svg>我的 B 站主页</a>
+    <button class="fb ghost" id="finMenu">回到主菜单</button>
+  </div>
+</div></div>
+<div class="supbox off" id="supBox" role="dialog" aria-modal="true" aria-label="支持作者">
+      <div class="supcard">
+        <span class="mrn">· 支持作者 ·</span>
+        <img src="img/support-qr.png" alt="微信支付二维码" id="supQr" draggable="false">
+        <div class="supside"><p class="supl">微信扫一扫<br>感谢你的心意，这对我是莫大的鼓励<br><small>任意支持可获得特典皮肤「星之彩棱」</small></p>
+        <div class="supbtns"><a class="sb" id="supSave" href="img/support-qr.png" download="辰星夜-支持作者.png">保存到手机</a><button class="sb main" id="supDone">回到星夜</button></div>
+        </div>
+      </div>
+    </div>
 <div id="splash" aria-hidden="true">
   <div class="sp" id="sp1"><svg class="hp" viewBox="0 0 64 64" aria-hidden="true"><path pathLength="1" d="M12 40V33a20 20 0 0 1 40 0v7"/><rect pathLength="1" x="9" y="37" width="9" height="16" rx="4.5"/><rect pathLength="1" x="46" y="37" width="9" height="16" rx="4.5"/></svg><p>佩戴耳机，体验更佳</p><small>HEADPHONES RECOMMENDED</small></div>
   <div class="sp" id="sp2"><div class="hugglow"><svg class="hug" viewBox="32 8 60 92" aria-hidden="true" fill="none" stroke="url(#hg)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -533,17 +577,8 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
         </div>
       </div>
       <div class="mrow msup">
-        <button class="sup" id="supBtn"><svg class="heart" viewBox="0 0 32 28" aria-hidden="true"><defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb8c8"/><stop offset=".55" stop-color="#f6cf8e"/><stop offset="1" stop-color="#c9b6ff"/></linearGradient></defs><path d="M16 25.5C9 20.6 3 15.6 3 9.6 3 6 5.8 3.2 9.2 3.2c2.9 0 5.1 1.9 6.8 4.6 1.7-2.7 3.9-4.6 6.8-4.6 3.4 0 6.2 2.8 6.2 6.4 0 6-6 11-13 15.9Z"/></svg><span class="supt"><b>支持作者</b><small>微信扫码随心支持，送你七彩光点</small></span></button>
-        <div class="redeemed" id="redeemed">彩棱已点亮 · 谢谢你</div>
-      </div>
-    </div>
-    <div class="supbox off" id="supBox" role="dialog" aria-modal="true" aria-label="支持作者">
-      <div class="supcard">
-        <span class="mrn">· 支持作者 ·</span>
-        <img src="img/support-qr.png" alt="微信支付二维码" id="supQr" draggable="false">
-        <div class="supside"><p class="supl">微信扫一扫，金额随意，心意就好<br><small>手机上可以先保存图片，再在微信里扫码识别</small></p>
-        <div class="supbtns"><a class="sb" id="supSave" href="img/support-qr.png" download="辰星夜-支持作者.png">保存到手机</a><button class="sb main" id="supDone">回到星夜</button></div>
-        <a class="supaf" href="https://afdian.com/a/kanade6929" target="_blank" rel="noopener">也可以在爱发电支持 ›</a></div>
+        <button class="sup" id="supBtn"><svg class="heart" viewBox="0 0 32 28" aria-hidden="true"><defs><linearGradient id="hgHeart" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb8c8"/><stop offset=".55" stop-color="#f6cf8e"/><stop offset="1" stop-color="#c9b6ff"/></linearGradient></defs><path d="M16 25.5C9 20.6 3 15.6 3 9.6 3 6 5.8 3.2 9.2 3.2c2.9 0 5.1 1.9 6.8 4.6 1.7-2.7 3.9-4.6 6.8-4.6 3.4 0 6.2 2.8 6.2 6.4 0 6-6 11-13 15.9Z"/></svg><span class="supt"><b>支持作者</b><small>微信扫码随心支持，送你七彩光点</small></span></button>
+        <div class="redeemed" id="redeemed">已收到心意 · 谢谢你</div>
       </div>
     </div>
     <button class="back" id="back2"><span class="kb"><span class="key">Esc</span>　</span>返回</button>

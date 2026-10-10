@@ -806,14 +806,15 @@ function openSup() { supBox.classList.remove('off'); AU.hover(6); setTimeout(() 
 function closeSup() {
   if (!supOn()) return; supBox.classList.add('off'); AU.back();
   if (!prismOpen) { prismOpen = true; try { localStorage.setItem(UNLOCK_KEY, 'prism'); } catch (e) {} toast('感谢支持，我会继续努力创作', 3.5); setSkin('prism', 1); }
-  setTimeout(() => $('supBtn').focus({ preventScroll: true }), 50);
+  if ($('fin').classList.contains('on')) setTimeout(() => $('finSup').focus({ preventScroll: true }), 50);
+  else setTimeout(() => $('supBtn').focus({ preventScroll: true }), 50);
 }
 $('supBtn').addEventListener('click', openSup);
 $('supDone').addEventListener('click', closeSup);
 supBox.addEventListener('click', e => { if (e.target === supBox) closeSup(); });
 addEventListener('keydown', e => { if (supOn() && e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); closeSup(); } }, { capture: true });
 document.querySelectorAll('#vMore [data-skin]').forEach((b, i) => b.addEventListener('click', () => {
-  if (b.dataset.skin === 'prism' && !prismOpen) { openSup(); return; }
+  if (b.dataset.skin === 'prism' && !prismOpen) { b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake'); return; }
   setSkin(b.dataset.skin, i);
 }));
 $('back2').addEventListener('click', () => { AU.back(); if (inPauseMore()) pauseMore(false); else showView('main'); });
@@ -904,7 +905,7 @@ function toMenu() {
   // 主界面的曲子在画面淡出时就开始交叉淡入，不等场景重建完
   AU.setMood(0);
   setTimeout(() => {
-    pauseEl.classList.add('off'); document.body.classList.remove('paused', 'playing'); $('end').classList.remove('on'); $('hud').classList.remove('on'); $('skip').classList.remove('on');
+    pauseEl.classList.add('off'); document.body.classList.remove('paused', 'playing'); $('end').classList.remove('on'); $('fin').classList.remove('on'); $('hud').classList.remove('on'); $('skip').classList.remove('on');
     if (S.level !== 1) loadLevel(1, true);
     resetLevel(); toDream(); S.mode = 'menu'; S.fadeTo = 0; menu.classList.remove('hide'); refreshMenu(); showView('main'); AU.setMood(0); setBars(false);
   }, 600);
@@ -915,9 +916,17 @@ function endGame() {
   const E = LV.endCard;
   $('endRoman').textContent = LV.roman; $('endTitle').textContent = E.title; $('endLine').innerHTML = E.line;
   $('again2').textContent = n === 1 ? '前往月之章' : n === 2 ? '前往太阳之章' : '再走太阳之章';
-  $('end').classList.add('on'); S.mode = 'end'; refreshMenu(); setBars(false);
+  S.mode = 'end'; refreshMenu(); setBars(false);
+  // 太阳之章通关、三章都完成：换成 demo 全通的恭喜页
+  if (n === 3 && [1, 2, 3].every(k => prog.done.includes(k))) { $('fin').classList.add('on'); $('fin').setAttribute('aria-hidden', 'false'); setTimeout(() => $('finSup').focus({ preventScroll: true }), 600); return; }
+  $('end').classList.add('on');
   setTimeout(() => $('again2').focus(), 400);
 }
+const BILI_URL = ''; // kanade 的 B 站主页，之后补上
+$('finSup').addEventListener('click', openSup);
+$('finBili').addEventListener('click', e => { if (!BILI_URL) { e.preventDefault(); toast('B 站主页链接马上就来', 2.5); } });
+if (BILI_URL) $('finBili').href = BILI_URL;
+$('finMenu').addEventListener('click', () => { $('fin').classList.remove('on'); $('fin').setAttribute('aria-hidden', 'true'); toMenu(); });
 $('again').addEventListener('click', toMenu);
 $('again2').addEventListener('click', () => { $('end').classList.remove('on'); begin(S.level === 1 ? 2 : S.level === 2 ? 3 : 3); });
 
@@ -996,5 +1005,5 @@ setTimeout(() => document.querySelector('#mainNav .vbtn').focus({ preventScroll:
 window.__G = { scene, AU, fx,
   sim(sec) { if (loadDone) loadDone(); for (let t = 0; t < sec; t += 1 / 30) update(1 / 30); return [S.mode, LV.progress(), P.x.toFixed(1), P.z.toFixed(1), P.falling]; },
   S, P, orb, PERF, SET, poolLights, poolStat, nodeHints, get LV() { return LV; }, get mouse() { return mouse; }, set mouse(v) { mouse.seen = false; },
-  begin, toMenu, interact, setMouse, mouseWorld, keys, update, pipe, cam, loadLevel, skipIntro, nearest, warmup, render() { pipe.render(scene, cam, { time: T, fade: S.fade, focus: focusUV, dofK, flash: S.flash, vig }); }
+  begin, toMenu, endGame, interact, setMouse, mouseWorld, keys, update, pipe, cam, loadLevel, skipIntro, nearest, warmup, render() { pipe.render(scene, cam, { time: T, fade: S.fade, focus: focusUV, dofK, flash: S.flash, vig }); }
 };
