@@ -1020,8 +1020,11 @@ const boot = $('boot'); let bootReady = false, booted = false, bootFrames = 0, b
 function bootCheck() {
   if (bootReady || !bootAudio || bootFrames < 3) return;
   bootReady = true; $('bootFill').style.transform = 'scaleX(1)';
-  setTimeout(bootGo, 350);
+  // 手机：浏览器要玩家点一下才肯出声，所以停在「轻触开始」，点完音乐和开场一起开始；电脑直接开始
+  if (TOUCH) { $('bootMsg').textContent = '轻触开始'; boot.classList.add('ready'); } else setTimeout(bootGo, 350);
 }
+// 用 click（手指抬起后才触发）：手机浏览器只认这一下为允许出声
+boot.addEventListener('click', () => { if (bootReady) bootGo(); });
 function bootGo() {
   if (booted) return; booted = true; AU.init();
   boot.classList.add('gone'); setTimeout(() => { boot.hidden = true; }, 900);
