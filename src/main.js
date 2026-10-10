@@ -514,6 +514,12 @@ function updatePlayer(dt, canMove) {
     }
     return;
   }
+  // 被机关挤进了实体（比如日轮带着人转了 45°，碰撞框和绞盘、岛心重叠）：就近把人推出来，不然四个方向都走不动
+  if (blocked(P.x, P.z)) {
+    let best = null;
+    for (let d = .04; d <= .7 && !best; d += .04) for (let i = 0; i < 16; i++) { const a = i / 16 * 6.2832, x = P.x + Math.cos(a) * d, z = P.z + Math.sin(a) * d; if (!blocked(x, z) && !LV.hole(x, z)) { best = [x, z]; break; } }
+    if (best) { P.x = best[0]; P.z = best[1]; }
+  }
   let ix = 0, iz = 0;
   if (canMove) {
     if (keys.a || keys.arrowleft) ix -= 1; if (keys.d || keys.arrowright) ix += 1;

@@ -228,7 +228,7 @@ export function buildStar(ctx) {
     const arch = new THREE.Mesh(new THREE.TorusGeometry(1.75, .07, 6, 40, Math.PI), goldM); arch.rotation.y = Math.PI / 2; arch.position.set(x - .05, 0, z0 + len / 2); root.add(arch);
     const archGlow = new THREE.MeshBasicMaterial({ color: 0xffd89a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
     const glow = new THREE.Mesh(new THREE.TorusGeometry(1.75, .12, 6, 40, Math.PI), archGlow); glow.rotation.y = Math.PI / 2; glow.position.copy(arch.position); glow.layers.set(LAYER_FX); root.add(glow);
-    L.gate = { x, z0, z1, m, open: 0, opening: false, gears, glow };
+    L.gate = { x, z0, z1, m, open: 0, opening: false, gears, glow, arch };
   };
 
   /* ================= 塔罗牌 ================= */
@@ -914,6 +914,8 @@ export function buildStar(ctx) {
       if (pv < 1 && gate.open >= 1) { shake(.1, .4); AU.stone(); }
     }
     gate.m.position.y = WALL_H / 2 - easeIn(gate.open) * 1.8;
+    // 金色拱框跟着石门一起沉进地里：门开了以后人走过门口，不会被拱框「穿」过身体
+    gate.arch.position.y = gate.glow.position.y = -easeIn(gate.open) * 1.95;
     // 星仪：未点亮的环随意倾斜着慢转；点亮后沉重地归位成水平
     rings.forEach((R, i) => {
       if (R.aligning) R.align = Math.min(1, (T - R.t0) / 2.4);
