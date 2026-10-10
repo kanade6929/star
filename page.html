@@ -210,6 +210,9 @@ body.short .seg button{font-size:13px;padding:.38em .95em .38em 1.15em}
 body.short .skins{gap:8px}
 body.short .skin{grid-template-columns:auto auto;grid-template-rows:auto auto;justify-items:start;align-items:center;column-gap:8px;row-gap:0;width:auto;padding:5px 12px 5px 8px}
 body.short .skin .sw{grid-row:1/3;width:24px;height:24px}
+/* 五个设置项排成三列：琴声、画质、帧率一行，镜头远近和光点皮肤（占两格）一行，面板不会顶出屏幕 */
+body.short .more{grid-template-columns:repeat(3,minmax(0,1fr));column-gap:20px}
+body.short .mrow.mskin{grid-column:span 2}
 /* 说明小字删掉后：手机上每格的标题和选项居中；两端的「支持作者」一行也居中 */
 body.short .mrow{align-items:center}
 body.short .mlab{justify-content:center}
@@ -614,7 +617,7 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
         <div class="mlab">镜头远近</div>
         <div class="seg" role="radiogroup" aria-label="镜头远近"><button role="radio" data-cam="near">近</button><button role="radio" data-cam="far">远</button></div>
       </div>
-      <div class="mrow">
+      <div class="mrow mskin">
         <div class="mlab">光点皮肤</div>
         <div class="skins" role="radiogroup" aria-label="光点皮肤">
           <button class="skin" role="radio" data-skin="gold"><i class="sw gold"></i><b>金色星光</b><small>初始</small></button>
