@@ -1066,10 +1066,10 @@ export function buildSun(ctx) {
 
   function logic(dt) {
     const h = S.hints;
-    // 进入区域：只显示地名
-    if (!h.f && P.x > 51) { h.f = 1; toast('向日葵花海', 2.6); }
-    if (!h.disc && P.x > 64.6) { h.disc = 1; toast('日轮岛', 2.6); }
-    if (!h.d && P.x > 82) { h.d = 1; toast('清透水园', 2.6); }
+    // 进入区域：有特色的地方才显示地名和一句氛围话
+    if (!h.f && P.x > 51) { h.f = 1; toast('向日葵花海。花比人还高，都朝着光', 3.8); }
+    if (!h.disc && P.x > 64.6) { h.disc = 1; toast('日轮岛。整座岛，像一枚停住的日轮', 3.8); }
+    if (!h.d && P.x > 82) { h.d = 1; toast('清透水园。水清得像不存在', 3.8); }
   }
 
   function nearest() {
