@@ -65,9 +65,39 @@ export function createAudio(onToggle) {
     pq = us.concat(pq.filter(u => !us.includes(u))); pump();
   }
   function pump() {
-    if (busy) return; const u = pq.shift(); if (!u) return; if (blobUrl[u]) { pump(); return; }
+    if (busy) return; const u = pq.shift(); if (!u) return; if (blobUrl[u] || inflight[u]) { pump(); return; }
     busy = true;
     fetch(u).then(r => r.ok ? r.blob() : Promise.reject(r.status)).then(b => { blobUrl[u] = URL.createObjectURL(b); }).catch(() => {}).then(() => { busy = false; pump(); });
+  }
+  // 开场预载：主界面和下一幕的曲子、所有音效采样，带进度（0~1）回调。下完才进耳机提示，保证一开场就有音乐
+  const inflight = {}, sfxRaw = {};
+  function grab(u, onBytes, asBuf) {
+    return fetch(u).then(r => {
+      if (!r.ok) return Promise.reject(r.status);
+      const len = +r.headers.get('content-length') || 0;
+      if (!r.body || !r.body.getReader) return (asBuf ? r.arrayBuffer() : r.blob()).then(x => { onBytes(len, len); return x; });
+      const rd = r.body.getReader(), parts = []; let got = 0;
+      const step = () => rd.read().then(({ done, value }) => {
+        if (done) { const b = new Blob(parts, { type: 'audio/mpeg' }); return asBuf ? b.arrayBuffer() : b; }
+        parts.push(value); got += value.length; onBytes(got, len); return step();
+      });
+      return step();
+    });
+  }
+  function preload(moods, onProg) {
+    const jobs = [];
+    moods.map(m => BGM[m]).filter((u, i, a) => u && a.indexOf(u) === i && !blobUrl[u]).forEach(u => jobs.push({ u, est: 2.4e6 }));
+    Object.keys(SMP).forEach(k => { if (k !== 'lead' && !sfxRaw[k]) jobs.push({ u: `audio/sfx/${k}.mp3`, k, est: 1.6e5 }); });
+    jobs.forEach(j => { j.got = 0; j.len = j.est; });
+    const tell = () => { let a = 0, b = 0; jobs.forEach(j => { a += Math.min(j.got, j.len); b += j.len; }); onProg && onProg(b ? a / b : 1); };
+    tell();
+    return Promise.all(jobs.map(j => {
+      const p = grab(j.u, (got, len) => { j.got = got; if (len) j.len = len; tell(); }, !!j.k)
+        .then(x => { if (j.k) sfxRaw[j.k] = x; else blobUrl[j.u] = URL.createObjectURL(x); })
+        .catch(() => {}).then(() => { j.got = j.len; delete inflight[j.u]; tell(); });
+      if (!j.k) inflight[j.u] = p;
+      return p;
+    })).then(() => { pump(); });
   }
   let retryT = 0;
   const pool = [0, 1, 2].map(() => { const el = new Audio(); el.preload = 'auto'; el.src = 'data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA//NwwAAAAAAAAAAAAEluZm8AAAAPAAAABgAAAykAWlpaWlpaWlpaWlpaWlpaWnt7e3t7e3t7e3t7e3t7e3t7nJycnJycnJycnJycnJycnL29vb29vb29vb29vb29vb293t7e3t7e3t7e3t7e3t7e3t7/////////////////////AAAAAExhdmM2MC4zMQAAAAAAAAAAAAAAACQCowAAAAAAAAMpso+sIAAAAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//NCxKMAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//NAxKQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVX/80LEowAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVU='; return { el, g: null, url: null, ending: 0 }; });
@@ -220,7 +250,7 @@ export function createAudio(onToggle) {
   function loadSamples() {
     Object.keys(SMP).forEach(k => {
       if (k === 'lead') return;
-      fetch(`audio/sfx/${k}.mp3`).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
+      (sfxRaw[k] ? Promise.resolve(sfxRaw[k].slice(0)) : fetch(`audio/sfx/${k}.mp3`).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)))
         .then(a => new Promise((ok, no) => { const q = ac.decodeAudioData(a, ok, no); if (q && q.catch) q.catch(no); })).then(b => { smp[k] = b; }).catch(() => {});
     });
   }
@@ -261,7 +291,7 @@ export function createAudio(onToggle) {
     }
   }
   return {
-    init, note, setHidden, prefetch,
+    init, note, setHidden, prefetch, preload,
     get running() { return !!ac && ac.state === 'running' && pool.some(v => v.url && !v.el.paused); }, _dbg: () => ({ ac: ac && ac.state, hidden, blobs: Object.keys(blobUrl), vs: pool.map(v => [v.url, (v.el.getAttribute('src') || '').slice(0, 5), v.el.readyState, +v.el.currentTime.toFixed(1), v.el.paused ? 1 : 0, v.g ? +v.g.gain.value.toFixed(2) : '-', v.ending ? 1 : 0]), playing: pool.filter(v => !v.el.paused).map(v => v.url), samples: Object.keys(smp), chord: chordNow(), t: (pool.find(v => v.url === BGM[mood] && !v.ending) || { el: {} }).el.currentTime }), _nodes: () => ({ ac, master, bgm }),
     setMood(m) { if (m === mood) return; mood = m; barN = 0; if (ac) bgmTick(); },
     toggle() { on = !on; if (master) master.gain.setTargetAtTime(on ? .9 : 0, ac.currentTime, .2); onToggle && onToggle(on); },

@@ -19,7 +19,7 @@ const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t
 const canvas = $('c');
 let renderer;
 try { renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' }); }
-catch (e) { $('nogl').hidden = false; throw e; }
+catch (e) { $('nogl').hidden = false; $('boot').hidden = true; throw e; }
 renderer.info.autoReset = false; // 每帧在主循环里清零：性能面板要看整帧（含阴影、倒影、后期）的绘制数
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.shadowMap.autoUpdate = false;
 const pipe = new PixelPipeline(renderer);
@@ -610,7 +610,10 @@ const tmpV = new THREE.Vector3(), tmpM = new THREE.Vector3();
 let camFocus = new THREE.Vector3(6, 0, 7); const camVel = new THREE.Vector3(), camD = new THREE.Vector3();
 const focusUV = new THREE.Vector2(.5, .47);
 let dofK = 1, vig = .55;
+let tipShown = false;
 function update(dt) {
+  // 手机：摇杆操作提示只在第一次进关、开场黑边收起后出现几秒，然后淡掉
+  if (TOUCH && !tipShown && S.mode === 'play' && !S.bars && !document.body.classList.contains('loading')) { tipShown = true; document.body.classList.add('tipOn'); setTimeout(() => document.body.classList.remove('tipOn'), 7000); }
   if (mapOn) { if (S.mode !== 'play' || S.cine) toggleMap(false); else drawMap(); }
   T += dt; S.t += dt; SHAFT_T.value = T;
   const play = S.mode === 'play';
@@ -870,7 +873,7 @@ function hideLoader() {
 }
 function begin(n = 1) {
   AU.prefetch([n]);
-  AU.init(); endSplash(true);
+  AU.init(); if (!booted) { booted = true; boot.hidden = true; } endSplash(true);
   if (S.loading) return;
   // 这一幕的曲子在黑屏加载时就淡入，场景还没建好音乐已经在了
   AU.setMood(n);
@@ -987,8 +990,25 @@ function perfTick(now, ms, sh) {
   P_.fps = P_.n / sec; P_.n = 0; P_.ms = 0; P_.sh = 0; P_.calls = 0; P_.t0 = now;
 }
 loadLevel(1); AU.setMood(0);
-// 背景音乐提前整首下载：先主界面那首，再是下一幕要用的，最后其余几首
-AU.prefetch([0, nextLevel(), 1, 2, 3]);
+// 开场预载：主界面和下一幕的曲子、音效先整首下完（有进度条），再请玩家点一下开始。
+// 这一下同时解锁浏览器的声音，所以耳机提示一出来就有音乐。其余几首之后在后台慢慢下
+const boot = $('boot'); let bootReady = false, booted = false, bootFrames = 0, bootAudio = false;
+function bootCheck() {
+  if (bootReady || !bootAudio || bootFrames < 3) return;
+  bootReady = true; $('bootFill').style.transform = 'scaleX(1)';
+  $('bootMsg').textContent = TOUCH ? '轻触任意处开始' : '点击任意处开始';
+  boot.classList.add('ready');
+}
+function bootGo() {
+  if (booted) return; booted = true; AU.init();
+  boot.classList.add('gone'); setTimeout(() => { boot.hidden = true; }, 900);
+  requestAnimationFrame(() => requestAnimationFrame(runSplash));
+}
+AU.preload([0, nextLevel()], p => { if (!bootReady) $('bootFill').style.transform = `scaleX(${(.04 + p * .96).toFixed(3)})`; })
+  .then(() => { bootAudio = true; bootCheck(); AU.prefetch([1, 2, 3]); });
+// 网络太慢时不让玩家一直等：20 秒后照样可以开始，没下完的曲子边下边播
+setTimeout(() => { bootAudio = true; bootCheck(); }, 20000);
+boot.addEventListener('pointerdown', () => { if (bootReady) bootGo(); });
 // 进主菜单就试着放背景音乐；浏览器不允许自动播放时，等第一次点击或按键再响
 AU.init(); setTimeout(() => { if (AU.running && !woke) { woke = true; menu.classList.add('awake'); } }, 1500);
 // 开场：先提示戴耳机，再是慢慢亮起的 Hug 工作室标志，然后才进主界面。点一下可以跳过
@@ -1008,11 +1028,11 @@ function runSplash() {
   splashT.push(setTimeout(() => endSplash(), 7000));
 }
 splash.addEventListener('pointerdown', () => endSplash(true));
-addEventListener('keydown', () => endSplash(true), { capture: true });
+addEventListener('keydown', () => { if (!booted) { if (bootReady) bootGo(); return; } endSplash(true); }, { capture: true });
 resetLevel(); refreshMenu(); syncSound(); S.mode = 'menu'; S.fadeTo = 0;
 toDream(); stickHome();
 requestAnimationFrame(frame);
-requestAnimationFrame(() => requestAnimationFrame(runSplash));
+(function countFrames() { if (++bootFrames < 3) requestAnimationFrame(countFrames); else bootCheck(); })();
 setTimeout(() => document.querySelector('#mainNav .vbtn').focus({ preventScroll: true }), 100);
 
 // 调试/测试钩子

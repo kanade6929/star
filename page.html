@@ -222,6 +222,20 @@ body.touchdev.cine #touch *{pointer-events:none!important}
 body.touchdev #pause .vbtn{font-size:19px;padding:20px 12px 8px}
 body.touchdev #pause{background:radial-gradient(60% 70% at 50% 50%,rgba(5,4,15,.55),rgba(5,4,15,.9))}
 #menu.intro #mainNav .vbtn:nth-child(4){animation-delay:2.55s}
+/* 预载：星光沿着一条细线聚拢，下完后请玩家点一下开始（同时解锁声音） */
+#boot{position:fixed;inset:0;z-index:80;background:var(--night);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:0 16px;transition:opacity .8s ease;cursor:default}
+#boot.ready{cursor:pointer}
+#boot[hidden]{display:none}
+#boot.gone{opacity:0;pointer-events:none}
+#boot .bstar{width:min(30px,7vh);height:auto;fill:var(--gold);filter:drop-shadow(0 0 6px rgba(232,201,142,.55));animation:bootSpin 6s linear infinite,bootBreath 2.4s ease-in-out infinite}
+#boot .bbar{position:relative;width:min(200px,46vw);height:1px;background:rgba(232,201,142,.16)}
+#boot .bbar i{position:absolute;inset:0;background:linear-gradient(90deg,rgba(232,201,142,.35),var(--gold));transform-origin:0 50%;transform:scaleX(.04);transition:transform .35s ease-out;box-shadow:0 0 6px rgba(232,201,142,.6)}
+#boot.ready .bbar{opacity:0;transition:opacity 1s ease .3s}
+#boot .bmsg{font-family:var(--title);font-size:13px;letter-spacing:.5em;padding-left:.5em;color:rgba(239,232,220,.55);min-height:1.4em}
+#boot.ready .bmsg{color:var(--bone);animation:bootBreath 2.6s ease-in-out infinite}
+@keyframes bootSpin{to{transform:rotate(360deg)}}
+@keyframes bootBreath{0%,100%{opacity:.55}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){#boot *{animation:none!important}}
 /* 开场：耳机提示 → Hug 工作室标志 → 主界面 */
 #splash{position:fixed;inset:0;z-index:70;background:var(--night);transition:opacity 1.3s ease;cursor:pointer}
 #splash.done{opacity:0;pointer-events:none}
@@ -425,6 +439,8 @@ body:has(#end.on) #mapBtn,body:has(#fin.on) #mapBtn{opacity:0!important;pointer-
 body.touchdev #toast{max-width:calc(100% - 2*max(120px,calc(15*var(--vw))));text-wrap:balance;bottom:max(14px,calc(5*var(--vh)))}
 body.touchdev #prompt{font-size:13px}
 #touchTip i{font-style:normal;white-space:nowrap;display:inline-block}
+#touchTip{opacity:0;transition:opacity 1.2s ease}
+body.tipOn:not(.cine):not(.paused) #touchTip{opacity:1}
 /* 过场（上下黑边）时：摇杆和提示让开，字幕抬到黑边之上；结算时字幕不压在卡片上 */
 body.cine #touchTip,body.cine #stick2 span{opacity:0}
 body.cine #toast{bottom:calc(9*var(--vh) + 10px)}
@@ -434,6 +450,7 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
 </style>
 
 <canvas id="c" aria-label="辰星夜 游戏画面"></canvas>
+<div id="boot" aria-live="polite"><svg class="bstar" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 8 L57 43 L92 50 L57 57 L50 92 L43 57 L8 50 L43 43 Z"/></svg><div class="bbar"><i id="bootFill"></i></div><div class="bmsg" id="bootMsg">星光聚拢中</div></div>
 <div id="ptr" aria-hidden="true"></div>
 <div id="oops" hidden style="position:fixed;left:16px;right:16px;bottom:16px;z-index:99;padding:10px 14px;border:1px solid #6a5a3a;border-radius:4px;background:#0b0a18;color:#e8dcc0;font:12px/1.6 monospace;white-space:pre-wrap"></div>
 <script>addEventListener('error',function(e){var o=document.getElementById('oops');if(!o)return;o.hidden=false;o.textContent='出错了，请把这段文字发给我：\n'+(e.message||e)+(e.filename?'\n'+e.lineno+':'+e.colno:'');});</script>
