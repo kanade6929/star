@@ -57,6 +57,19 @@ export function createAudio(onToggle) {
   const BGM = { 0: 'audio/menu.mp3', 1: 'audio/star.mp3', 2: 'audio/moon.mp3', 3: 'audio/sun.mp3' };
   const XF = 4, FADE = 3, failed = {};
   let timerB = null;
+  // 曲子在后台整首下载进内存（blob），之后进关卡、回主界面、循环接头都从内存播，手机上不再等网络
+  // 还没下完的那首先边下边播；一次只下一首，按「马上要用」的顺序排队
+  const blobUrl = {}; let pq = [], busy = false;
+  function prefetch(moods) {
+    const us = moods.map(m => BGM[m]).filter(u => u && !blobUrl[u]);
+    pq = us.concat(pq.filter(u => !us.includes(u))); pump();
+  }
+  function pump() {
+    if (busy) return; const u = pq.shift(); if (!u) return; if (blobUrl[u]) { pump(); return; }
+    busy = true;
+    fetch(u).then(r => r.ok ? r.blob() : Promise.reject(r.status)).then(b => { blobUrl[u] = URL.createObjectURL(b); }).catch(() => {}).then(() => { busy = false; pump(); });
+  }
+  let retryT = 0;
   const pool = [0, 1, 2].map(() => { const el = new Audio(); el.preload = 'auto'; el.src = 'data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA//NwwAAAAAAAAAAAAEluZm8AAAAPAAAABgAAAykAWlpaWlpaWlpaWlpaWlpaWnt7e3t7e3t7e3t7e3t7e3t7nJycnJycnJycnJycnJycnL29vb29vb29vb29vb29vb293t7e3t7e3t7e3t7e3t7e3t7/////////////////////AAAAAExhdmM2MC4zMQAAAAAAAAAAAAAAACQCowAAAAAAAAMpso+sIAAAAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//NCxKMAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//NAxKQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVX/80LEowAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVU='; return { el, g: null, url: null, ending: 0 }; });
   // 在用户操作里调用：让每个播放器都"解锁"（手机浏览器要求），被浏览器拦下的背景音乐也在这时补播
   function unlock() { pool.forEach(v => { if (v.ending) return; const p = v.el.play(); if (p && p.then) p.then(() => { if (!v.url) v.el.pause(); }).catch(() => {}); }); }
@@ -68,7 +81,8 @@ export function createAudio(onToggle) {
     if (!v.g) { try { const n = ac.createMediaElementSource(v.el); v.g = ac.createGain(); n.connect(v.g); v.g.connect(bgm); } catch (e) { return null; } }
     v.g.gain.cancelScheduledValues(ac.currentTime); v.g.gain.setValueAtTime(0, ac.currentTime);
     v.url = url; v.ending = 0; v.next = false;
-    if (v.el.getAttribute('src') !== url) v.el.src = url; else v.el.currentTime = 0;
+    const src = blobUrl[url] || url;
+    if (v.el.getAttribute('src') !== src) v.el.src = src; else v.el.currentTime = 0;
     v.el.onerror = () => { if (v.url === url) { failed[url] = true; v.url = null; } };
     const p = v.el.play(); if (p && p.catch) p.catch(() => {});
     if (v.el.readyState >= 3) fadeTo(v, 1, sec);
@@ -82,6 +96,12 @@ export function createAudio(onToggle) {
     const live = pool.filter(v => v.url && !v.ending);
     live.forEach(v => { if (v.url !== url) release(v, FADE); });
     const cur = live.find(v => v.url === url);
+    if (cur && !cur.next && !cur.ending) {
+      // 网络慢、还没开始出声，而整首已经下进内存了：换成内存里的那份，马上开始
+      if (cur.el.readyState < 3 && blobUrl[url] && cur.el.getAttribute('src') !== blobUrl[url]) { cur.el.src = blobUrl[url]; const p = cur.el.play(); if (p && p.catch) p.catch(() => {}); }
+      // 手机上 play() 被浏览器拦下（还没点过屏幕）时不会自己再试：每秒补一次，点过屏幕后立刻就能响
+      else if (cur.el.paused && performance.now() > retryT) { retryT = performance.now() + 1000; const p = cur.el.play(); if (p && p.catch) p.catch(() => {}); }
+    }
     if (url && !cur) startVoice(url, FADE);
     else if (cur && !cur.next && cur.el.duration && cur.el.duration - cur.el.currentTime < XF + .3) { cur.next = true; release(cur, XF); startVoice(url, XF); }
   }
@@ -241,8 +261,8 @@ export function createAudio(onToggle) {
     }
   }
   return {
-    init, note, setHidden,
-    get running() { return !!ac && ac.state === 'running' && pool.some(v => v.url && !v.el.paused); }, _dbg: () => ({ ac: ac && ac.state, hidden, playing: pool.filter(v => !v.el.paused).map(v => v.url), samples: Object.keys(smp), chord: chordNow(), t: (pool.find(v => v.url === BGM[mood] && !v.ending) || { el: {} }).el.currentTime }), _nodes: () => ({ ac, master, bgm }),
+    init, note, setHidden, prefetch,
+    get running() { return !!ac && ac.state === 'running' && pool.some(v => v.url && !v.el.paused); }, _dbg: () => ({ ac: ac && ac.state, hidden, blobs: Object.keys(blobUrl), vs: pool.map(v => [v.url, (v.el.getAttribute('src') || '').slice(0, 5), v.el.readyState, +v.el.currentTime.toFixed(1), v.el.paused ? 1 : 0, v.g ? +v.g.gain.value.toFixed(2) : '-', v.ending ? 1 : 0]), playing: pool.filter(v => !v.el.paused).map(v => v.url), samples: Object.keys(smp), chord: chordNow(), t: (pool.find(v => v.url === BGM[mood] && !v.ending) || { el: {} }).el.currentTime }), _nodes: () => ({ ac, master, bgm }),
     setMood(m) { if (m === mood) return; mood = m; barN = 0; if (ac) bgmTick(); },
     toggle() { on = !on; if (master) master.gain.setTargetAtTime(on ? .9 : 0, ac.currentTime, .2); onToggle && onToggle(on); },
     get on() { return on; },

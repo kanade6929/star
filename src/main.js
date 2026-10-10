@@ -256,7 +256,7 @@ function cine(steps) { S.cine = { steps, i: 0, t: 0, started: false }; setBars(t
 let LV = null, root = null;
 const ctx = { THREE, camQuat, P, orb, orbNear, S, fx, AU, toast, holdToast, cine, shake, flash, hemi, moon, renderer, pipe, get T() { return T; }, updateHud };
 const BUILDERS = { 1: buildStar, 2: buildMoon, 3: buildSun };
-function loadLevel(n) {
+function loadLevel(n, keepMood) {
   if (root) disposeGroup(root);
   virt = null;
   fx.clear();
@@ -272,7 +272,7 @@ function loadLevel(n) {
   pipe.mirrorY = LV.mirrorY; pipe.hideInReflection = LV.hideInReflection || []; pipe.resetReflection();
   document.querySelector('#pause .proman').textContent = `${LV.roman}　${LV.name}`;
   const ch = $('chapter'); ch.querySelector('.num').textContent = LV.roman; ch.querySelector('.name').textContent = LV.name; ch.querySelector('.line').textContent = LV.motto;
-  AU.setMood(LV.mood);
+  if (!keepMood) AU.setMood(LV.mood);
   needWarm = 2;
 }
 
@@ -832,8 +832,11 @@ function hideLoader() {
   S.loading = false; S.fadeTo = 0; loadDone = null;
 }
 function begin(n = 1) {
+  AU.prefetch([n]);
   AU.init(); endSplash(true);
   if (S.loading) return;
+  // 这一幕的曲子在黑屏加载时就淡入，场景还没建好音乐已经在了
+  AU.setMood(n);
   S.loading = true; S.fadeTo = 1; showLoader(n);
   const t0 = performance.now();
   setTimeout(() => {
@@ -876,9 +879,11 @@ function toDream() {
 }
 function toMenu() {
   S.fadeTo = 1;
+  // 主界面的曲子在画面淡出时就开始交叉淡入，不等场景重建完
+  AU.setMood(0);
   setTimeout(() => {
     pauseEl.classList.add('off'); document.body.classList.remove('paused', 'playing'); $('end').classList.remove('on'); $('hud').classList.remove('on'); $('skip').classList.remove('on');
-    if (S.level !== 1) loadLevel(1);
+    if (S.level !== 1) loadLevel(1, true);
     resetLevel(); toDream(); S.mode = 'menu'; S.fadeTo = 0; menu.classList.remove('hide'); refreshMenu(); showView('main'); AU.setMood(0); setBars(false);
   }, 600);
 }
@@ -937,6 +942,8 @@ function perfTick(now, ms, sh) {
   P_.fps = P_.n / sec; P_.n = 0; P_.ms = 0; P_.sh = 0; P_.calls = 0; P_.t0 = now;
 }
 loadLevel(1); AU.setMood(0);
+// 背景音乐提前整首下载：先主界面那首，再是下一幕要用的，最后其余几首
+AU.prefetch([0, nextLevel(), 1, 2, 3]);
 // 进主菜单就试着放背景音乐；浏览器不允许自动播放时，等第一次点击或按键再响
 AU.init(); setTimeout(() => { if (AU.running && !woke) { woke = true; menu.classList.add('awake'); } }, 1500);
 // 开场：先提示戴耳机，再是慢慢亮起的 Hug 工作室标志，然后才进主界面。点一下可以跳过
