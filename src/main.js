@@ -805,7 +805,7 @@ const supBox = $('supBox'), supOn = () => !supBox.classList.contains('off');
 function openSup() { supBox.classList.remove('off'); AU.hover(6); setTimeout(() => $('supDone').focus({ preventScroll: true }), 250); }
 function closeSup() {
   if (!supOn()) return; supBox.classList.add('off'); AU.back();
-  if (!prismOpen) { prismOpen = true; try { localStorage.setItem(UNLOCK_KEY, 'prism'); } catch (e) {} toast('谢谢你，星之彩棱为你点亮了', 3.5); setSkin('prism', 1); }
+  if (!prismOpen) { prismOpen = true; try { localStorage.setItem(UNLOCK_KEY, 'prism'); } catch (e) {} toast('感谢支持，我会继续努力创作', 3.5); setSkin('prism', 1); }
   setTimeout(() => $('supBtn').focus({ preventScroll: true }), 50);
 }
 $('supBtn').addEventListener('click', openSup);
