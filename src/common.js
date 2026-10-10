@@ -30,6 +30,7 @@ export function reflective(mat, k = .4, distort = 1) {
       .replace('#include <opaque_fragment>', `{
         vec2 ruv = vReflPos.xy / vReflPos.w + normal.xy * .045 * reflDist;
         vec3 rc = texture2D(tReflect, ruv).rgb;
+        rc /= 1. + dot(rc, vec3(.3, .5, .2)) * 1.6;   // 压住倒影里的高光（光点），暗处几乎不变
         float edge = smoothstep(0., .04, ruv.x) * smoothstep(1., .96, ruv.x) * smoothstep(0., .04, ruv.y) * smoothstep(1., .96, ruv.y);
         outgoingLight += rc * reflK * (1. - roughnessFactor * .85) * edge;
       }

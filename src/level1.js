@@ -228,7 +228,7 @@ export function buildStar(ctx) {
     const arch = new THREE.Mesh(new THREE.TorusGeometry(1.75, .07, 6, 40, Math.PI), goldM); arch.rotation.y = Math.PI / 2; arch.position.set(x - .05, 0, z0 + len / 2); root.add(arch);
     const archGlow = new THREE.MeshBasicMaterial({ color: 0xffd89a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
     const glow = new THREE.Mesh(new THREE.TorusGeometry(1.75, .12, 6, 40, Math.PI), archGlow); glow.rotation.y = Math.PI / 2; glow.position.copy(arch.position); glow.layers.set(LAYER_FX); root.add(glow);
-    L.gate = { x, z0, z1, m, open: 0, opening: false, gears, glow };
+    L.gate = { x, z0, z1, m, open: 0, opening: false, gears, glow, arch };
   };
 
   /* ================= 塔罗牌 ================= */
@@ -518,6 +518,7 @@ export function buildStar(ctx) {
   const INLET = [79.25, 80.75, 5.85];               // 女神像前的跃池口：游到这里的星鱼会跃回池里
   const fishM = new THREE.MeshStandardMaterial({ color: 0xffc070, roughness: .4, emissive: 0xff9a3a, emissiveIntensity: .55 });
   const finM = new THREE.MeshBasicMaterial({ color: 0xffd890, transparent: true, opacity: .8, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
+  const FISH_GAP = .52;   // 两条鱼中心的最小距离（鱼身长约 .48）
   const fishGeo = new THREE.SphereGeometry(.15, 8, 6), tailGeo = new THREE.PlaneGeometry(.34, .28); tailGeo.translate(0, -.14, 0);
   const HOMES = [[73.5, 6.3], [74.6, 6.9], [75.3, 5.9], [79.7, 10.6], [80.7, 11.1], [81.4, 10.3], [85.3, 6.4], [86.0, 7.5], [85.1, 7.9]];
   const fishes = HOMES.map(([x, z], i) => {
@@ -569,13 +570,12 @@ export function buildStar(ctx) {
     best.state = 'fly'; best.anchor = null; a.isle = best;
     best.fly = { t: 0, a, from: [best.x, best.y, best.z], ctrl: planFlight(best, a), dur: 1.4 + Math.min(1.2, bd / 8) };
     AU.ghost(); fx.ring(a.cx, .02, a.cz, 0xffd89a, 2.6, .9);
-    if (!S.hints.summon) { S.hints.summon = 1; toast('星光牵来了一座浮岛。站着人的浮岛不会被牵走', 4); }
+    if (!S.hints.summon) { S.hints.summon = 1; }
   }
   function newStar(a) {
     S.dipper = anchors.filter(q => q.visited).length;
     fx.sigil(a.cx, .04, a.cz, 0xffd89a, 'star', 2.6, 1.8); AU.lamp(S.dipper % 3);
     if (S.dipper === 7) completeDipper();
-    else toast(`北斗　${S.dipper} / 7`, 2.2);
     ctx.updateHud();
   }
   function completeDipper() {
@@ -641,7 +641,7 @@ export function buildStar(ctx) {
     cine([
       { dur: 1.6, focus: [80, 4.5], start() { AU.stone(); fx.sigil(80, .4, 3, 0xffd89a, 'star', 3.4, 2); flash(.08); toast('女神的水瓶空了。瓶里的九尾星鱼，散落在星海里', 4); } },
       { dur: 2.4, focus: [80, 8.5], start() { fishes.forEach((f, i) => setTimeout(() => fx.burst(f.x, FISH_Y + .2, f.z, 8, { c: GOLD, sp: .5, life: .7 }), i * 120)); } },
-      { dur: 1.2, focus: [80, 6.5], start() { S.fishOn = true; toast('星鱼追着光游。把星光停在它们旁边，再慢慢引回女神像前的池口', 6); } }
+      { dur: 1.2, focus: [80, 6.5], start() { S.fishOn = true; } }
     ]);
   }
   // 九尾星鱼归池：升上夜空化成宝瓶座 → 星线一条条连上 → 星座降到海面变成光桥 → 中心升起星灯
@@ -663,7 +663,7 @@ export function buildStar(ctx) {
         run(k) { edges.forEach((e, i) => { if (!e.drawn && k >= i / edges.length) { e.drawn = true; e.k = 0; e.beam.visible = true; AU.hover(i); } }); } },
       { dur: 2.6, focus: [80, 8.5], start() { AU.stone(); plankG.visible = true; },
         run(k, dt) { C.desc = k; shake(.04, .15); if (Math.random() < dt * 40) { const n = nodes[Math.random() * nodes.length | 0]; fx.emit(n.x + (Math.random() - .5), SY * (1 - k) + .2, n.z + (Math.random() - .5), { vy: -.5, life: .9, c: GOLD, tw: 8 }); } },
-        end() { C.desc = 1; AU.stone(); shake(.1, .5); nodes.forEach(n => { n.star.visible = false; n.halo.visible = false; fx.bloom(n.x, .3, n.z, 14, GOLD, { w: 1.2, vr: 1, up: .4 }); }); fx.ring(78.5, .04, 8.5, 0xffd89a, 6, 1.4); toast('星座落到星海上，化成了光桥', 3.4); } },
+        end() { C.desc = 1; AU.stone(); shake(.1, .5); nodes.forEach(n => { n.star.visible = false; n.halo.visible = false; fx.bloom(n.x, .3, n.z, 14, GOLD, { w: 1.2, vr: 1, up: .4 }); }); fx.ring(78.5, .04, 8.5, 0xffd89a, 6, 1.4); } },
       { dur: 1.9, focus: [78.5, 8.5], start() { showConstLamp(true); AU.stone(); }, run(k) { C.rise = k; }, end() { C.rise = 1; lightLamp(lamps.indexOf(constLamp)); } },
       { dur: 1.2, focus: [80, 8] }
     ]);
@@ -674,6 +674,8 @@ export function buildStar(ctx) {
     const tx = clamp(rx, SEA[0], SEA[1]), tz = clamp(rz, SEA[2], SEA[3]);
     const over = Math.hypot(rx - tx, rz - tz) < 1.6;   // 光离海太远（在岸上很里面）就不算
     let nFollow = 0;
+    // 跟随的鱼按名次排成一圈（多了排第二圈），不再挤到同一个点上
+    const fol = fishes.filter(f => f.st === 'follow'), nF = fol.length;
     fishes.forEach((f, i) => {
       if (f.st === 'rise' || f.st === 'star') return;
       if (f.st === 'leap') {
@@ -688,19 +690,23 @@ export function buildStar(ctx) {
         const d = Math.hypot(tx - f.x, tz - f.z), sees = S.fishOn && over && seeLight(f.x, f.z, tx, tz);
         if (f.st === 'idle' && sees && d < 3.3) {
           f.st = 'follow'; f.blind = 0; AU.hover(i); fx.burst(f.x, FISH_Y + .2, f.z, 8, { c: GOLD, sp: .6, life: .6 });
-          if (!S.hints.fish) { S.hints.fish = 1; toast('星鱼跟上来了。慢一点，光走太快它们会跟丢', 3.6); }
+          if (!S.hints.fish) { S.hints.fish = 1; }
         } else if (f.st === 'follow') {
           f.blind = sees ? 0 : f.blind + dt;
           if (d > 4.4 || f.blind > .5) {
             f.st = 'idle'; f.home = [f.x, f.z]; fx.burst(f.x, FISH_Y + .2, f.z, 6, { c: [.6, .6, .8], sp: .4, life: .6 });
-            if (f.blind > .5 && !S.hints.reef) { S.hints.reef = 1; toast('礁石挡住了星光，星鱼看不见光了', 3.4); }
-            else if (d > 4.4 && !S.hints.lost) { S.hints.lost = 1; toast('星光走得太快，星鱼跟丢了', 3); }
+            if (f.blind > .5 && !S.hints.reef) { S.hints.reef = 1; }
+            else if (d > 4.4 && !S.hints.lost) { S.hints.lost = 1; }
           }
         }
         let wx, wz, sp;
         if (f.st === 'follow') {
           nFollow++;
-          const a = T * 1.1 + i * 2.1; wx = clamp(tx + Math.cos(a) * .75, SEA[0], SEA[1]); wz = clamp(tz + Math.sin(a) * .55, SEA[2], SEA[3]);
+          let k2 = fol.indexOf(f); if (k2 < 0) k2 = nF;
+          const ring = k2 < 5 ? 0 : 1, nIn = ring ? Math.max(1, Math.max(nF, k2 + 1) - 5) : Math.min(5, Math.max(nF, k2 + 1));
+          const slot = ring ? k2 - 5 : k2, rr = ring ? 1.35 : (nIn < 2 ? .7 : .8);
+          const a = T * (ring ? -.7 : 1.1) + slot / nIn * 6.2832 + ring * .6;
+          wx = clamp(tx + Math.cos(a) * rr, SEA[0], SEA[1]); wz = clamp(tz + Math.sin(a) * rr * .72, SEA[2], SEA[3]);
           sp = 2.0;
         } else { wx = f.home[0] + Math.cos(T * .45 + f.ph) * .7; wz = f.home[1] + Math.sin(T * .6 + f.ph) * .45; sp = .6; }
         const dx = wx - f.x, dz = wz - f.z, dd = Math.hypot(dx, dz) || 1, v = Math.min(sp, dd * 2.2);
@@ -714,7 +720,6 @@ export function buildStar(ctx) {
         if (f.st === 'follow' && f.x > INLET[0] && f.x < INLET[1] && f.z < INLET[2]) {
           f.st = 'leap'; f.t = 0; f.lx = f.x; f.lz = f.z; f.hx = 80 + ((S.fishHome % 3) - 1) * .7; f.hz = 2.8;
           S.fishHome++; AU.lamp(S.fishHome % 3); fx.bloom(f.x, 0, f.z, 18, GOLD, { w: 1, vr: .9, up: .6 }); fx.ring(80, FISH_Y + .03, 5.75, 0xffd89a, 2, .8);
-          toast(S.fishHome === 9 ? '九尾星鱼都回来了' : `星鱼归池　${S.fishHome} / 9`, 2.4);
           if (S.fishHome === 9) C.finT = 1.2;
         }
       }
@@ -723,6 +728,16 @@ export function buildStar(ctx) {
       f.tail.rotation.y = Math.sin(T * (f.st === 'follow' ? 14 : 7) + f.ph) * .55;
       if (f.st === 'follow' && Math.random() < dt * 10) fx.emit(f.x, f.y + .05, f.z, { vy: .15, life: .7, c: GOLD, tw: 6, a: .8 });
     });
+    // 鱼有体积：游动中的鱼两两之间保持距离，互相推开，不会叠在一起穿模
+    const sw = fishes.filter(f => f.st === 'follow' || f.st === 'idle');
+    for (let it = 0; it < 2; it++) for (let a = 0; a < sw.length; a++) for (let b = a + 1; b < sw.length; b++) {
+      const A = sw[a], B = sw[b], dx = B.x - A.x, dz = B.z - A.z, d = Math.hypot(dx, dz), m = FISH_GAP;
+      if (d < m) {
+        const ux = d > 1e-4 ? dx / d : Math.cos(a + b), uz = d > 1e-4 ? dz / d : Math.sin(a + b), push = (m - d) / 2;
+        A.x -= ux * push; A.z -= uz * push; B.x += ux * push; B.z += uz * push;
+      }
+    }
+    sw.forEach(f => { REEF.forEach(r => { const ex = f.x - r.x, ez = f.z - r.z, e = Math.hypot(ex, ez), m = r.r + .17; if (e < m) { f.x = r.x + ex / (e || 1) * m; f.z = r.z + ez / (e || 1) * m; } }); f.x = clamp(f.x, SEA[0], SEA[1]); f.z = clamp(f.z, SEA[2], SEA[3]); f.g.position.set(f.x, f.y, f.z); });
     S.nFollow = nFollow;
     inletM.opacity = S.fishOn && S.fishHome < 9 ? .2 + (nFollow ? .25 : 0) + Math.sin(T * 3) * .06 : 0;
     inletRing.scale.setScalar(1 + Math.sin(T * 3) * .05);
@@ -809,7 +824,8 @@ export function buildStar(ctx) {
     flash(.25); shake(.05, .3);
     B.lamps[i].on = false;
     alignRing(i);
-    toast(S.lampsLit === 5 ? '五盏星灯俱明。去最东边的星之泉吧' : l === polarisLamp ? '北斗指向北极星。第四盏星灯亮了' : l === constLamp ? '宝瓶座的中心升起了第五盏星灯' : i === 0 ? '第一盏星灯。虚空下，巨大的星仪转动了一环' : `星灯　${S.lampsLit} / 5`, 3.8);
+    // 只在大的节点给一句氛围文字；普通的星灯只有光和声音
+    const lampLine = S.lampsLit === 5 ? '五盏星灯俱明' : l === polarisLamp ? '北斗指向北极星' : l === constLamp ? '宝瓶座的中心，升起一盏星灯' : i === 0 ? '虚空下，巨大的星仪转动了一环' : ''; toast(lampLine ? `${lampLine}　${S.lampsLit} / 5` : `星灯　${S.lampsLit} / 5`, lampLine ? 3.6 : 2.4);
     ctx.updateHud();
   }
 
@@ -897,6 +913,8 @@ export function buildStar(ctx) {
       if (pv < 1 && gate.open >= 1) { shake(.1, .4); AU.stone(); }
     }
     gate.m.position.y = WALL_H / 2 - easeIn(gate.open) * 1.8;
+    // 金色拱框跟着石门一起沉进地里：门开了以后人走过门口，不会被拱框「穿」过身体
+    gate.arch.position.y = gate.glow.position.y = -easeIn(gate.open) * 1.95;
     // 星仪：未点亮的环随意倾斜着慢转；点亮后沉重地归位成水平
     rings.forEach((R, i) => {
       if (R.aligning) R.align = Math.min(1, (T - R.t0) / 2.4);
@@ -932,12 +950,11 @@ export function buildStar(ctx) {
     const h = S.hints, t = ctx.S.t;
     if (!h.move && t > .8) { h.move = 1; toast('夜色很深。移动鼠标，星光会跟着你', 4.5); }
     if (!h.lamp && Math.hypot(P.x - lamps[0].x, P.z - lamps[0].z) < 3.2 && !lamps[0].lit) { h.lamp = 1; toast('把星光引到灯碗上，走近按 E 点燃', 4); }
-    if (!h.void && P.x > 10.5) { h.void = 1; toast('虚空之上，有些路只在星光里显现', 4); }
-    if (!h.c && P.x > 25) { h.c = 1; toast('石碑静静立着。地上的星纹，在等它的影子', 4.2); }
-    if (!h.d && P.x > 37.2) { h.d = 1; toast('暗厅。只有星光照到的地方，才看得见', 4); }
-    if (!h.f && P.x > 49.6) { h.f = 1; toast('七星浮岛。把星光停在空着的锚星上，最近的浮岛会被牵过来', 5); }
     if (!S.waking && P.x > 70.6) wakeConst();
-    if (!h.e && P.x > 88.5) { h.e = 1; toast('星之泉。祭坛静候', 3.6); }
+    // 进入区域：有特色的地方才显示地名和一句氛围话
+    if (!h.d && P.x > 37.2) { h.d = 1; toast('暗厅。黑暗里，有东西在等光', 3.8); }
+    if (!h.f && P.x > 49.6) { h.f = 1; toast('七星浮岛。七座岛，在星海上慢慢漂', 3.8); }
+    if (!h.e && P.x > 88.5) { h.e = 1; toast('星之泉。泉水记得每一颗星', 3.8); }
     // 日晷：光、石碑、星纹三点一线时，影子落在星纹上
     if (!rune.solved) {
       const v1x = rune.x - ob.x, v1z = rune.z - ob.z, v2x = ob.x - orb.x, v2z = ob.z - orb.z;
@@ -961,7 +978,7 @@ export function buildStar(ctx) {
   function interact(n) {
     if (n.type === 'lamp') {
       const l = lamps[n.i];
-      if (ctx.orbNear(l.x, l.z, 1.28) > 1.7) { toast('把星光引到灯碗上，再点燃它', 2.6); AU.wrong(); return; }
+      if (ctx.orbNear(l.x, l.z, 1.28) > 1.7) { if (!S.lampsLit) toast('灯碗里还没有星光', 2.6); AU.wrong(); fx.burst(l.x, 1, l.z, 8, { c: [1, .7, .6], sp: .6, life: .6 }); return; }
       lightLamp(n.i);
     } else if (n.type === 'card') {
       card.taken = true; S.gotCard = true; AU.card();
@@ -1002,26 +1019,27 @@ export function buildStar(ctx) {
     return e > 11.5;
   }
 
+  // 停留太久：第一句只给意象，第二句只指方向
   function idle() {
-    if (!lamps[0].lit) return ['灯碗在等星光。把光点移到灯上，走近按 E', '左上方的小广场有一盏星灯：先用鼠标把光点放到灯碗上，再走近按 E'];
-    if (P.x < 23.5 && !rune.solved) return ['虚空上的路，只在星光照到的地方显现', '让光点走在你前面，照亮脚下的星晶石，再踩上去。掉下去也没关系'];
-    if (!rune.solved) return ['石碑的影子，要落在地上的星纹里', '把光点移到石碑的另一侧：光点、石碑、星纹连成一线，并保持一会儿'];
-    if (!lamps[1].lit) return ['日晷庭的角落里，还有一盏星灯', '日晷庭左上角的星灯还暗着'];
-    if (P.x < 36.5) return ['石门已经打开了，往东走', '穿过右边的石门，进入暗厅'];
-    if (!lamps[2].lit) return ['暗厅里也有一盏灯，用星光去找它', '暗厅左下方有一盏星灯'];
-    if (!card.taken && P.x < 49.5) return ['遗失的牌藏在暗处，只在星光里现形', '把光点带到暗厅的右下角，牌会显出来'];
+    if (!lamps[0].lit) return ['灯碗在等星光', '左上方的小广场，有一盏暗着的星灯'];
+    if (P.x < 23.5 && !rune.solved) return ['虚空上的路，只在星光里显现', '让星光走在你前面。掉下去也没关系'];
+    if (!rune.solved) return ['地上的星纹，在等一片影子', '星光、石碑、星纹'];
+    if (!lamps[1].lit) return ['日晷庭的角落里，还有一盏星灯', '去左上角看看'];
+    if (P.x < 36.5) return ['石门已经打开了', '往东走'];
+    if (!lamps[2].lit) return ['暗厅里也有一盏灯', '用星光去找它'];
+    if (!card.taken && P.x < 49.5) return ['暗处好像落着什么', '暗厅的角落，还没被星光照过'];
     if (!S.dipDone) {
-      if (P.x < 67) return ['浮岛只会飞向光点停留的、空着的锚星；站着人的那座不会动', '把光点停在前方空着的锚星上一会儿，等身后的浮岛飞过来再走上去。北斗的七颗星，每颗都要接一次浮岛'];
-      return ['北斗还没连全，回头看看哪颗星还暗着', '回到浮岛上，把浮岛召到还暗着的锚星上（北斗的斗口在南边）'];
+      if (P.x < 67) return ['浮岛追着星光。站着人的那座，不会动', '前方空着的锚星，在等一座浮岛'];
+      return ['北斗还没连全', '回头看看，哪颗星还暗着'];
     }
-    if (P.x < 70.5) return ['北斗指向了北极星。往东走，去宝瓶星海', '从浮岛东边的观星台继续往东'];
+    if (P.x < 70.5) return ['北斗指向了北极星', '往东，去宝瓶星海'];
     if (!C.done) {
-      if (S.nFollow) return ['慢慢引，别让礁石挡在星鱼和光之间', '把光点一点点往女神像前那圈金色池口挪，绕开礁石；光走太快或被礁石挡住，星鱼就会停下'];
-      return [`星鱼喜欢光。还有 ${9 - S.fishHome} 尾没回池`, '星鱼分在三处：西边礁湾、南边礁弧后面、东边礁湾。把光点停到它们旁边，等它们游过来，再沿着礁石的缺口引到女神像前的池口'];
+      if (S.nFollow) return ['慢一点，别让礁石挡在星鱼和光之间', '女神像前的池口，在等它们'];
+      return [`还有 ${9 - S.fishHome} 尾星鱼没回池`, '西边、南边、东边的礁石里，都还有星鱼'];
     }
-    if (!card.taken) return ['牌还落在暗厅里', '回到暗厅，把光点带到右下角，牌会显出来'];
-    if (P.x < 87.5) return ['光桥已经铺好了。走过星海去东边', '从女神像前的长廊走上光桥，经过最东边的星，去星之泉'];
-    return ['五盏星灯与牌都齐了。在祭坛前按 E', '走到星之泉中央的祭坛前按 E'];
+    if (!card.taken) return ['牌还落在暗厅里', '暗厅的角落，还没被星光照过'];
+    if (P.x < 87.5) return ['光桥已经铺好了', '走过星海，去东边'];
+    return ['五盏星灯与牌都齐了', '星之泉的祭坛，在等你'];
   }
 
   return {
@@ -1042,7 +1060,7 @@ export function buildStar(ctx) {
       return false;
     },
     ground(x, z) { const c = cell(Math.floor(x), Math.floor(z)); if (c === ' ') return onIsle(x, z) || onConst(x, z); return c !== '*'; },
-    onFall() { if (!S.hints.fall) { S.hints.fall = 1; setTimeout(() => toast('星光散了，脚下的路也就没了', 3.4), 900); } },
+    onFall() { if (!S.hints.fall) { S.hints.fall = 1; } },
     ambient(P) { return (P.x > 36.6 && P.x < 49.2) ? .1 : .24; },
     reset, update, logic, nearest, interact, finaleStart, finale, idle,
     finaleCam: () => [altar.x - 1, altar.z],

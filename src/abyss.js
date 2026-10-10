@@ -119,10 +119,11 @@ export function lakeMat() {
         // 岸上物体的倒影
         vec2 ruv = vR.xy / vR.w + vec2(rip * .012, 0.);
         vec3 refl = texture2D(tReflect, ruv).rgb * .8;
+        refl /= 1. + dot(refl, vec3(.3, .5, .2)) * 1.6;   // 倒影里的高光（光点）压一压
         // 光点在水里的倒影：竖长的光柱，被波纹打散
         vec2 od = p - orb.xz - vec2(0., orb.y * .9);
-        float ostreak = exp(-pow(od.x / (.32 + abs(od.y) * .12), 2.) - pow(od.y / 2.2, 2.)) * (.6 + .4 * band);
-        vec3 ocol = vec3(.62, .72, 1.) * ostreak * .55 * orbK;
+        float ostreak = exp(-pow(od.x / (.32 + abs(od.y) * .12), 2.) - pow(od.y / 1.6, 2.)) * (.6 + .4 * band);
+        vec3 ocol = vec3(.7, .66, .6) * ostreak * .2 * orbK;
         // 低雾
         float fog = smoothstep(.45, .9, n(p * .18 + vec2(time * .05, time * .02)));
         vec3 col = base + stars * .6 * (1. - trail * .7) + min(tr * trail, vec3(.75)) + mcol + refl * (1. - glow * .25) + ocol;

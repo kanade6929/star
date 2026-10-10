@@ -57,6 +57,49 @@ export function createAudio(onToggle) {
   const BGM = { 0: 'audio/menu.mp3', 1: 'audio/star.mp3', 2: 'audio/moon.mp3', 3: 'audio/sun.mp3' };
   const XF = 4, FADE = 3, failed = {};
   let timerB = null;
+  // 曲子在后台整首下载进内存（blob），之后进关卡、回主界面、循环接头都从内存播，手机上不再等网络
+  // 还没下完的那首先边下边播；一次只下一首，按「马上要用」的顺序排队
+  const blobUrl = {}; let pq = [], busy = false;
+  function prefetch(moods) {
+    const us = moods.map(m => BGM[m]).filter(u => u && !blobUrl[u]);
+    pq = us.concat(pq.filter(u => !us.includes(u))); pump();
+  }
+  function pump() {
+    if (busy) return; const u = pq.shift(); if (!u) return; if (blobUrl[u] || inflight[u]) { pump(); return; }
+    busy = true;
+    fetch(u).then(r => r.ok ? r.blob() : Promise.reject(r.status)).then(b => { blobUrl[u] = URL.createObjectURL(b); }).catch(() => {}).then(() => { busy = false; pump(); });
+  }
+  // 开场预载：主界面和下一幕的曲子、所有音效采样，带进度（0~1）回调。下完才进耳机提示，保证一开场就有音乐
+  const inflight = {}, sfxRaw = {};
+  function grab(u, onBytes, asBuf) {
+    return fetch(u).then(r => {
+      if (!r.ok) return Promise.reject(r.status);
+      const len = +r.headers.get('content-length') || 0;
+      if (!r.body || !r.body.getReader) return (asBuf ? r.arrayBuffer() : r.blob()).then(x => { onBytes(len, len); return x; });
+      const rd = r.body.getReader(), parts = []; let got = 0;
+      const step = () => rd.read().then(({ done, value }) => {
+        if (done) { const b = new Blob(parts, { type: 'audio/mpeg' }); return asBuf ? b.arrayBuffer() : b; }
+        parts.push(value); got += value.length; onBytes(got, len); return step();
+      });
+      return step();
+    });
+  }
+  function preload(moods, onProg) {
+    const jobs = [];
+    moods.map(m => BGM[m]).filter((u, i, a) => u && a.indexOf(u) === i && !blobUrl[u]).forEach(u => jobs.push({ u, est: 2.4e6 }));
+    Object.keys(SMP).forEach(k => { if (k !== 'lead' && !sfxRaw[k]) jobs.push({ u: `audio/sfx/${k}.mp3`, k, est: 1.6e5 }); });
+    jobs.forEach(j => { j.got = 0; j.len = j.est; });
+    const tell = () => { let a = 0, b = 0; jobs.forEach(j => { a += Math.min(j.got, j.len); b += j.len; }); onProg && onProg(b ? a / b : 1); };
+    tell();
+    return Promise.all(jobs.map(j => {
+      const p = grab(j.u, (got, len) => { j.got = got; if (len) j.len = len; tell(); }, !!j.k)
+        .then(x => { if (j.k) sfxRaw[j.k] = x; else blobUrl[j.u] = URL.createObjectURL(x); })
+        .catch(() => {}).then(() => { j.got = j.len; delete inflight[j.u]; tell(); });
+      if (!j.k) inflight[j.u] = p;
+      return p;
+    })).then(() => { pump(); });
+  }
+  let retryT = 0;
   const pool = [0, 1, 2].map(() => { const el = new Audio(); el.preload = 'auto'; el.src = 'data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA//NwwAAAAAAAAAAAAEluZm8AAAAPAAAABgAAAykAWlpaWlpaWlpaWlpaWlpaWnt7e3t7e3t7e3t7e3t7e3t7nJycnJycnJycnJycnJycnL29vb29vb29vb29vb29vb293t7e3t7e3t7e3t7e3t7e3t7/////////////////////AAAAAExhdmM2MC4zMQAAAAAAAAAAAAAAACQCowAAAAAAAAMpso+sIAAAAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//NCxKMAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVTEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//NAxKQAAANIAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVX/80LEowAAA0gAAAAAVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVU='; return { el, g: null, url: null, ending: 0 }; });
   // 在用户操作里调用：让每个播放器都"解锁"（手机浏览器要求），被浏览器拦下的背景音乐也在这时补播
   function unlock() { pool.forEach(v => { if (v.ending) return; const p = v.el.play(); if (p && p.then) p.then(() => { if (!v.url) v.el.pause(); }).catch(() => {}); }); }
@@ -68,7 +111,8 @@ export function createAudio(onToggle) {
     if (!v.g) { try { const n = ac.createMediaElementSource(v.el); v.g = ac.createGain(); n.connect(v.g); v.g.connect(bgm); } catch (e) { return null; } }
     v.g.gain.cancelScheduledValues(ac.currentTime); v.g.gain.setValueAtTime(0, ac.currentTime);
     v.url = url; v.ending = 0; v.next = false;
-    if (v.el.getAttribute('src') !== url) v.el.src = url; else v.el.currentTime = 0;
+    const src = blobUrl[url] || url;
+    if (v.el.getAttribute('src') !== src) v.el.src = src; else v.el.currentTime = 0;
     v.el.onerror = () => { if (v.url === url) { failed[url] = true; v.url = null; } };
     const p = v.el.play(); if (p && p.catch) p.catch(() => {});
     if (v.el.readyState >= 3) fadeTo(v, 1, sec);
@@ -82,6 +126,12 @@ export function createAudio(onToggle) {
     const live = pool.filter(v => v.url && !v.ending);
     live.forEach(v => { if (v.url !== url) release(v, FADE); });
     const cur = live.find(v => v.url === url);
+    if (cur && !cur.next && !cur.ending) {
+      // 网络慢、还没开始出声，而整首已经下进内存了：换成内存里的那份，马上开始
+      if (cur.el.readyState < 3 && blobUrl[url] && cur.el.getAttribute('src') !== blobUrl[url]) { cur.el.src = blobUrl[url]; const p = cur.el.play(); if (p && p.catch) p.catch(() => {}); }
+      // 手机上 play() 被浏览器拦下（还没点过屏幕）时不会自己再试：每秒补一次，点过屏幕后立刻就能响
+      else if (cur.el.paused && performance.now() > retryT) { retryT = performance.now() + 1000; const p = cur.el.play(); if (p && p.catch) p.catch(() => {}); }
+    }
     if (url && !cur) startVoice(url, FADE);
     else if (cur && !cur.next && cur.el.duration && cur.el.duration - cur.el.currentTime < XF + .3) { cur.next = true; release(cur, XF); startVoice(url, XF); }
   }
@@ -119,12 +169,35 @@ export function createAudio(onToggle) {
   const arp = (ns, v, gap, d = 0) => ns.forEach((n, i) => note(n, v, d + i * gap));
 
   // ── 合成音效 ──
-  // 四首配乐都落在 D 大调 / B 小调，共用同一组五声音阶 D E F# A B，音效只用这五个音，叠在任何一首上都和谐。
-  // 音色贴近配乐：玻璃质感的铃（FM）、温暖的长音铺底、低频下潜，不再用钢琴。
-  const PENT = [2, 4, 6, 9, 11];
-  // pent(deg, base)：从 base（必须是 D E F# A B 之一）起往上数 deg 个五声音阶音
-  const pent = (deg, base = 62) => { const b = Math.floor(base / 12) * 5 + PENT.indexOf(base % 12) + deg, o = Math.floor(b / 5); return 12 * o + PENT[b - o * 5]; };
-  const root = () => mood === 2 ? 59 : 62;
+  // 音效的音高跟着背景音乐"此刻"的和弦走：离线分析了四首曲子的和弦进行（每段几秒），
+  // 播放时读当前曲子的播放位置，取这一段和弦的五声音阶（大和弦用大调五声、小和弦用小调五声），
+  // 低音落在和弦根音上。四首都在 D 大调 / B 小调里，所以用到的音都不会出调。
+  // 和弦编号：0 D  1 Em  2 F#m  3 G  4 A  5 Bm；格式"秒:编号"
+  const CHORDS = {
+    menu: '0:0 8.5:3 15.5:5 20:2 21.5:3 27.5:0 35.5:3 43:5 46:0 49.5:3 56:1 59.5:4 62.5:2 66.5:5 70.5:3 72.5:1 76.5:4 83.5:3 87:4 89.5:2 93.5:5 96.5:1 101:2 104:3 107.5:0 108.5:4 110.5:3 114:4 117:2 121:5 123:4 125:1 131:4 137.5:0 140.5:4 144.5:0 150:2 152:3 155.5:5 158:1 162.5:4 169:0',
+    star: '0:4 2.5:0 9.5:3 14:0 15.5:5 16.5:0 21.5:3 25.5:0 33.5:5 36.5:3 40:5 45.5:3 52:0 59.5:3 64:1 67.5:2 69.5:0 71.5:3 77:0 83.5:3 89.5:0 96:3 102.5:5 105.5:4 108.5:3 115:5 118:2 121.5:1 123:0 124.5:4 132:0 140.5:4 145.5:5 151.5:3 158.5:0 165.5:4 171.5:5 174:0 177:3 184:0 191:3 196.5:0',
+    moon: '0:2 4:1 8:0 10.5:3 13.5:0 17:5 20.5:4 29:0 31.5:3 38.5:5 45:1 52.5:5 58.5:1 66.5:5 72.5:1 79:4 86.5:3 90.5:4 94:5 100:3 104.5:4 108:5 113:2 114.5:3 118:4 121.5:5 127:2 128.5:3 132:2 135.5:4 141.5:1 146:2 149:5 156:1 159.5:2 163:5 170:1 173:4 177.5:5 180.5:4 183:2 188:4 191:5 198.5:2 203:1 205.5:5',
+    sun: '0:4 4.5:0 11:5 14:0 16:1 27:4 31.5:0'
+  };
+  const CH_ROOT = [2, 4, 6, 7, 9, 11], CH_MIN = [0, 1, 1, 0, 0, 1];
+  const chordTab = {}; Object.keys(CHORDS).forEach(k => { chordTab[`audio/${k}.mp3`] = CHORDS[k].split(' ').map(x => x.split(':').map(Number)); });
+  // 当前和弦：正在放的那首曲子的位置；快换和弦时（0.35 秒内）提前用下一个，音效的尾巴才不会和新和弦打架
+  function chordNow() {
+    const url = BGM[mood], v = pool.find(x => x.url === url && !x.ending && !x.el.paused) || pool.find(x => x.url && !x.el.paused && !x.ending);
+    const tab = v && chordTab[v.url];
+    if (!tab || !bgmOn()) return mood === 2 ? 5 : 0;
+    const t = v.el.currentTime + .35; let c = tab[0][1]; for (const [s0, k] of tab) { if (s0 > t) break; c = k; }
+    return c;
+  }
+  let chSet = [2, 4, 6, 9, 11], chRoot = 2, chTri = [2, 6, 9];
+  // 每个音效开头调一次：刷新这一刻的音阶
+  function tune() { const c = chordNow(), r = CH_ROOT[c]; chRoot = r; chTri = [0, CH_MIN[c] ? 3 : 4, 7].map(x => (x + r) % 12); chSet = (CH_MIN[c] ? [0, 3, 5, 7, 10] : [0, 2, 4, 7, 9]).map(x => (x + r) % 12).sort((a, b) => a - b); }
+  // pent(deg, base)：从 base（不在音阶里就往下找最近的音阶音）起往上数 deg 个音阶音
+  const pent = (deg, base = 62) => { let m = base; while (!chSet.includes(((m % 12) + 12) % 12)) m--; for (let k = 0; k < deg; k++) { m++; while (!chSet.includes(m % 12)) m++; } return m; };
+  // ct(k, base)：从 base 往上数第 k 个和弦内音（三和弦 1-3-5），点灯这类要"落稳"的琶音用它
+  const ct = (k, base = 62) => { let m = base; while (!chTri.includes(((m % 12) + 12) % 12)) m--; for (let j = 0; j < k; j++) { m++; while (!chTri.includes(m % 12)) m++; } return m; };
+  // 和弦根音，落在 57–68 之间
+  const root = () => 57 + ((chRoot - 57) % 12 + 12) % 12;
   const hz = m => 440 * Math.pow(2, (m - 69) / 12);
   const live = () => ac && on && !hidden;
   function pan(node, p) { if (!ac.createStereoPanner) return node; const pn = ac.createStereoPanner(); pn.pan.value = clamp(p, -.6, .6); node.connect(pn); return pn; }
@@ -177,7 +250,7 @@ export function createAudio(onToggle) {
   function loadSamples() {
     Object.keys(SMP).forEach(k => {
       if (k === 'lead') return;
-      fetch(`audio/sfx/${k}.mp3`).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status))
+      (sfxRaw[k] ? Promise.resolve(sfxRaw[k].slice(0)) : fetch(`audio/sfx/${k}.mp3`).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)))
         .then(a => new Promise((ok, no) => { const q = ac.decodeAudioData(a, ok, no); if (q && q.catch) q.catch(no); })).then(b => { smp[k] = b; }).catch(() => {});
     });
   }
@@ -218,25 +291,25 @@ export function createAudio(onToggle) {
     }
   }
   return {
-    init, note, setHidden,
-    get running() { return !!ac && ac.state === 'running' && pool.some(v => v.url && !v.el.paused); }, _dbg: () => ({ ac: ac && ac.state, hidden, playing: pool.filter(v => !v.el.paused).map(v => v.url), samples: Object.keys(smp) }), _nodes: () => ({ ac, master, bgm }),
+    init, note, setHidden, prefetch, preload,
+    get running() { return !!ac && ac.state === 'running' && pool.some(v => v.url && !v.el.paused); }, _dbg: () => ({ ac: ac && ac.state, hidden, blobs: Object.keys(blobUrl), vs: pool.map(v => [v.url, (v.el.getAttribute('src') || '').slice(0, 5), v.el.readyState, +v.el.currentTime.toFixed(1), v.el.paused ? 1 : 0, v.g ? +v.g.gain.value.toFixed(2) : '-', v.ending ? 1 : 0]), playing: pool.filter(v => !v.el.paused).map(v => v.url), samples: Object.keys(smp), chord: chordNow(), t: (pool.find(v => v.url === BGM[mood] && !v.ending) || { el: {} }).el.currentTime }), _nodes: () => ({ ac, master, bgm }),
     setMood(m) { if (m === mood) return; mood = m; barN = 0; if (ac) bgmTick(); },
     toggle() { on = !on; if (master) master.gain.setTargetAtTime(on ? .9 : 0, ac.currentTime, .2); onToggle && onToggle(on); },
     get on() { return on; },
-    hover(i) { if (!throttle('h', 70)) return; const m = pent(7 + i % 5); inst('vibe', m, .2, 0, { dur: 1.3, lp: 7000 }) || bell(m, .05, 0, 1.1, .7); inst('glock', m + 12, .035, .01, { dur: .9, lp: 6000, wet: 2 }); },
-    deal() { slot('cards', 0, { v: .42, lp: 7500, wet: .5 }) || hiss(.05, 0, .7, 1800, 5000, 'bandpass', 1.2, .25); slot('cards', 1, { v: .3, when: .28, rate: 1.05, lp: 7000, wet: .5 }); harp([5, 6, 7, 8, 9].map(d => pent(d)), .3, .1, .11); inst('vibe', 50, .16, .05, { dur: 2.5 }); },
-    locked() { slot('latch', 0, { v: .32, rate: .75, lp: 2400, wet: .6 }); inst('vibe', pent(3, 50), .22, 0, { dur: .32, lp: 2500 }) || bell(pent(3, 50), .07, 0, .5, .3); inst('vibe', pent(1, 50), .18, .11, { dur: .36, lp: 2200 }); },
-    back() { inst('vibe', pent(9), .17, 0, { dur: 1 }) || bell(pent(9), .045, 0, .9, .6); inst('vibe', pent(7), .15, .1, { dur: 1.3 }); },
+    hover(i) { tune(); if (!throttle('h', 70)) return; const m = pent(7 + i % 5); inst('vibe', m, .2, 0, { dur: 1.3, lp: 7000 }) || bell(m, .05, 0, 1.1, .7); inst('glock', m + 12, .035, .01, { dur: .9, lp: 6000, wet: 2 }); },
+    deal() { tune(); slot('cards', 0, { v: .42, lp: 7500, wet: .5 }) || hiss(.05, 0, .7, 1800, 5000, 'bandpass', 1.2, .25); slot('cards', 1, { v: .3, when: .28, rate: 1.05, lp: 7000, wet: .5 }); harp([5, 6, 7, 8, 9].map(d => pent(d)), .3, .1, .11); inst('vibe', 50, .16, .05, { dur: 2.5 }); },
+    locked() { tune(); slot('latch', 0, { v: .32, rate: .75, lp: 2400, wet: .6 }); inst('vibe', pent(3, 50), .22, 0, { dur: .32, lp: 2500 }) || bell(pent(3, 50), .07, 0, .5, .3); inst('vibe', pent(1, 50), .18, .11, { dur: .36, lp: 2200 }); },
+    back() { tune(); inst('vibe', pent(9), .17, 0, { dur: 1 }) || bell(pent(9), .045, 0, .9, .6); inst('vibe', pent(7), .15, .1, { dur: 1.3 }); },
     step() { if (throttle('st', 330)) slot('step', rnd(5), { v: .16, rate: .9 + Math.random() * .18, lp: 3000, wet: 0 }) || hiss(.022, 0, .09, 900 + Math.random() * 300, 500, 'bandpass', 1, .005); },
-    lamp(i) {
-      const r = root(), ch = [0, 2, 3, 5, 7].map(d => pent(d + (i % 3), r));
+    lamp(i) { tune();
+      const r = root(), ch = [0, 1, 2, 3, 4].map(k => ct(k + (i % 3), r));
       dip(.3, 2.6); sub(110, 70, .1, 0, .5); hiss(.03, 0, .5, 600, 3000, 'bandpass', .8, .2);
       inst('vibe', r - 12, .26, 0) || pad(r - 12, .07, 0, 1.4, .35); inst('vibe', ch[2] - 12, .16, .04); piano(r - 24, .22, 0, 1.6);
       harp(ch, .34, .06, .1);
       ch.forEach((m, k) => inst('vibe', m + 12, .07, .1 + k * .1, { dur: 2.4 }));
       glint(5, .07, .6, 11, 4);
     },
-    card() {
+    card() { tune();
       const r = root(); dip(.25, 3.2);
       slot('tam', 0, { v: .2, rate: .85, lp: 2600, att: .3 }); piano(r - 24, .3, 0, 2.2); piano(pent(2, r) - 12, .18, .05, 2);
       inst('vibe', r - 12, .26, 0) || pad(r - 12, .08, 0, 2, .5); inst('vibe', pent(2, r) - 12, .18, .08); inst('vibe', pent(3, r), .14, .2);
@@ -250,8 +323,8 @@ export function createAudio(onToggle) {
       if (!rep) { slot('thud', rnd(3), { v: .7, rate: .75 + Math.random() * .1, lp: 1200 }); sub(70, 36, .14, 0, .8); }
       hiss(.04, 0, rep ? .5 : .9, 320, 110, 'lowpass', .6, .05);
     },
-    finale() {
-      duck(12); const r = root(), g = Math.pow(2, (r === 59 ? -3 : 0) / 12);
+    finale() { tune();
+      duck(12); const r = root(), g = Math.pow(2, ((chRoot - 2 + 18) % 12 - 6) / 12);
       slot('gong', 0, { v: .38, rate: g, lp: 4000, wet: 1.6 }) || sub(90, 45, .2, 0, 1.6); slot('tam', 0, { v: .22, rate: .7, lp: 1800, att: .8 });
       piano(r - 24, .32, 0, 4); piano(r - 12, .2, .02, 4);
       pad(r - 24, .06, 0, 6, 1.5, 1200); pad(r - 12, .045, .3, 6, 1.5);
@@ -260,10 +333,10 @@ export function createAudio(onToggle) {
       for (let k = 0; k < 16; k++) { const m = pent(k % 8 + 10, r); inst('glock', m, .07, 1.6 + k * .22, { lp: 6500, wet: 2 }) || bell(m, .06, 1.6 + k * .22, 2.4, .8); }
       glint(10, .05, 4.6, 12, 5);
     },
-    fall() { dip(.4, 1.2); hiss(.07, 0, 1.1, 2400, 300, 'bandpass', .9, .15); harp([pent(9), pent(7), pent(5), pent(3)], .24, 0, .16, { lp: 5000, wet: 2 }); },
-    ghost() { if (!throttle('g', 160)) return; const m = pent(10 + rnd(5)); inst('glock', m, .06, 0, { lp: 6500, wet: 2, dur: 1.4 }) || bell(m, .035, 0, 1, .5); },
-    shadow(k) { if (!throttle('sh', 260)) return; const m = pent(5 + Math.min(4, k * 5 | 0), root()); inst('vibe', m, .2, 0, { dur: 1.2 }) || bell(m, .05, 0, 1, .7); },
-    howl() {
+    fall() { tune(); dip(.4, 1.2); hiss(.07, 0, 1.1, 2400, 300, 'bandpass', .9, .15); harp([pent(9), pent(7), pent(5), pent(3)], .24, 0, .16, { lp: 5000, wet: 2 }); },
+    ghost() { tune(); if (!throttle('g', 160)) return; const m = pent(10 + rnd(5)); inst('glock', m, .06, 0, { lp: 6500, wet: 2, dur: 1.4 }) || bell(m, .035, 0, 1, .5); },
+    shadow(k) { tune(); if (!throttle('sh', 260)) return; const m = pent(5 + Math.min(4, k * 5 | 0), root()); inst('vibe', m, .2, 0, { dur: 1.2 }) || bell(m, .05, 0, 1, .7); },
+    howl() { tune();
       if (!live()) return; dip(.3, 2.6); const t = ac.currentTime, o = ac.createOscillator(), vib = ac.createOscillator(), vg = ac.createGain(), g = ac.createGain(), lp = ac.createBiquadFilter();
       const f = hz(pent(3, 59) - 12); o.type = 'triangle'; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 1.5, t + .7); o.frequency.setValueAtTime(f * 1.5, t + 1.6); o.frequency.exponentialRampToValueAtTime(f * 1.12, t + 2.4);
       vib.frequency.value = 5; vg.gain.value = 4; vib.connect(vg); vg.connect(o.frequency); lp.type = 'lowpass'; lp.frequency.value = 1400;
@@ -271,6 +344,6 @@ export function createAudio(onToggle) {
       o.connect(lp); lp.connect(g); g.connect(sfx); [o, vib].forEach(x => { x.start(t); x.stop(t + 2.7); });
       slot('tam', 0, { v: .14, rate: .6, lp: 1200, att: .6, dur: 3.5 }) || pad(59 - 12, .05, 0, 1.6, .5); inst('vibe', pent(5, 59), .16, .7) || bell(pent(5, 59), .05, .7, 2);
     },
-    wrong() { dip(.45, .9); piano(pent(0, 38), .45, 0, .6); piano(pent(1, 38), .36, .06, .6); slot('thud', 0, { v: .3, rate: 1.3, lp: 700 }) || hiss(.03, 0, .25, 500, 200); inst('vibe', pent(1, 50), .12, .02, { dur: .5, lp: 1800 }) || bell(pent(1, 50), .08, 0, .7, .25); }
+    wrong() { tune(); dip(.45, .9); piano(pent(0, 38), .45, 0, .6); piano(pent(1, 38), .36, .06, .6); slot('thud', 0, { v: .3, rate: 1.3, lp: 700 }) || hiss(.03, 0, .25, 500, 200); inst('vibe', pent(1, 50), .12, .02, { dur: .5, lp: 1800 }) || bell(pent(1, 50), .08, 0, .7, .25); }
   };
 }

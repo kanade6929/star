@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { PixelPipeline, LAYER_FX, LAYER_SH_ORB, LAYER_SH_MOON } from './post.js';
 import { billboard, tex, disposeGroup, makeEnv, SHAFT_T } from './common.js';
 import { makeOrbStar } from './orbstar.js';
-import { VoxChar } from './voxchar.js';
+import { VoxChar, WAVE } from './voxchar.js';
 import { createAudio } from './audio.js';
 import { FX } from './fx.js';
 import { buildStar } from './level1.js';
@@ -19,7 +19,7 @@ const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t
 const canvas = $('c');
 let renderer;
 try { renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' }); }
-catch (e) { $('nogl').hidden = false; throw e; }
+catch (e) { $('nogl').hidden = false; $('boot').hidden = true; throw e; }
 renderer.info.autoReset = false; // 每帧在主循环里清零：性能面板要看整帧（含阴影、倒影、后期）的绘制数
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.shadowMap.autoUpdate = false;
 const pipe = new PixelPipeline(renderer);
@@ -61,6 +61,11 @@ if (!['max', '60', '30'].includes(SET.fps)) SET.fps = TOUCH ? '60' : 'max'; // �
 if (!ELEV_OF[SET.cam]) SET.cam = 'near';
 ELEV0 = ELEV_OF[SET.cam]; aimCamQuat();
 function saveSet() { try { localStorage.setItem(SET_KEY, JSON.stringify(SET)); } catch (e) {} }
+// 支持作者：点开微信二维码，回到星夜时点亮彩棱（付不付全凭心意，没有校验）
+const UNLOCK_KEY = 'chenxingye3d_unlock';
+let prismOpen = false;
+try { prismOpen = localStorage.getItem(UNLOCK_KEY) === 'prism'; } catch (e) {}
+if (SET.skin === 'prism' && !prismOpen) SET.skin = 'gold';
 function resize() {
   layoutView();
   pipe.quality = SET.q === 'mid' ? 1 : 0;
@@ -273,7 +278,7 @@ function cine(steps) { S.cine = { steps, i: 0, t: 0, started: false }; setBars(t
 let LV = null, root = null;
 const ctx = { THREE, camQuat, P, orb, orbNear, S, fx, AU, toast, holdToast, cine, shake, flash, hemi, moon, renderer, pipe, get T() { return T; }, get visK() { return VIS_K; }, updateHud };
 const BUILDERS = { 1: buildStar, 2: buildMoon, 3: buildSun };
-function loadLevel(n) {
+function loadLevel(n, keepMood) {
   if (root) disposeGroup(root);
   virt = null;
   fx.clear();
@@ -289,7 +294,7 @@ function loadLevel(n) {
   pipe.mirrorY = LV.mirrorY; pipe.hideInReflection = LV.hideInReflection || []; pipe.resetReflection();
   document.querySelector('#pause .proman').textContent = `${LV.roman}　${LV.name}`;
   const ch = $('chapter'); ch.querySelector('.num').textContent = LV.roman; ch.querySelector('.name').textContent = LV.name; ch.querySelector('.line').textContent = LV.motto;
-  AU.setMood(LV.mood);
+  if (!keepMood) AU.setMood(LV.mood);
   needWarm = 2;
 }
 
@@ -393,6 +398,22 @@ function stickHome() {
   });
 }
 addEventListener('resize', stickHome);
+// 点一下角色（鼠标或手指）：她抬头看向屏幕前的我们，眯眼笑着挥挥手
+function hitChar(x, y) {
+  // 角色显示时以脚为轴后仰、拉长（见 voxchar.js），按显示出来的样子算头顶在屏幕上的位置
+  const f = player.position, H = 1.75 * pc.U.stretch.value, a = pc.U.tilt.value;
+  let [fx_, fy] = toScreen(f.x, f.y, f.z), [tx, ty] = toScreen(f.x, f.y + H * Math.cos(a), f.z - H * Math.sin(a));
+  fx_ *= view.w; tx *= view.w; fy *= view.h; ty *= view.h;
+  const len = Math.abs(fy - ty), cx = (fx_ + tx) / 2;
+  return Math.abs(x - cx) < Math.max(18, len * .32) && y > Math.min(fy, ty) - 6 && y < Math.max(fy, ty) + 6;
+}
+canvas.addEventListener('pointerdown', e => {
+  if (S.mode !== 'play' || S.cine || P.lie || P.falling || P.moving || P.reachT != null) return;
+  const [x, y] = toView(e.clientX, e.clientY);
+  if (!hitChar(x, y)) return;
+  if (P.waveT == null || P.waveT > 1) { P.waveT = 0; P.dir = 'down'; }
+  if (e.pointerType === 'touch') e.stopImmediatePropagation();   // 点角色不触发摇杆
+}, true);
 canvas.addEventListener('pointerdown', e => {
   if (e.pointerType !== 'touch') return;
   if (S.mode === 'intro' && S.introT > .6) { skipIntro(); return; }
@@ -422,6 +443,8 @@ addEventListener('pointerdown', () => {
 $('tE').addEventListener('pointerdown', e => { e.preventDefault(); if (S.mode === 'play' && !S.cine) interact(); else if (S.mode === 'intro') skipIntro(); });
 $('tP').addEventListener('pointerdown', e => { e.preventDefault(); if (S.mode === 'play') pause(); });
 $('tM').addEventListener('pointerdown', e => { e.preventDefault(); toggleMap(); });
+$('mapBtn').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); toggleMap(); });
+$('mapBtn').addEventListener('click', e => e.preventDefault());
 $('map').addEventListener('pointerdown', e => { e.preventDefault(); toggleMap(false); });
 $('skip').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); if (S.mode === 'intro') skipIntro(); });
 
@@ -475,7 +498,8 @@ function nearest() {
 }
 function interact() {
   const n = nearest(); if (!n) return;
-  if (n.type === 'finale') { S.ev = 0; S.mode = 'cut'; AU.finale(); setBars(true); LV.finaleStart(); updateHud(); return; }
+  if (n.type === 'finale') { S.ev = 0; S.mode = 'cut'; P.vx = P.vz = 0; P.moving = false; P.run = false;   // 插牌时立刻站定，不再保持走路动作
+    AU.finale(); setBars(true); LV.finaleStart(); updateHud(); return; }
   LV.interact(n);
   // 抬手触碰机关：转向目标
   P.reachT = 0; P.reachYaw = (Math.abs(n.x - P.x) + Math.abs(n.z - P.z) > .15) ? Math.atan2(n.x - P.x, n.z - P.z) : null;
@@ -515,6 +539,12 @@ function updatePlayer(dt, canMove) {
     }
     return;
   }
+  // 被机关挤进了实体（比如日轮带着人转了 45°，碰撞框和绞盘、岛心重叠）：就近把人推出来，不然四个方向都走不动
+  if (blocked(P.x, P.z)) {
+    let best = null;
+    for (let d = .04; d <= .7 && !best; d += .04) for (let i = 0; i < 16; i++) { const a = i / 16 * 6.2832, x = P.x + Math.cos(a) * d, z = P.z + Math.sin(a) * d; if (!blocked(x, z) && !LV.hole(x, z)) { best = [x, z]; break; } }
+    if (best) { P.x = best[0]; P.z = best[1]; }
+  }
   let ix = 0, iz = 0;
   if (canMove) {
     if (keys.a || keys.arrowleft) ix -= 1; if (keys.d || keys.arrowright) ix += 1;
@@ -534,7 +564,17 @@ function updatePlayer(dt, canMove) {
   const okAt = (x, z) => !blocked(x, z) && !(safeHere && LV.hole(x, z));
   const slide = (x, z, d, alongX) => {
     if (okAt(x, z)) return [x, z];
-    if (blocked(x, z) || !safeHere) return null;
+    if (blocked(x, z)) {
+      // 撞在门框、柱子的边上：旁边挪一点就能过去时，顺着滑进门里，不用对得很准
+      const ad = Math.abs(d);
+      for (const off of [.1, .2, .3, .4]) for (const s of [1, -1]) {
+        if (!okAt(alongX ? x : x + s * off, alongX ? z + s * off : z)) continue;
+        const nx = alongX ? P.x : P.x + s * ad * .85, nz = alongX ? P.z + s * ad * .85 : P.z;
+        return okAt(nx, nz) ? [nx, nz] : null;
+      }
+      return null;
+    }
+    if (!safeHere) return null;
     // 前面是空的：试着朝两侧偏一点，沿着边缘或斜桥继续走
     for (const s of [1, -1]) { const nx = alongX ? x : x + s * Math.abs(d) * .9, nz = alongX ? z + s * Math.abs(d) * .9 : z; if (okAt(nx, nz) && !LV.hole(nx, nz)) return [nx, nz]; }
     return null;
@@ -588,7 +628,10 @@ const tmpV = new THREE.Vector3(), tmpM = new THREE.Vector3();
 let camFocus = new THREE.Vector3(6, 0, 7); const camVel = new THREE.Vector3(), camD = new THREE.Vector3();
 const focusUV = new THREE.Vector2(.5, .47);
 let dofK = 1, vig = .55;
+let tipShown = false;
 function update(dt) {
+  // 手机：摇杆操作提示只在第一次进关、开场黑边收起后出现几秒，然后淡掉
+  if (TOUCH && !tipShown && S.mode === 'play' && !S.bars && !document.body.classList.contains('loading')) { tipShown = true; document.body.classList.add('tipOn'); setTimeout(() => document.body.classList.remove('tipOn'), 7000); }
   if (mapOn) { if (S.mode !== 'play' || S.cine) toggleMap(false); else drawMap(); }
   T += dt; S.t += dt; SHAFT_T.value = T;
   const play = S.mode === 'play';
@@ -666,7 +709,8 @@ function update(dt) {
   else { const amb = S.mode === 'menu' ? LV.light.hemi : LV.ambient(P); hemi.intensity = lerp(hemi.intensity, amb, 1 - Math.exp(-dt * 2)); moon.intensity = hemi.intensity * LV.light.moonK; }
 
   // 角色帧
-  pc.update({ dir: P.dir, moving: P.moving && !P.falling, run: P.run, vx: P.falling ? 0 : P.vx, vz: P.falling ? 0 : P.vz, dt, lie: P.lie, crouch: P.crouch, act: P.act, actT: P.actT, reach: reachState(dt) });
+  if (P.waveT != null) { P.waveT += dt; if (P.waveT > WAVE || !play || P.moving || P.falling || P.lie || P.reachT != null) P.waveT = null; }
+  pc.update({ dir: P.dir, moving: P.moving && !P.falling, run: P.run, vx: P.falling ? 0 : P.vx, vz: P.falling ? 0 : P.vz, dt, lie: P.lie, crouch: P.crouch, act: P.act, actT: P.actT, reach: reachState(dt), wave: P.waveT });
   player.position.set(Math.round(P.x * 32) / 32, P.y, Math.round(P.z * 32) / 32); pc.U.foot.value.copy(player.position);
 
   LV.update(dt, T);
@@ -719,7 +763,7 @@ function update(dt) {
 // 快走进下一个场景小节点时，身后还有牌没捡、灯没亮：温柔地提一句（每个节点只说一次）
 // 节点位置按关卡的区段分界（关卡可以用 LV.nodes 覆盖）
 const NODE_X = { 1: [23.5, 36.5, 49.5, 67, 88], 2: [18, 25, 40.5, 48.5, 55, 84], 3: [18, 35, 51, 64.6, 82] };
-const LAMP_LEFT = { 星灯: '还有星灯没有亮', 月相: '还有月相石没有醒来', 日光: '还有日光没有被唤起' };
+const LAMP_LEFT = { 星灯: '星灯未亮', 月相: '月相石未醒', 日光: '日光未起' };
 function nodeHints() {
   if (S.mode !== 'play' || S.cine || P.vx < .3 || !LV.mapMarks) return;
   const xs = LV.nodes || NODE_X[S.level] || [];
@@ -729,23 +773,23 @@ function nodeHints() {
   S.hints['node' + B] = 1;
   if (!left.length) return;
   const card = left.some(m => m.kind === 'card'), lamp = left.some(m => m.kind === 'lamp');
-  const lab = LV.hud().label, lampTxt = LAMP_LEFT[lab] || `还有${lab}在等你`;
-  const msg = card && lamp ? `身后${lampTxt}，还落着一张牌。不急，想回去的话，路一直都在`
-    : card ? '身后好像还落着一张牌，它在等你。不急，想回去的话，路一直都在'
-    : `身后${lampTxt}。不急，想回去的话，路一直都在`;
-  const el = $('lost'); el.textContent = msg; el.classList.add('on'); lostT = 5.5; AU.ghost();
+  const lab = LV.hud().label;
+  const lamp1 = LAMP_LEFT[lab] || `${lab}未亮`;
+  const msg = card && lamp ? `身后还有${lamp1}，还落着一张牌` : card ? "身后还落着一张牌" : `身后还有${lamp1}`;
+  const el = $('lost'); el.innerHTML = '<i>✦</i>' + msg; el.classList.add('on'); lostT = 5.5; AU.ghost();
 }
 let lostT = 0;
 
-// 在一个地方停留太久：根据当前进度给出提示，先含蓄、再明确
+// 在一个地方停留太久：先让场景里的引导微光亮起来（画面先说话），再给一句意象，最后才指个方向
 function idleHints(dt) {
   const I = S.idle, key = LV.progress();
-  if (Math.hypot(P.x - I.x, P.z - I.z) > 2.4 || key !== I.key) { I.x = P.x; I.z = P.z; I.t = 0; I.tier = 0; I.key = key; return; }
+  if (Math.hypot(P.x - I.x, P.z - I.z) > 2.4 || key !== I.key) { I.x = P.x; I.z = P.z; I.t = 0; I.tier = 0; I.key = key; fx.nudge = 0; return; }
   I.t += dt;
+  fx.nudge = I.t > 10 ? 1 : 0;
   const H = LV.idle(P);
   if (!H) return;
-  if (I.tier === 0 && I.t > 16) { I.tier = 1; toast(H[0], 5.5); AU.ghost(); }
-  else if (I.tier === 1 && I.t > 36) { I.tier = 2; toast(H[1] || H[0], 6.5); AU.ghost(); }
+  if (I.tier === 0 && I.t > 22) { I.tier = 1; toast(H[0], 5); AU.ghost(); }
+  else if (I.tier === 1 && I.t > 45) { I.tier = 2; toast(H[1] || H[0], 5.5); AU.ghost(); }
 }
 
 /* ================= 菜单 / 流程 ================= */
@@ -765,6 +809,8 @@ let woke = false;
 function wake() { if (woke) { AU.init(); return; } woke = true; AU.init(); menu.classList.add('awake'); }
 addEventListener('pointerdown', wake, { capture: true });
 addEventListener('keydown', wake, { capture: true });
+// 手机浏览器只认「手指抬起 / 点击」才算玩家允许出声，按下那一刻不算；所以抬起时再解锁一次，声音第一下触摸就响
+['pointerup', 'touchend', 'click'].forEach(ev => addEventListener(ev, () => { if (!AU.running) AU.init(); }, { capture: true }));
 function showView(v) {
   $('vMain').classList.toggle('off', v !== 'main'); $('vChap').classList.toggle('off', v !== 'chap'); $('vMore').classList.toggle('off', v !== 'more');
   if (v === 'more') { refreshMore(); setTimeout(() => document.querySelector('#vMore .seg [aria-checked="true"]').focus({ preventScroll: true }), 300); return; }
@@ -780,6 +826,8 @@ function menuAct(act) {
 function refreshMore() {
   document.querySelectorAll('#vMore [data-q]').forEach(b => b.setAttribute('aria-checked', b.dataset.q === SET.q));
   document.querySelectorAll('#vMore [data-skin]').forEach(b => b.setAttribute('aria-checked', b.dataset.skin === SET.skin));
+  const pb = document.querySelector('#vMore [data-skin="prism"]'); pb.classList.toggle('locked', !prismOpen); 
+  document.querySelector('#vMore .msup').classList.toggle('done', prismOpen);
   document.querySelectorAll('#vMore [data-fps]').forEach(b => b.setAttribute('aria-checked', b.dataset.fps === SET.fps));
   document.querySelectorAll('#vMore [data-cam]').forEach(b => b.setAttribute('aria-checked', b.dataset.cam === SET.cam));
   syncSound();
@@ -788,9 +836,27 @@ document.querySelectorAll('#vMore [data-snd]').forEach(b => b.addEventListener('
 document.querySelectorAll('#vMore [data-fps]').forEach((b, i) => b.addEventListener('click', () => { if (SET.fps === b.dataset.fps) return; SET.fps = b.dataset.fps; saveSet(); refreshMore(); AU.hover(i + 2); }));
 document.querySelectorAll('#vMore [data-cam]').forEach((b, i) => b.addEventListener('click', () => { if (SET.cam === b.dataset.cam) return; SET.cam = b.dataset.cam; saveSet(); applyCam(); refreshMore(); AU.hover(i + 3); }));
 document.querySelectorAll('#vMore [data-q]').forEach((b, i) => b.addEventListener('click', () => { if (SET.q === b.dataset.q) return; SET.q = b.dataset.q; saveSet(); applyQuality(); refreshMore(); AU.hover(i + 2); }));
-document.querySelectorAll('#vMore [data-skin]').forEach((b, i) => b.addEventListener('click', () => {
-  if (SET.skin === b.dataset.skin) return; SET.skin = b.dataset.skin; saveSet(); applySkin(); refreshMore(); AU.hover(i + 4);
+function setSkin(k, i) {
+  if (SET.skin === k) return; SET.skin = k; saveSet(); applySkin(); refreshMore(); AU.hover(i + 4);
   fx.bloom(orb.x, orb.y, orb.z, 24, SET.skin === 'prism' ? [1, .88, .7] : [1, .85, .55], { w: 2, vr: 1.2, up: .3 });
+}
+const supBox = $('supBox'), supOn = () => !supBox.classList.contains('off');
+function openSup() { supBox.classList.remove('off'); AU.hover(6); setTimeout(() => $('supDone').focus({ preventScroll: true }), 250); }
+function closeSup() {
+  if (!supOn()) return; supBox.classList.add('off'); AU.back();
+  const thank = !prismOpen || $('fin').classList.contains('on');
+  if (!prismOpen) { prismOpen = true; try { localStorage.setItem(UNLOCK_KEY, 'prism'); } catch (e) {} setSkin('prism', 1); }
+  if (thank) toast('感谢支持，我会继续努力创作', 3.5);
+  if ($('fin').classList.contains('on')) setTimeout(() => $('finSup').focus({ preventScroll: true }), 50);
+  else setTimeout(() => $('supBtn').focus({ preventScroll: true }), 50);
+}
+$('supBtn').addEventListener('click', openSup);
+$('supDone').addEventListener('click', closeSup);
+supBox.addEventListener('click', e => { if (e.target === supBox) closeSup(); });
+addEventListener('keydown', e => { if (supOn() && e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); closeSup(); } }, { capture: true });
+document.querySelectorAll('#vMore [data-skin]').forEach((b, i) => b.addEventListener('click', () => {
+  if (b.dataset.skin === 'prism' && !prismOpen) { b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake'); return; }
+  setSkin(b.dataset.skin, i);
 }));
 $('back2').addEventListener('click', () => { AU.back(); if (inPauseMore()) pauseMore(false); else showView('main'); });
 document.querySelectorAll('.vbtn').forEach((b, i) => {
@@ -830,8 +896,11 @@ function hideLoader() {
   S.loading = false; S.fadeTo = 0; loadDone = null;
 }
 function begin(n = 1) {
-  AU.init(); endSplash(true);
+  AU.prefetch([n]);
+  AU.init(); if (!booted) { booted = true; boot.hidden = true; } endSplash(true);
   if (S.loading) return;
+  // 这一幕的曲子在黑屏加载时就淡入，场景还没建好音乐已经在了
+  AU.setMood(n);
   S.loading = true; S.fadeTo = 1; showLoader(n);
   const t0 = performance.now();
   setTimeout(() => {
@@ -874,9 +943,11 @@ function toDream() {
 }
 function toMenu() {
   S.fadeTo = 1;
+  // 主界面的曲子在画面淡出时就开始交叉淡入，不等场景重建完
+  AU.setMood(0);
   setTimeout(() => {
-    pauseEl.classList.add('off'); document.body.classList.remove('paused', 'playing'); $('end').classList.remove('on'); $('hud').classList.remove('on'); $('skip').classList.remove('on');
-    if (S.level !== 1) loadLevel(1);
+    pauseEl.classList.add('off'); document.body.classList.remove('paused', 'playing'); $('end').classList.remove('on'); $('fin').classList.remove('on'); $('hud').classList.remove('on'); $('skip').classList.remove('on');
+    if (S.level !== 1) loadLevel(1, true);
     resetLevel(); toDream(); S.mode = 'menu'; S.fadeTo = 0; menu.classList.remove('hide'); refreshMenu(); showView('main'); AU.setMood(0); setBars(false);
   }, 600);
 }
@@ -886,9 +957,17 @@ function endGame() {
   const E = LV.endCard;
   $('endRoman').textContent = LV.roman; $('endTitle').textContent = E.title; $('endLine').innerHTML = E.line;
   $('again2').textContent = n === 1 ? '前往月之章' : n === 2 ? '前往太阳之章' : '再走太阳之章';
-  $('end').classList.add('on'); S.mode = 'end'; refreshMenu(); setBars(false);
+  S.mode = 'end'; refreshMenu(); setBars(false);
+  // 太阳之章通关、三章都完成：换成 demo 全通的恭喜页
+  if (n === 3 && [1, 2, 3].every(k => prog.done.includes(k))) { $('fin').classList.add('on'); $('fin').setAttribute('aria-hidden', 'false'); setTimeout(() => $('finSup').focus({ preventScroll: true }), 600); return; }
+  $('end').classList.add('on');
   setTimeout(() => $('again2').focus(), 400);
 }
+const BILI_URL = ''; // kanade 的 B 站主页，之后补上
+$('finSup').addEventListener('click', openSup);
+$('finBili').addEventListener('click', e => { if (!BILI_URL) { e.preventDefault(); toast('B 站主页链接马上就来', 2.5); } });
+if (BILI_URL) $('finBili').href = BILI_URL;
+$('finMenu').addEventListener('click', () => { $('fin').classList.remove('on'); $('fin').setAttribute('aria-hidden', 'true'); toMenu(); });
 $('again').addEventListener('click', toMenu);
 $('again2').addEventListener('click', () => { $('end').classList.remove('on'); begin(S.level === 1 ? 2 : S.level === 2 ? 3 : 3); });
 
@@ -935,6 +1014,23 @@ function perfTick(now, ms, sh) {
   P_.fps = P_.n / sec; P_.n = 0; P_.ms = 0; P_.sh = 0; P_.calls = 0; P_.t0 = now;
 }
 loadLevel(1); AU.setMood(0);
+// 开场预载：主界面和下一幕的曲子、音效先整首下完（有进度条），下完直接进耳机提示和标志。
+// 浏览器允许自动出声时音乐立刻响；手机上要等玩家第一次触摸才能出声，那时曲子已在内存里，一碰就响。其余几首之后在后台慢慢下
+const boot = $('boot'); let bootReady = false, booted = false, bootFrames = 0, bootAudio = false;
+function bootCheck() {
+  if (bootReady || !bootAudio || bootFrames < 3) return;
+  bootReady = true; $('bootFill').style.transform = 'scaleX(1)';
+  setTimeout(bootGo, 350);
+}
+function bootGo() {
+  if (booted) return; booted = true; AU.init();
+  boot.classList.add('gone'); setTimeout(() => { boot.hidden = true; }, 900);
+  requestAnimationFrame(() => requestAnimationFrame(runSplash));
+}
+AU.preload([0, nextLevel()], p => { if (!bootReady) $('bootFill').style.transform = `scaleX(${(.04 + p * .96).toFixed(3)})`; })
+  .then(() => { bootAudio = true; bootCheck(); AU.prefetch([1, 2, 3]); });
+// 网络太慢时不让玩家一直等：20 秒后照样可以开始，没下完的曲子边下边播
+setTimeout(() => { bootAudio = true; bootCheck(); }, 20000);
 // 进主菜单就试着放背景音乐；浏览器不允许自动播放时，等第一次点击或按键再响
 AU.init(); setTimeout(() => { if (AU.running && !woke) { woke = true; menu.classList.add('awake'); } }, 1500);
 // 开场：先提示戴耳机，再是慢慢亮起的 Hug 工作室标志，然后才进主界面。点一下可以跳过
@@ -951,19 +1047,20 @@ function runSplash() {
   splashT.push(setTimeout(() => $('sp1').classList.add('on'), 150));
   splashT.push(setTimeout(() => $('sp1').classList.remove('on'), 2900));
   splashT.push(setTimeout(() => $('sp2').classList.add('on'), 3900));
-  splashT.push(setTimeout(() => endSplash(), 8600));
+  splashT.push(setTimeout(() => endSplash(), 7000));
 }
-splash.addEventListener('pointerdown', () => endSplash(true));
-addEventListener('keydown', () => endSplash(true), { capture: true });
+// 手机上第一下触摸是用来让音乐响起的，不跳过开场；音乐响了之后再点才跳过
+splash.addEventListener('pointerdown', () => { if (AU.running || !TOUCH) endSplash(true); });
+addEventListener('keydown', () => { if (booted) endSplash(true); }, { capture: true });
 resetLevel(); refreshMenu(); syncSound(); S.mode = 'menu'; S.fadeTo = 0;
 toDream(); stickHome();
 requestAnimationFrame(frame);
-requestAnimationFrame(() => requestAnimationFrame(runSplash));
+(function countFrames() { if (++bootFrames < 3) requestAnimationFrame(countFrames); else bootCheck(); })();
 setTimeout(() => document.querySelector('#mainNav .vbtn').focus({ preventScroll: true }), 100);
 
 // 调试/测试钩子
 window.__G = { scene, AU, fx,
   sim(sec) { if (loadDone) loadDone(); for (let t = 0; t < sec; t += 1 / 30) update(1 / 30); return [S.mode, LV.progress(), P.x.toFixed(1), P.z.toFixed(1), P.falling]; },
   S, P, orb, PERF, SET, applyCam, poolLights, poolStat, nodeHints, get LV() { return LV; }, get mouse() { return mouse; }, set mouse(v) { mouse.seen = false; },
-  begin, toMenu, interact, setMouse, mouseWorld, keys, update, pipe, cam, loadLevel, skipIntro, nearest, warmup, render() { pipe.render(scene, cam, { time: T, fade: S.fade, focus: focusUV, dofK, flash: S.flash, vig }); }
+  begin, toMenu, endGame, interact, setMouse, mouseWorld, keys, update, pipe, cam, loadLevel, skipIntro, nearest, warmup, render() { pipe.render(scene, cam, { time: T, fade: S.fade, focus: focusUV, dofK, flash: S.flash, vig }); }
 };

@@ -85,7 +85,7 @@ export class FX {
     this.sigT = { star: nearest(new THREE.CanvasTexture(sigilCanvas('star'))), moon: nearest(new THREE.CanvasTexture(sigilCanvas('moon'))), sun: nearest(new THREE.CanvasTexture(sigilCanvas('sun'))) };
     this.haloT = nearest(new THREE.CanvasTexture(haloCanvas(64)));
     this.items = [];
-    this.beacons = [];
+    this.beacons = []; this.nudge = 0; this.nudgeK = 0;
     // 常驻的隐形样本：光环、星印用的材质每次新建、用完就释放，若没有常驻的同类材质，
     // 着色器会被释放后再重新编译，点亮机关的瞬间就会卡一下。留一份常驻，着色器就一直在。
     const keepOpts = { transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide };
@@ -191,11 +191,14 @@ export class FX {
       return true;
     });
     // 引导微光：缓慢呼吸，偶尔升起一粒同色光尘
+    // 玩家原地停留太久时（nudge），引导微光慢慢变亮、光尘变密，先用画面提醒
+    this.nudgeK += ((this.nudge || 0) - this.nudgeK) * (1 - Math.exp(-dt * .8));
+    const nk = this.nudgeK;
     this.beacons.forEach(b => {
       b.k += ((b.on ? 1 : 0) - b.k) * (1 - Math.exp(-dt * 2.5));
-      b.m.material.opacity = b.k * (.16 + .07 * Math.sin(T * 2.2 + b.ph));   // 引导微光收一点，别和别的亮点抢
+      b.m.material.opacity = b.k * (.16 + .07 * Math.sin(T * 2.2 + b.ph)) * (1 + nk * (1.3 + .5 * Math.sin(T * 3.1 + b.ph)));   // 引导微光收一点，别和别的亮点抢
       b.m.visible = b.k > .01;
-      b.mote -= dt;
+      b.mote -= dt * (1 + nk * 2);
       if (b.on && b.mote < 0) { b.mote = .5 + Math.random() * .7; this.emit(b.x + (Math.random() - .5) * .35, b.y - .2, b.z + (Math.random() - .5) * .35, { vy: .35, life: 1.5, c: b.col, tw: 5, a: .9 }); }
     });
   }
