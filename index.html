@@ -5189,6 +5189,8 @@ totalEmissiveRadiance += diffuseColor.rgb * .14;`).replace("#include <opaque_fra
         col = mix(col, cloudLo * (.75 + a2 * .4), k2 * .85);
         col = mix(col, cloudHi * (.8 + a1 * .35), k1);
         col += vec3(1., .78, .5) * rim1 * (.15 + day * .25);
+        // \u80CC\u666F\u6574\u4F53\u538B\u6697\u4E00\u70B9\uFF1A\u8D8A\u63A5\u8FD1\u6B63\u5348\u538B\u5F97\u8D8A\u591A\uFF0C\u5730\u9762\u548C\u673A\u5173\u624D\u4ECE\u4E91\u6D77\u91CC\u8DF3\u51FA\u6765
+        col *= mix(.8, .3, day);
         // \u661F\u8F68\u753B\u5728\u4E91\u4E0A\u9762\uFF0C\u7ED5\u7740\u592A\u9633\u8F6C\u7684\u5F27\u7EBF\u624D\u770B\u5F97\u89C1
         col = mix(col, mix(vec3(1., .86, .55), vec3(.93, .56, .14), day), clamp(trK * 3., 0., .9));
         // \u592A\u9633\u7684\u53CD\u5149\uFF1A\u4E91\u5C42\u4E0A\u4E00\u7247\u91D1\u8272

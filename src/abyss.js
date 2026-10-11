@@ -167,6 +167,8 @@ export function cloudSea() {
         col = mix(col, cloudLo * (.75 + a2 * .4), k2 * .85);
         col = mix(col, cloudHi * (.8 + a1 * .35), k1);
         col += vec3(1., .78, .5) * rim1 * (.15 + day * .25);
+        // 背景整体压暗一点：越接近正午压得越多，地面和机关才从云海里跳出来
+        col *= mix(.8, .3, day);
         // 星轨画在云上面，绕着太阳转的弧线才看得见
         col = mix(col, mix(vec3(1., .86, .55), vec3(.93, .56, .14), day), clamp(trK * 3., 0., .9));
         // 太阳的反光：云层上一片金色
