@@ -155,14 +155,16 @@ export function cloudSea() {
         deep = mix(deep, deep * vec3(.86, .9, 1.22), smoothstep(.35, .85, n(sp * .03 + 6.)) * day * .8);
         vec2 q = rot(sp, pole + cam * .55, spin);
         vec3 stars = (layer(q, 2.4, .08, time) + layer(q + 7., 4.6, .06, time) * .5) * .7 * (1. - day) * (1. - trail * .7);
-        vec3 tr = trails(sp, pole + cam * .55, spin, trail * 1.3) * trail * (1. - smoothstep(.55, 1., day));
+        // 星轨：天亮以后白色在杏色天上看不见，改成同色系的琥珀金，盖在天色上（不是叠加），白天也认得出
+        float trK = min(dot(trails(sp, pole + cam * .55, spin, trail * 1.3), vec3(.333)), 1.) * trail;
         // 两层云：近的走得快，像素化的边缘
         vec2 c1 = p + cam * .3 + vec2(time * .12, 0.), c2 = p + cam * .15 + vec2(time * .05, time * .02);
         float a1 = n(c1 * .16) * .65 + n(c1 * .42) * .35, a2 = n(c2 * .09 + 4.) * .6 + n(c2 * .25 + 9.) * .4;
         float k1 = step(.56, a1), k2 = step(.5, a2);
         float rim1 = step(.56, a1) - step(.6, a1);
         vec3 cloudLo = mix(vec3(.16, .07, .13), vec3(.95, .66, .48), day), cloudHi = mix(vec3(.38, .16, .22), vec3(1., .88, .66), day);
-        vec3 col = deep + stars + min(tr, vec3(.8));
+        vec3 col = deep + stars;
+        col = mix(col, mix(vec3(1., .86, .55), vec3(.96, .62, .2), day), clamp(trK * 1.1, 0., .85));
         col = mix(col, cloudLo * (.75 + a2 * .4), k2 * .85);
         col = mix(col, cloudHi * (.8 + a1 * .35), k1);
         col += vec3(1., .78, .5) * rim1 * (.15 + day * .25);

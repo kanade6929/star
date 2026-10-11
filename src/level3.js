@@ -450,8 +450,13 @@ export function buildSun(ctx) {
     [-1, 1].forEach(s => { const arm = new THREE.Mesh(new THREE.BoxGeometry(.32, 9, .32), darkM); arm.position.set(s * 2.9, -4.5, -.3); arm.rotation.z = s * .12; big.add(arm); });
     const bigHalo = billboard(haloT, 11, 11, true, camQuat); bigHalo.material.color.set(0xffc070); bigHalo.material.opacity = 0; big.add(bigHalo);
     rays.scale.setScalar(.2);
-    Object.assign(altar, { x: cx, z: cz, g: g0, dialM, marks, slotM, slot, halo, light, big, faceM, rays, rayM, bigHalo });
-    L.hide.push(halo, bigHalo);
+    // 太阳底下的一团云：太阳和托臂是从云海里升上来的，云层把它们被云面切平的那条边盖住
+    const mist = [[-1.5, 0, 4.4, 1.7], [0, .12, 3.6, 1.4], [1.6, -.04, 4, 1.6], [0, -.2, 6.4, 1.5]].map(([dx, dy, w, h]) => {
+      const m = billboard(haloT, w, h, false, camQuat); m.material.color.set(0xfbe7cc); m.material.opacity = 0;
+      m.position.set(cx + dx, CLOUD_Y + .55 + dy, SUN_Z + .6); root.add(m); return m;
+    });
+    Object.assign(altar, { x: cx, z: cz, g: g0, dialM, marks, slotM, slot, halo, light, big, faceM, rays, rayM, bigHalo, mist });
+    L.hide.push(halo, bigHalo, ...altar.mist);
   }
 
 
@@ -914,7 +919,7 @@ export function buildSun(ctx) {
     machine.k = 0;
     Object.assign(card, { taken: false }); card.g.visible = true;
     altar.slotM.opacity = 0; altar.light.intensity = 0; altar.halo.material.opacity = 0; altar.dialM.emissiveIntensity = 0; altar.marks.forEach(m => m.material.emissiveIntensity = 0);
-    altar.big.position.y = -8; altar.faceM.emissiveIntensity = .2; altar.bigHalo.material.opacity = 0; altar.rays.scale.setScalar(.2);
+    altar.big.position.y = -8; altar.faceM.emissiveIntensity = .2; altar.bigHalo.material.opacity = 0; altar.rays.scale.setScalar(.2); altar.mist.forEach(m => { m.material.opacity = 0; });
     Object.values(B).forEach(b => b.on = true);
     sea.uniforms.trail.value = 0; sea.uniforms.spin.value = 0; sea.uniforms.glow.value = 0; sea.uniforms.day.value = 0;
     ctx.hemi.color.set(DAWN.sky);
@@ -1113,6 +1118,7 @@ export function buildSun(ctx) {
     // 巨臂把机械太阳从云海里托起来：沉重、缓慢
     const up = smooth(2, 7, e);
     altar.big.position.y = -8 + up * (8 + SUN_Y);
+    altar.mist.forEach((m, i) => { m.material.opacity = smooth(1.4 + i * .15, 2.4 + i * .15, e) * .92; });
     if (up > 0 && up < 1) { shake(.05, .2); if (Math.random() < dt * 30) fx.emit(altar.x + (Math.random() - .5) * 6, CLOUD_Y + .2, SUN_Z + (Math.random() - .5), { vy: 1 + Math.random(), g: -2, life: 1.2, c: [1, .85, .65], a: .8 }); }
     if (up >= 1 && !S.sunUp) { S.sunUp = true; AU.stone(); shake(.12, .6); flash(.35); }
     const shine = smooth(6.5, 9.5, e);
