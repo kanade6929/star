@@ -1124,7 +1124,7 @@ export function buildSun(ctx) {
     const up = smooth(2, 7, e);
     altar.big.position.y = -8 + up * (8 + SUN_Y);
     altar.mist.forEach((m, i) => { m.material.opacity = smooth(1.4 + i * .15, 2.4 + i * .15, e) * .92; });
-    if (up > 0 && up < 1) { shake(.05, .2); if (Math.random() < dt * 30) fx.emit(altar.x + (Math.random() - .5) * 6, CLOUD_Y + .2, SUN_Z + (Math.random() - .5), { vy: 1 + Math.random(), g: -2, life: 1.2, c: [1, .85, .65], a: .8 }); }
+    if (up > 0 && up < 1) { shake(.05, .2); if (Math.random() < dt * 30) fx.emit(altar.x + (Math.random() - .5) * 6, CLOUD_Y + .2, SUN_Z + (Math.random() - .5), { vy: 1 + Math.random(), g: -2, life: 1.2, c: [1, .72, .3], a: .9 }); }
     if (up >= 1 && !S.sunUp) { S.sunUp = true; AU.stone(); shake(.12, .6); flash(.35); }
     const shine = smooth(6.5, 9.5, e);
     altar.rays.scale.setScalar(.2 + easeBack(shine) * .8); altar.rays.rotation.z = -e * .15;
@@ -1133,7 +1133,7 @@ export function buildSun(ctx) {
     // 正午到来
     S.day = .7 + smooth(6, 11, e) * .3; applyDay(S.day);
     ctx.hemi.intensity = .4 + smooth(6, 11, e) * .2;
-    if (e > 6.5 && e < 11 && Math.random() < dt * 30) { const a = Math.random() * 6.28, r = 1 + Math.random() * 6; fx.emit(altar.x + Math.cos(a) * r, .3, altar.z + Math.sin(a) * r, { vy: 1 + Math.random(), life: 2, c: Math.random() < .5 ? [1, .85, .5] : [1, .95, .8], tw: 8 }); }
+    if (e > 6.5 && e < 11 && Math.random() < dt * 30) { const a = Math.random() * 6.28, r = 1 + Math.random() * 6; fx.emit(altar.x + Math.cos(a) * r, .3, altar.z + Math.sin(a) * r, { vy: 1 + Math.random(), life: 2, c: Math.random() < .5 ? [1, .72, .28] : [.98, .82, .42], tw: 8 }); }
     return e > 12.5;
   }
 
