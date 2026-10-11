@@ -1000,7 +1000,7 @@ export function buildStar(ctx) {
     if (e > 1.6 && e < 6 && Math.floor(e * 1.25) !== Math.floor((e - dt) * 1.25)) fx.ring(altar.x, .04, altar.z, 0xffd89a, 5 + Math.random() * 2, 1.6, { a: .6 });
     const rise = smooth(1, 4.2, e);
     altar.star.position.y = .4 + rise * 2.1; altar.star.rotation.y += dt * (1 + rise * 2);
-    altar.star.scale.setScalar(.6 + rise * .6);
+    altar.star.scale.setScalar((.6 + rise * .6) * smooth(1, 1.6, e)); // 从光爆里慢慢长出来，不是一下冒出来
     altar.light.intensity = rise * 6; altar.halo.material.opacity = rise * .22; altar.halo.position.y = altar.star.position.y;
     // 星冠沉重地降下、旋转
     const cd = smooth(1.2, 4.6, e);

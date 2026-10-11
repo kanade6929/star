@@ -18,6 +18,8 @@ const LIT_R = 9.6;   // 星光能照到的距离
 // 光点挂上月钩，就像月亮绕着湖心走；月柱的影子永远落在光的对面，跟着一起转
 const HUB = [41.5 + 21, 7.5], HOOK_R = 1.3, PILLAR_R = .5, ARM_PERIOD = 20;
 const LAKE_Y = -.3;
+// 通关时吊起的巨月：放在场景最北边之外、再升高一点，镜头压低（近）时月盘下缘也碰不到岸上的东西
+const MOON_Z = -1.6, MOON_UP = 7.9;
 const MIR = [76.5, 5.5];     // 月镜（镜湖湖心小岛北侧）
 
 /* ---------- 地图 ----------
@@ -325,7 +327,7 @@ export function buildMoon(ctx) {
     const light = new THREE.PointLight(0xe0e4ff, 0, 16, 1.2); light.position.y = 2; g0.add(light);
     root.add(g0);
     // 巨月：藏在湖面下，通关时被机关吊起来
-    const big = new THREE.Group(); big.position.set(cx, -5, .6); root.add(big);
+    const big = new THREE.Group(); big.position.set(cx, -5, MOON_Z); root.add(big);
     // 巨月表面：像素月海与环形山，免得通关时只剩一团白
     const bmC = (() => { const N = 64, c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d');
       g.fillStyle = '#c9cce6'; g.fillRect(0, 0, N, N);
@@ -336,7 +338,7 @@ export function buildMoon(ctx) {
     const bmT = tex(bmC); bmT.wrapS = bmT.wrapT = THREE.ClampToEdgeWrapping;
     const bmM = new THREE.MeshStandardMaterial({ color: 0xffffff, map: bmT, normalMap: ntex(bmC, 4), roughness: .7, emissive: 0xb8bce0, emissiveMap: bmT, emissiveIntensity: 0 });
     const bm = new THREE.Mesh(new THREE.CircleGeometry(2.4, 40), bmM); bm.quaternion.copy(camQuat); big.add(bm);
-    const shutter = new THREE.Mesh(new THREE.CircleGeometry(2.42, 40), new THREE.MeshBasicMaterial({ color: 0x0b0b1e })); shutter.quaternion.copy(camQuat); shutter.position.set(1.6, 0, 0).applyQuaternion(new THREE.Quaternion()); big.add(shutter);
+    const shutter = new THREE.Mesh(new THREE.CircleGeometry(2.42, 40), new THREE.MeshBasicMaterial({ color: 0x0b0b1e, transparent: true, depthWrite: false })); shutter.quaternion.copy(camQuat); shutter.position.set(1.6, 0, 0).applyQuaternion(new THREE.Quaternion()); big.add(shutter);
     shutter.position.add(new THREE.Vector3(0, 0, .02).applyQuaternion(camQuat));
     const frame = new THREE.Mesh(new THREE.TorusGeometry(2.7, .1, 6, 48), silverM); frame.quaternion.copy(camQuat); big.add(frame);
     [-1, 1].forEach(s => { const ch = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, 9, 5), darkM); ch.position.set(s * 2.7, 4.5, 0); big.add(ch); });
@@ -622,7 +624,7 @@ export function buildMoon(ctx) {
     L.towers.forEach(t => { t.top.rotation.y = 0; t.winM.emissiveIntensity = .9; });
     Object.assign(card, { vis: 0, taken: false }); card.g.visible = true;
     altar.slotM.opacity = 0; altar.light.intensity = 0; altar.halo.material.opacity = 0; altar.pm.emissiveIntensity = 0; altar.marks.forEach(m => m.material.emissiveIntensity = 0);
-    altar.big.position.y = -5; altar.bmM.emissiveIntensity = 0; altar.bigHalo.material.opacity = 0; altar.shutter.position.x = altar.shutterX;
+    altar.big.position.y = -5; altar.bmM.emissiveIntensity = 0; altar.bigHalo.material.opacity = 0; altar.shutter.position.x = altar.shutterX; altar.shutter.material.opacity = 1; altar.shutter.visible = true;
     armA = Math.PI;
     Object.values(B).forEach(b => b.on = true);
     lake.uniforms.trail.value = 0; lake.uniforms.spin.value = 0; lake.uniforms.glow.value = 0; lake.uniforms.phase.value = .25;
@@ -829,11 +831,12 @@ export function buildMoon(ctx) {
     if (e > 1.4 && e < 6.5 && Math.floor(e * 1.2) !== Math.floor((e - dt) * 1.2)) fx.ring(altar.x, .3, altar.z, 0xd8d4ff, 5 + Math.random() * 2, 1.6, { a: .6 });
     // 巨月被机关吊出湖面：沉重、缓慢
     const up = smooth(1.6, 5.6, e);
-    altar.big.position.y = -5 + up * 7.4;
-    if (up > 0 && up < 1) { shake(.04, .2); if (Math.random() < dt * 30) fx.emit(altar.x + (Math.random() - .5) * 5, LAKE_Y + .1, .6 + (Math.random() - .5) * .6, { vy: 1 + Math.random(), g: -3, life: 1, c: [.7, .75, 1], a: .8 }); }
+    altar.big.position.y = -5 + up * MOON_UP;
+    if (up > 0 && up < 1) { shake(.04, .2); if (Math.random() < dt * 30) fx.emit(altar.x + (Math.random() - .5) * 5, LAKE_Y + .1, MOON_Z + (Math.random() - .5) * .6, { vy: 1 + Math.random(), g: -3, life: 1, c: [.7, .75, 1], a: .8 }); }
     if (up >= 1 && !S.moonUp) { S.moonUp = true; AU.stone(); shake(.1, .5); }
     const full = smooth(5.2, 8, e);
-    altar.shutter.position.x = altar.shutterX + full * 3.5; altar.shutter.visible = full < .98;
+    // 遮月的暗片：一边滑开一边淡掉，月亮慢慢变圆，暗片不会突然消失
+    altar.shutter.position.x = altar.shutterX + full * 2.2; altar.shutter.material.opacity = 1 - smooth(.25, 1, full); altar.shutter.visible = full < .999;
     altar.bmM.emissiveIntensity = .15 + full * .6; altar.bigHalo.material.opacity = full * .22;
     lake.uniforms.phase.value = .25 + full * .75; lake.uniforms.glow.value = full;
     if (e > 2 && e < 8 && Math.random() < dt * 26) { const a = Math.random() * 6.28, r = 1 + Math.random() * 5; fx.emit(altar.x + Math.cos(a) * r, .2, altar.z + Math.sin(a) * r, { vy: 1 + Math.random(), life: 2, c: [.85, .85, 1], tw: 8 }); }
@@ -905,7 +908,7 @@ export function buildMoon(ctx) {
     },
     ambient(P) { return .3; },
     reset, update, logic, nearest, interact, finaleStart, finale, idle,
-    finaleCam: () => [altar.x - .5, altar.z - 1.8],
+    finaleCam: e => [altar.x - .5, altar.z - 1.8 - 4.2 * smooth(1.6, 6.5, e)], // 巨月升起时镜头跟着慢慢往上抬
     finaleOrb: () => [altar.x - 1.6, altar.z + 1.2],
     progress: () => `${S.phases}${S.gotCard ? 1 : 0}${qA.on ? 1 : 0}${S.solvedB ? 1 : 0}${qC.on ? 1 : 0}${orb.lock ? 1 : 0}${P.x > 18 ? 1 : 0}${P.x > 25 ? 1 : 0}${P.x > 40.5 ? 1 : 0}${qD.on ? 1 : 0}${P.x > 48.5 ? 1 : 0}${P.x > 55 ? 1 : 0}${qE.on ? 1 : 0}${Math.round(S.mirT / (Math.PI / 4)) % 4}${P.x > 84 ? 1 : 0}`,
     MW, MH, mapMarks: () => [...[qA, qB, qD, qC, qE].map(q => ({ x: q.x, z: q.z, kind: 'lamp', done: q.on })), { x: card.x, z: card.z, kind: 'card', done: card.taken }, { x: altar.x, z: altar.z, kind: 'goal', done: S.done }],
