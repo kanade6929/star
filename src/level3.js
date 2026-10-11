@@ -1119,7 +1119,7 @@ export function buildSun(ctx) {
     if (e > 1.4 && e < 6.5 && Math.floor(e * 1.2) !== Math.floor((e - dt) * 1.2)) fx.ring(altar.x, .32, altar.z, 0xffd08a, 5 + Math.random() * 2, 1.6, { a: .6 });
     // 星轨：天还没亮透，星星先转成一圈圈弧线
     S.trail = smooth(1, 5, e);
-    sea.uniforms.trail.value = S.trail; sea.uniforms.spin.value += dt * (.04 + S.trail * .6); sea.uniforms.pole.value.set(altar.x, altar.z - 6);
+    sea.uniforms.trail.value = S.trail; sea.uniforms.spin.value += dt * (.04 + S.trail * .6); sea.uniforms.pole.value.set(altar.x, SUN_Z); // 星轨绕着升起的太阳转
     // 巨臂把机械太阳从云海里托起来：沉重、缓慢
     const up = smooth(2, 7, e);
     altar.big.position.y = -8 + up * (8 + SUN_Y);
