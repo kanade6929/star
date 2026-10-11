@@ -168,7 +168,7 @@ export function cloudSea() {
         col = mix(col, cloudHi * (.8 + a1 * .35), k1);
         col += vec3(1., .78, .5) * rim1 * (.15 + day * .25);
         // 星轨画在云上面，绕着太阳转的弧线才看得见
-        col = mix(col, mix(vec3(1., .86, .55), vec3(.95, .6, .18), day), clamp(trK * 1.1, 0., .8));
+        col = mix(col, mix(vec3(1., .86, .55), vec3(.93, .56, .14), day), clamp(trK * 2.4, 0., .9));
         // 太阳的反光：云层上一片金色
         float sd = length((p + cam * .3 - sun.xy) * vec2(1., 1.3));
         col += vec3(1., .72, .38) * smoothstep(sun.z * 6., 0., sd) * (.18 + glow * .5) * (.4 + day);
