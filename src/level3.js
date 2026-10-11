@@ -451,9 +451,14 @@ export function buildSun(ctx) {
     const bigHalo = billboard(haloT, 11, 11, true, camQuat); bigHalo.material.color.set(0xffc070); bigHalo.material.opacity = 0; big.add(bigHalo);
     rays.scale.setScalar(.2);
     // 太阳底下的一团云：太阳和托臂是从云海里升上来的，云层把它们被云面切平的那条边盖住
-    const mist = [[-1.5, 0, 4.4, 1.7], [0, .12, 3.6, 1.4], [1.6, -.04, 4, 1.6], [0, -.2, 6.4, 1.5]].map(([dx, dy, w, h]) => {
-      const m = billboard(haloT, w, h, false, camQuat); m.material.color.set(0xfbe7cc); m.material.opacity = 0;
-      m.position.set(cx + dx, CLOUD_Y + .55 + dy, SUN_Z + .6); root.add(m); return m;
+    const mistT = tex((() => { const N = 32, c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'), im = g.createImageData(N, N);
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const r = Math.hypot(x + .5 - N / 2, y + .5 - N / 2) / (N / 2), k = (y * N + x) * 4;
+        im.data[k] = im.data[k + 1] = im.data[k + 2] = 255; im.data[k + 3] = 255 * Math.min(1, Math.max(0, (1 - r) * 2.4)); }
+      g.putImageData(im, 0, 0); return c; })());
+    mistT.wrapS = mistT.wrapT = THREE.ClampToEdgeWrapping;
+    const mist = [[-1.6, .05, 3.6, 1.5], [0, .18, 3.4, 1.4], [1.7, 0, 3.6, 1.5], [-.8, -.25, 3.8, 1.2], [.9, -.22, 3.8, 1.2]].map(([dx, dy, w, h]) => {
+      const m = billboard(mistT, w, h, false, camQuat); m.material.color.set(0xfbe5c6); m.material.opacity = 0;
+      m.position.set(cx + dx, CLOUD_Y + .45 + dy, SUN_Z + .6); root.add(m); return m;
     });
     Object.assign(altar, { x: cx, z: cz, g: g0, dialM, marks, slotM, slot, halo, light, big, faceM, rays, rayM, bigHalo, mist });
     L.hide.push(halo, bigHalo, ...altar.mist);
