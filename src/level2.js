@@ -908,8 +908,8 @@ export function buildMoon(ctx) {
     },
     ambient(P) { return .3; },
     reset, update, logic, nearest, interact, finaleStart, finale, idle,
-    finaleCam: e => [altar.x - .5, altar.z - 1.8 - 2.2 * smooth(1.6, 6.5, e)], // 巨月升起时镜头跟着慢慢往上抬
-    finaleZoom: e => 1 + .26 * smooth(1.6, 6.5, e),                                // 同时慢慢拉远：角色、月池和巨月都在画面里
+    finaleCam: e => [altar.x - .5, altar.z - 1.8 - 2.5 * smooth(1.6, 6.5, e)], // 巨月升起时镜头跟着慢慢往上抬
+    finaleZoom: e => 1 + .34 * smooth(1.6, 6.5, e),                                // 同时慢慢拉远：角色、月池和巨月都在画面里
     finaleOrb: () => [altar.x - 1.6, altar.z + 1.2],
     progress: () => `${S.phases}${S.gotCard ? 1 : 0}${qA.on ? 1 : 0}${S.solvedB ? 1 : 0}${qC.on ? 1 : 0}${orb.lock ? 1 : 0}${P.x > 18 ? 1 : 0}${P.x > 25 ? 1 : 0}${P.x > 40.5 ? 1 : 0}${qD.on ? 1 : 0}${P.x > 48.5 ? 1 : 0}${P.x > 55 ? 1 : 0}${qE.on ? 1 : 0}${Math.round(S.mirT / (Math.PI / 4)) % 4}${P.x > 84 ? 1 : 0}`,
     MW, MH, mapMarks: () => [...[qA, qB, qD, qC, qE].map(q => ({ x: q.x, z: q.z, kind: 'lamp', done: q.on })), { x: card.x, z: card.z, kind: 'card', done: card.taken }, { x: altar.x, z: altar.z, kind: 'goal', done: S.done }],
