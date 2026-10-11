@@ -5178,7 +5178,7 @@ totalEmissiveRadiance += diffuseColor.rgb * .14;`).replace("#include <opaque_fra
         vec2 q = rot(sp, pole + cam * .55, spin);
         vec3 stars = (layer(q, 2.4, .08, time) + layer(q + 7., 4.6, .06, time) * .5) * .7 * (1. - day) * (1. - trail * .7);
         // \u661F\u8F68\uFF1A\u5929\u4EAE\u4EE5\u540E\u767D\u8272\u5728\u674F\u8272\u5929\u4E0A\u770B\u4E0D\u89C1\uFF0C\u6539\u6210\u540C\u8272\u7CFB\u7684\u7425\u73C0\u91D1\uFF0C\u76D6\u5728\u5929\u8272\u4E0A\uFF08\u4E0D\u662F\u53E0\u52A0\uFF09\uFF0C\u767D\u5929\u4E5F\u8BA4\u5F97\u51FA
-        float trK = min(dot(trails(sp * .55, (pole + cam * .55) * .55, spin, trail * 1.3), vec3(.333)), 1.) * trail; // \u5750\u6807\u7F29\u5C0F\uFF1A\u5F27\u7EBF\u66F4\u7C97\u3001\u95F4\u8DDD\u66F4\u5927\uFF0C\u666F\u6DF1\u7CCA\u8FC7\u4E4B\u540E\u8FD8\u770B\u5F97\u6E05
+        vec2 tp = (pole + cam * .55) * .55; float trK = min(dot(trails(sp * .55, tp, spin, trail * 1.3) + trails(sp * .55 + vec2(.19, 0.), tp + vec2(.19, 0.), spin + 2.1, trail * 1.3), vec3(.333)), 1.) * trail; // \u5750\u6807\u7F29\u5C0F\uFF1A\u5F27\u7EBF\u66F4\u7C97\u3001\u95F4\u8DDD\u66F4\u5927\uFF0C\u666F\u6DF1\u7CCA\u8FC7\u4E4B\u540E\u8FD8\u770B\u5F97\u6E05
         // \u4E24\u5C42\u4E91\uFF1A\u8FD1\u7684\u8D70\u5F97\u5FEB\uFF0C\u50CF\u7D20\u5316\u7684\u8FB9\u7F18
         vec2 c1 = p + cam * .3 + vec2(time * .12, 0.), c2 = p + cam * .15 + vec2(time * .05, time * .02);
         float a1 = n(c1 * .16) * .65 + n(c1 * .42) * .35, a2 = n(c2 * .09 + 4.) * .6 + n(c2 * .25 + 9.) * .4;
@@ -5190,7 +5190,7 @@ totalEmissiveRadiance += diffuseColor.rgb * .14;`).replace("#include <opaque_fra
         col = mix(col, cloudHi * (.8 + a1 * .35), k1);
         col += vec3(1., .78, .5) * rim1 * (.15 + day * .25);
         // \u661F\u8F68\u753B\u5728\u4E91\u4E0A\u9762\uFF0C\u7ED5\u7740\u592A\u9633\u8F6C\u7684\u5F27\u7EBF\u624D\u770B\u5F97\u89C1
-        col = mix(col, mix(vec3(1., .86, .55), vec3(.93, .56, .14), day), clamp(trK * 2.4, 0., .9));
+        col = mix(col, mix(vec3(1., .86, .55), vec3(.93, .56, .14), day), clamp(trK * 3., 0., .9));
         // \u592A\u9633\u7684\u53CD\u5149\uFF1A\u4E91\u5C42\u4E0A\u4E00\u7247\u91D1\u8272
         float sd = length((p + cam * .3 - sun.xy) * vec2(1., 1.3));
         col += vec3(1., .72, .38) * smoothstep(sun.z * 6., 0., sd) * (.18 + glow * .5) * (.4 + day);

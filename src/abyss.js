@@ -156,7 +156,7 @@ export function cloudSea() {
         vec2 q = rot(sp, pole + cam * .55, spin);
         vec3 stars = (layer(q, 2.4, .08, time) + layer(q + 7., 4.6, .06, time) * .5) * .7 * (1. - day) * (1. - trail * .7);
         // 星轨：天亮以后白色在杏色天上看不见，改成同色系的琥珀金，盖在天色上（不是叠加），白天也认得出
-        float trK = min(dot(trails(sp * .55, (pole + cam * .55) * .55, spin, trail * 1.3), vec3(.333)), 1.) * trail; // 坐标缩小：弧线更粗、间距更大，景深糊过之后还看得清
+        vec2 tp = (pole + cam * .55) * .55; float trK = min(dot(trails(sp * .55, tp, spin, trail * 1.3) + trails(sp * .55 + vec2(.19, 0.), tp + vec2(.19, 0.), spin + 2.1, trail * 1.3), vec3(.333)), 1.) * trail; // 坐标缩小：弧线更粗、间距更大，景深糊过之后还看得清
         // 两层云：近的走得快，像素化的边缘
         vec2 c1 = p + cam * .3 + vec2(time * .12, 0.), c2 = p + cam * .15 + vec2(time * .05, time * .02);
         float a1 = n(c1 * .16) * .65 + n(c1 * .42) * .35, a2 = n(c2 * .09 + 4.) * .6 + n(c2 * .25 + 9.) * .4;
@@ -168,7 +168,7 @@ export function cloudSea() {
         col = mix(col, cloudHi * (.8 + a1 * .35), k1);
         col += vec3(1., .78, .5) * rim1 * (.15 + day * .25);
         // 星轨画在云上面，绕着太阳转的弧线才看得见
-        col = mix(col, mix(vec3(1., .86, .55), vec3(.93, .56, .14), day), clamp(trK * 2.4, 0., .9));
+        col = mix(col, mix(vec3(1., .86, .55), vec3(.93, .56, .14), day), clamp(trK * 3., 0., .9));
         // 太阳的反光：云层上一片金色
         float sd = length((p + cam * .3 - sun.xy) * vec2(1., 1.3));
         col += vec3(1., .72, .38) * smoothstep(sun.z * 6., 0., sd) * (.18 + glow * .5) * (.4 + day);
