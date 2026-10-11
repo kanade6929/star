@@ -464,8 +464,12 @@ export function buildStar(ctx) {
   const skyG = new THREE.Group(); root.add(skyG);          // 悬在空中的星与星线，连成后整体降到海面
   const plankG = new THREE.Group(); plankG.visible = false; root.add(plankG);   // 光桥与星台
   const threadM = new THREE.MeshBasicMaterial({ color: 0xffd89a, transparent: true, opacity: .14, blending: THREE.AdditiveBlending, depthWrite: false });
-  const plankM = toon({ map: bridgeT, color: 0x9a94c0, emissive: 0xffc86a, emissiveIntensity: .12, roughness: .3 });
-  const platDM = toon({ color: 0x44427a, roughness: .55 });   // 中心星台放灯，用深色石头，免得被灯照得发白
+  const plankM = toon({ map: bridgeT, color: 0x9a94c0, emissive: 0xffc86a, emissiveIntensity: .12, roughness: .3, transparent: true, opacity: 0 });
+  const platDM = toon({ color: 0x44427a, roughness: .55, transparent: true, opacity: 0 });
+  // 光桥和星台从星海里慢慢浮现：用自己的一份材质（建的时候就是 transparent，淡入时不重编着色器）
+  const fadeOf = m => { const c = m.clone(); c.transparent = true; c.opacity = 0; return c; };
+  const platStoneM = fadeOf(stoneM), platGoldM = fadeOf(goldM), platRockM = fadeOf(isleRockM);
+  const plankFade = [plankM, platDM, platStoneM, platGoldM, platRockM];   // 中心星台放灯，用深色石头，免得被灯照得发白
   const platInM = new THREE.MeshStandardMaterial({ map: inlayT, transparent: true, alphaTest: .4, color: 0xd8c08a, roughness: .25, metalness: .7, emissive: 0xffd89a, emissiveMap: inlayT, emissiveIntensity: .8 });
   const nodes = Object.entries(CN).map(([id, [x, z]], i) => {
     const sm = new THREE.MeshStandardMaterial({ color: 0xb8a878, roughness: .3, emissive: 0xffd89a, emissiveIntensity: 0 });
@@ -477,9 +481,9 @@ export function buildStar(ctx) {
     const n = { id, i, x, z, sm, star, halo, thread, rm, ring, wake: 0, hot: 0, pr: id === 'D' ? 1.05 : .68 };
     if (id !== 'I') {   // I 在东边的窄道上，不需要星台
       const g0 = new THREE.Group(); g0.position.set(x, 0, z); plankG.add(g0);
-      const top = new THREE.Mesh(new THREE.CylinderGeometry(n.pr, n.pr * .9, .3, 16), id === 'D' ? platDM : stoneM); top.position.y = -.15; g0.add(top);
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(n.pr - .02, .035, 4, 24), goldM); rim.rotation.x = Math.PI / 2; rim.position.y = -.005; g0.add(rim);
-      const rock = new THREE.Mesh(new THREE.ConeGeometry(n.pr * .8, 1.6, 6, 1), isleRockM); rock.rotation.x = Math.PI; rock.position.y = -1.1; g0.add(rock);
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(n.pr, n.pr * .9, .3, 16), id === 'D' ? platDM : platStoneM); top.position.y = -.15; g0.add(top);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(n.pr - .02, .035, 4, 24), platGoldM); rim.rotation.x = Math.PI / 2; rim.position.y = -.005; g0.add(rim);
+      const rock = new THREE.Mesh(new THREE.ConeGeometry(n.pr * .8, 1.6, 6, 1), platRockM); rock.rotation.x = Math.PI; rock.position.y = -1.1; g0.add(rock);
       if (id !== 'D') { const inl = new THREE.Mesh(new THREE.PlaneGeometry(.9, .9), platInM); inl.rotation.x = -Math.PI / 2; inl.position.y = .006; g0.add(inl); }
       shadowAll(g0); g0.children.forEach(m => { if (m.material === platInM) m.castShadow = false; });
     }
@@ -758,6 +762,7 @@ export function buildStar(ctx) {
     const D = C.desc, de = D * D * (3 - 2 * D);
     skyG.position.y = -(SY - .03) * de;
     plankG.position.y = -1.8 * (1 - smooth(.25, 1, D));
+    { const f = smooth(.05, .8, D); plankFade.forEach(m => { m.opacity = f; m.depthWrite = f > .98; }); platInM.opacity = f; platInM.alphaTest = .4 * f + .001; }
     threadM.opacity = 0;
     nodes.forEach((n, i) => {
       n.star.visible = n.wake > 0 && D < 1; n.halo.visible = n.star.visible;
