@@ -1188,7 +1188,8 @@ export function buildSun(ctx) {
     onFallFrame(P) { if (!S._splash && P.y < CLOUD_Y) { S._splash = true; fx.burst(P.x, CLOUD_Y + .1, P.z, 22, { c: [1, .85, .75], sp: 1.4, up: 2, g: -5, life: 1 }); } },
     ambient() { return .3 + S.day * .14; },
     reset, update, logic, nearest, interact, finaleStart, finale, idle,
-    finaleCam: e => [altar.x - .5, altar.z - 4.6 - .6 * smooth(2, 7.5, e)], // 太阳升起时镜头跟着慢慢往上抬
+    finaleCam: e => [altar.x - .5, altar.z - 4.4 - .9 * smooth(2, 7.5, e)], // 太阳升起时镜头跟着慢慢往上抬
+    finaleZoom: e => 1 + .22 * smooth(2, 7.5, e),                           // 同时慢慢拉远：角色、日台和太阳都在画面里
     finaleOrb: () => [altar.x - 1.8, altar.z + 1.2],
     progress: () => `${S.rays}${S.gotCard ? 1 : 0}${R1.on ? 1 : 0}${R2.on ? 1 : 0}${gate2.opening ? 1 : 0}${S.twins ? 1 : 0}${S.bridgeDown ? 1 : 0}${S.bridgeList.length}${R4.on ? 1 : 0}${RN.on ? 1 : 0}${RE.on ? 1 : 0}${S.wheel ? 1 : 0}${DISC.k % 8}`,
     MW, MH, mapMarks: () => [...[R1, R2, R3a, R3b, R4, RN, RE].map(r => ({ x: r.cx, z: r.cz, kind: 'lamp', done: r.on })), { x: card.x, z: card.z, kind: 'card', done: card.taken }, { x: altar.x, z: altar.z, kind: 'goal', done: S.done }],

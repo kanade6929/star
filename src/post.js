@@ -14,7 +14,7 @@ export const REFL = { tReflect: { value: null }, reflMat: { value: new THREE.Mat
 export class PixelPipeline {
   constructor(renderer) {
     this.r = renderer;
-    this.w = 0; this.h = 0; this.scale = 1; this.zoom = 1; this.css = null;
+    this.w = 0; this.h = 0; this.scale = 1; this.zoom = 1; this.css = null; this.kMul = 1; // kMul：镜头拉远（每个像素代表更大的世界范围），过关演出用
     // 画质：0 高，1 中等（手机默认）。中等：画布不按高分屏放大、倒影隔帧更新、泛光与景深少模糊一轮
     this.quality = 0; this.frameN = 0;
     const opts = { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, type: THREE.HalfFloatType };
@@ -172,7 +172,7 @@ export class PixelPipeline {
   }
   // 相机：正交俯视，世界单位按像素对齐
   setupCamera(cam) {
-    const W = this.w + 2, H = this.h + 2, k = PX_WORLD;
+    const W = this.w + 2, H = this.h + 2, k = PX_WORLD * this.kMul;
     cam.left = -W * k / 2; cam.right = W * k / 2; cam.top = H * k / 2; cam.bottom = -H * k / 2;
     cam.updateProjectionMatrix();
   }
@@ -181,7 +181,7 @@ export class PixelPipeline {
     const fwd = dir.clone().normalize();
     const right = new THREE.Vector3(1, 0, 0);
     const up = new THREE.Vector3().crossVectors(right, fwd).normalize();
-    const k = PX_WORLD;
+    const k = PX_WORLD * this.kMul;
     const tx = target.dot(right), ty = target.dot(up), tf = target.dot(fwd);
     const sx = Math.round(tx / k) * k, sy = Math.round(ty / k) * k;
     const snapped = right.clone().multiplyScalar(sx).add(up.clone().multiplyScalar(sy)).add(fwd.clone().multiplyScalar(tf));

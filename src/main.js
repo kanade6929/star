@@ -740,6 +740,9 @@ function update(dt) {
   camFocus.addScaledVector(camVel, dt);
   const focusPt = camFocus.clone().add(new THREE.Vector3(0, 0, -.6 * (1 - lowK)));
   if (S.shakeT > 0) { S.shakeT -= dt; const a = S.shakeA * Math.max(0, S.shakeT / S.shakeD); focusPt.x += (Math.random() - .5) * a; focusPt.z += (Math.random() - .5) * a; }
+  // 过关演出可以把镜头慢慢拉远（关卡的 finaleZoom），让角色、台和升起的月亮 / 太阳同时在画面里
+  const zk = S.mode === 'cut' && LV.finaleZoom ? LV.finaleZoom(S.ev) : 1;
+  if (Math.abs(zk - pipe.kMul) > 1e-4) { pipe.kMul = zk; pipe.setupCamera(cam); }
   pipe.snap(cam, focusPt, dir, CAM_DIST);
   orbStar.update(dt, T, cam, Math.max(.35, orb.k), orbGlow);
   snapMoon(camFocus);

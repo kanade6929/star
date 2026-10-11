@@ -19,7 +19,7 @@ const LIT_R = 9.6;   // 星光能照到的距离
 const HUB = [41.5 + 21, 7.5], HOOK_R = 1.3, PILLAR_R = .5, ARM_PERIOD = 20;
 const LAKE_Y = -.3;
 // 通关时吊起的巨月：放在场景最北边之外、再升高一点，镜头压低（近）时月盘下缘也碰不到岸上的东西
-const MOON_Z = -1.6, MOON_UP = 6.7, MOON_S = .74; // 缩小、压低：最后一个镜头里角色、月池和巨月都要在画面里
+const MOON_Z = -1.6, MOON_UP = 6.6, MOON_S = .62; // 缩小、压低：最后一个镜头里角色、月池和巨月都要在画面里
 const MIR = [76.5, 5.5];     // 月镜（镜湖湖心小岛北侧）
 
 /* ---------- 地图 ----------
@@ -908,7 +908,8 @@ export function buildMoon(ctx) {
     },
     ambient(P) { return .3; },
     reset, update, logic, nearest, interact, finaleStart, finale, idle,
-    finaleCam: e => [altar.x - .5, altar.z - 1.8 - 1.4 * smooth(1.6, 6.5, e)], // 巨月升起时镜头跟着慢慢往上抬
+    finaleCam: e => [altar.x - .5, altar.z - 1.8 - 2.2 * smooth(1.6, 6.5, e)], // 巨月升起时镜头跟着慢慢往上抬
+    finaleZoom: e => 1 + .26 * smooth(1.6, 6.5, e),                                // 同时慢慢拉远：角色、月池和巨月都在画面里
     finaleOrb: () => [altar.x - 1.6, altar.z + 1.2],
     progress: () => `${S.phases}${S.gotCard ? 1 : 0}${qA.on ? 1 : 0}${S.solvedB ? 1 : 0}${qC.on ? 1 : 0}${orb.lock ? 1 : 0}${P.x > 18 ? 1 : 0}${P.x > 25 ? 1 : 0}${P.x > 40.5 ? 1 : 0}${qD.on ? 1 : 0}${P.x > 48.5 ? 1 : 0}${P.x > 55 ? 1 : 0}${qE.on ? 1 : 0}${Math.round(S.mirT / (Math.PI / 4)) % 4}${P.x > 84 ? 1 : 0}`,
     MW, MH, mapMarks: () => [...[qA, qB, qD, qC, qE].map(q => ({ x: q.x, z: q.z, kind: 'lamp', done: q.on })), { x: card.x, z: card.z, kind: 'card', done: card.taken }, { x: altar.x, z: altar.z, kind: 'goal', done: S.done }],
