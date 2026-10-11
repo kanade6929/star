@@ -28,8 +28,8 @@ scene.environmentIntensity = .26; // 环境反射只留一点：暗处靠局部�
 const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 90);
 // 镜头远近（「更多」里选）：远 = 俯视 58°；近 = 机位压低到 46°，更贴近主角
 const ELEV_OF = { far: 58 * Math.PI / 180, near: 44 * Math.PI / 180 };
-const ZOOM_OF = { far: 1, near: 1.22 };
-const CUT_DZ = { far: 0, near: 1.4 }; // 过关演出：近镜头画面小一圈，镜头再往北一点，天上升起的月亮、太阳才完整 // 近：画面再拉近一些（俯角压低后地面纵深变长，拉近后纵深和远差不多，人物更大）
+const ZOOM_OF = { far: 1, near: 1.22 }; // 近：画面再拉近一些（俯角压低后地面纵深变长，拉近后纵深和远差不多，人物更大）
+const CUT_DZ = { far: 0, near: 0 }; // 过关演出镜头的额外北移（按镜头远近）；现在由各关的 finaleCam 自己安排
 let ELEV0 = ELEV_OF.far;
 const camDir = e => new THREE.Vector3(0, -Math.sin(e), -Math.cos(e));
 const CAM_DIST = 30;
