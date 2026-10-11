@@ -162,7 +162,7 @@ export function cloudSea() {
         float a1 = n(c1 * .16) * .65 + n(c1 * .42) * .35, a2 = n(c2 * .09 + 4.) * .6 + n(c2 * .25 + 9.) * .4;
         float k1 = step(.56, a1), k2 = step(.5, a2);
         float rim1 = step(.56, a1) - step(.6, a1);
-        vec3 cloudLo = mix(vec3(.16, .07, .13), vec3(.95, .66, .48), day), cloudHi = mix(vec3(.38, .16, .22), vec3(1., .88, .66), day);
+        vec3 cloudLo = mix(vec3(.16, .07, .13), vec3(.95, .66, .48), day) * .78, cloudHi = mix(vec3(.38, .16, .22), vec3(1., .88, .66), day) * .78; // 云再暗一点点
         vec3 col = deep + stars;
         col = mix(col, cloudLo * (.75 + a2 * .4), k2 * .85);
         col = mix(col, cloudHi * (.8 + a1 * .35), k1);

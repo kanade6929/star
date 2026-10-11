@@ -21,6 +21,8 @@ const LAKE_Y = -.3;
 // 通关时吊起的巨月：放在场景最北边之外、再升高一点，镜头压低（近）时月盘下缘也碰不到岸上的东西
 const MOON_Z = .7, MOON_UP = 6.6, MOON_S = .62; // 缩小、压低：最后一个镜头里角色、月池和巨月都要在画面里
 const MIR = [76.5, 5.5];     // 月镜（镜湖湖心小岛北侧）
+const MIR_BOX = [69.5, 84.5, -.6, 15], MIR_FADE = 1.4; // 镜湖范围（x0, x1, z0, z1）：镜像只在这里面出现，靠边 1.4 格内渐渐淡掉
+const mirK = (x, z) => { const e = Math.min(x - MIR_BOX[0], MIR_BOX[1] - x, z - MIR_BOX[2], MIR_BOX[3] - z) / MIR_FADE; const t = Math.max(0, Math.min(1, e)); return t * t * (3 - 2 * t); };
 
 /* ---------- 地图 ----------
   空格=深湖  .月石步道  ,苔岸  ~浅水  #断墙  %影石（只在影子里成形）  M石碑  H塔  D犬像  F狼像  G月洞门
@@ -723,10 +725,11 @@ export function buildMoon(ctx) {
     mirror.rotation.y = -S.mirA; axisG.rotation.y = -S.mirA;
     if (Math.abs(S.mirA - pa) > dt * .05 && Math.random() < dt * 20) fx.emit(MIR[0] + (Math.random() - .5) * 2, .2, MIR[1] + (Math.random() - .5) * .6, { vy: .3, vx: (Math.random() - .5), life: .7, c: [.6, .58, .75], a: .6 });
     // 镜中月：星光关于镜线的对称点
-    const mOn = !S.done && P.x > 68.5 && P.x < 85.5 ? 1 : 0;
-    ph.k += (mOn - ph.k) * (1 - Math.exp(-dt * 3));
     { const dx = Math.cos(S.mirA), dz = Math.sin(S.mirA), vx = orb.x - MIR[0], vz = orb.z - MIR[1], d = vx * dx + vz * dz;
       ph.x = MIR[0] + 2 * d * dx - vx; ph.z = MIR[1] + 2 * d * dz - vz; }
+    // 镜像只在镜湖的范围里：星光或镜中月靠近范围边缘就慢慢变淡，出了范围就消失
+    const mOn = S.done ? 0 : Math.min(mirK(orb.x, orb.z), mirK(ph.x, ph.z));
+    ph.k += (mOn - ph.k) * (1 - Math.exp(-dt * 3));
     ph.g.position.set(ph.x, orb.y, ph.z); ph.core.visible = ph.halo.visible = ph.k > .02;   // 灯本身一直在（只调亮度），灯数不变就不会重编着色器
     ph.core.rotation.y += dt * 2;
     ph.light.intensity = ph.k * (3.2 + Math.sin(T * 2.3) * .2);
