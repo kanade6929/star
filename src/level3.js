@@ -456,9 +456,9 @@ export function buildSun(ctx) {
         im.data[k] = im.data[k + 1] = im.data[k + 2] = 255; im.data[k + 3] = 255 * Math.min(1, Math.max(0, (1 - r) * 2.4)); }
       g.putImageData(im, 0, 0); return c; })());
     mistT.wrapS = mistT.wrapT = THREE.ClampToEdgeWrapping;
-    const mist = [[-1.6, .05, 3.6, 1.5], [0, .18, 3.4, 1.4], [1.7, 0, 3.6, 1.5], [-.8, -.25, 3.8, 1.2], [.9, -.22, 3.8, 1.2]].map(([dx, dy, w, h]) => {
+    const mist = [[-1.7, .1, 3.4, 2.1], [-.4, .42, 2.8, 1.8], [.9, .3, 3, 1.9], [2, .05, 3.2, 2], [-.9, -.25, 4, 1.6], [1, -.3, 4, 1.6]].map(([dx, dy, w, h]) => {
       const m = billboard(mistT, w, h, false, camQuat); m.material.color.set(0xfbe5c6); m.material.opacity = 0;
-      m.position.set(cx + dx, CLOUD_Y + .45 + dy, SUN_Z + .6); root.add(m); return m;
+      m.position.set(cx + dx, CLOUD_Y + .6 + dy, SUN_Z + .6); root.add(m); return m;
     });
     Object.assign(altar, { x: cx, z: cz, g: g0, dialM, marks, slotM, slot, halo, light, big, faceM, rays, rayM, bigHalo, mist });
     L.hide.push(halo, bigHalo, ...altar.mist);
