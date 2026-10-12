@@ -730,8 +730,9 @@ export function buildMoon(ctx) {
     // 镜像只在镜湖的范围里：星光或镜中月靠近范围边缘就慢慢变淡，出了范围就消失
     const mOn = S.done ? 0 : Math.min(mirK(orb.x, orb.z), mirK(ph.x, ph.z));
     ph.k += (mOn - ph.k) * (1 - Math.exp(-dt * 3));
-    ph.g.position.set(ph.x, orb.y, ph.z); ph.core.visible = ph.halo.visible = ph.k > .02;   // 灯本身一直在（只调亮度），灯数不变就不会重编着色器
+    ph.g.position.set(ph.x, orb.y, ph.z); ph.core.visible = ph.halo.visible = ph.k > .002;   // 灯本身一直在（只调亮度），灯数不变就不会重编着色器
     ph.core.rotation.y += dt * 2;
+    { const k = ph.k * ph.k * (3 - 2 * ph.k); ph.core.scale.set(.8 * k, 1.25 * k, .8 * k); ph.sm.emissiveIntensity = 1.6 * k; }   // 镜像光点跟着缩小、变暗再消失，不会啪地没了
     ph.light.intensity = ph.k * (3.2 + Math.sin(T * 2.3) * .2);
     ph.halo.material.opacity = ph.k * (.42 + Math.sin(T * 2.3) * .05);
     ph.pool.position.set(ph.x, LAKE_Y + .05, ph.z); ph.poolM.opacity = ph.k * .22;

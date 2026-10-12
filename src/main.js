@@ -814,11 +814,16 @@ addEventListener('pointerdown', wake, { capture: true });
 addEventListener('keydown', wake, { capture: true });
 // 手机浏览器只认「手指抬起 / 点击」才算玩家允许出声，按下那一刻不算；所以抬起时再解锁一次，声音第一下触摸就响
 ['pointerup', 'touchend', 'click'].forEach(ev => addEventListener(ev, () => { if (!AU.running) AU.init(); }, { capture: true }));
+let dealReady = 0;
 function showView(v) {
   $('vMain').classList.toggle('off', v !== 'main'); $('vChap').classList.toggle('off', v !== 'chap'); $('vMore').classList.toggle('off', v !== 'more');
   if (v === 'more') { refreshMore(); setTimeout(() => document.querySelector('#vMore .seg [aria-checked="true"]').focus({ preventScroll: true }), 300); return; }
   const deck = $('deck');
-  if (v === 'chap') { deck.classList.remove('dealt', 'picking'); deck.classList.add('dealing'); requestAnimationFrame(() => requestAnimationFrame(() => deck.classList.add('dealt'))); AU.deal(); setTimeout(() => deck.querySelector('.tcard:not(.locked)').focus(), 300); }
+  clearTimeout(dealReady); deck.classList.remove('ready');
+  if (v === 'chap') { deck.classList.remove('dealt', 'picking'); deck.classList.add('dealing'); AU.deal();
+    // 三张牌展开约 1.4s（从真正开始展开算起）：到位之后才响应悬停/点击，也才把焦点交给第一张可进入的牌
+    requestAnimationFrame(() => requestAnimationFrame(() => { deck.classList.add('dealt');
+      dealReady = setTimeout(() => { deck.classList.remove('dealing'); deck.classList.add('ready'); deck.querySelector('.tcard:not(.locked)').focus({ preventScroll: true }); }, 1500); })); }
   else setTimeout(() => document.querySelector('#mainNav .vbtn').focus({ preventScroll: true }), 50);
 }
 function menuAct(act) {
@@ -868,10 +873,11 @@ document.querySelectorAll('.vbtn').forEach((b, i) => {
 });
 document.querySelectorAll('.tcard').forEach(c => {
   c.addEventListener('click', () => {
+    if (!$('deck').classList.contains('ready')) return;
     if (c.classList.contains('locked')) { c.classList.remove('nudge'); void c.offsetWidth; c.classList.add('nudge'); AU.locked(); return; }
     $('deck').classList.add('picking'); c.classList.add('chosen'); setTimeout(() => begin(+c.dataset.n), 650);
   });
-  c.addEventListener('mouseenter', () => AU.hover(+c.dataset.n + 1));
+  c.addEventListener('mouseenter', () => { if ($('deck').classList.contains('ready')) AU.hover(+c.dataset.n + 1); });
 });
 $('back').addEventListener('click', () => { AU.back(); showView('main'); });
 function menuKey(e, k) {
