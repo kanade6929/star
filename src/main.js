@@ -47,6 +47,7 @@ function layoutView() {
   const b = document.body, st = document.documentElement.style;
   b.classList.toggle('rot', view.rot);
   b.classList.toggle('short', view.h < 520);
+  b.classList.toggle('midh', view.h >= 520 && view.h < 820);   // 中等高度（如 720p 电脑）：更多页行距收紧一点，多一行也放得下
   b.style.width = view.rot ? view.w + 'px' : ''; b.style.height = view.rot ? view.h + 'px' : '';
   // 用实际可见尺寸换算 vw/vh：手机浏览器地址栏伸缩时 1vh 不等于可见高度的 1%，会让贴边的文字和按钮错位
   st.setProperty('--vw', view.w / 100 + 'px'); st.setProperty('--vh', view.h / 100 + 'px'); st.setProperty('--W', innerWidth + 'px');
@@ -55,7 +56,7 @@ function layoutView() {
 function toView(cx, cy) { return view.rot ? [cy, innerWidth - cx] : [cx, cy]; }
 // 设置：画质（高 / 中等）与光点皮肤。手机默认中等：画布不按高分屏放大，倒影和月光阴影隔帧更新
 const SET_KEY = 'chenxingye3d_set';
-const SET = { q: TOUCH ? 'mid' : 'high', skin: 'gold', fps: TOUCH ? '60' : 'max', cam: 'near' }; // 帧率默认：电脑无上限，手机 60；镜头默认近
+const SET = { q: TOUCH ? 'mid' : 'high', skin: 'gold', fps: TOUCH ? '60' : 'max', cam: 'near', fs: 'full' }; // 帧率默认：电脑无上限，手机 60；镜头默认近
 try { Object.assign(SET, JSON.parse(localStorage.getItem(SET_KEY)) || {}); } catch (e) {}
 if (!['max', '60', '30'].includes(SET.fps)) SET.fps = TOUCH ? '60' : 'max'; // 旧存档里的「自动」按设备默认
 if (!ELEV_OF[SET.cam]) SET.cam = 'near';
@@ -436,11 +437,25 @@ canvas.addEventListener('pointermove', e => {
 });
 const endJoy = e => { [joy, joyR].forEach(j => { if (e.pointerId === j.id) { j.id = null; j.dx = j.dz = 0; $(stickEl(j)[1]).style.transform = ''; } }); stickHome(); };
 canvas.addEventListener('pointerup', endJoy); canvas.addEventListener('pointercancel', endJoy);
-// 安卓：第一次点击时尝试全屏并锁定横屏
-addEventListener('pointerdown', () => {
-  if (!TOUCH || document.fullscreenElement || !document.documentElement.requestFullscreen) return;
-  document.documentElement.requestFullscreen({ navigationUI: 'hide' }).then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {})).catch(() => {});
-}, { once: true, capture: true });
+// 全屏：浏览器只允许在玩家点击 / 按键时进入全屏，所以「默认全屏」= 打开网页后的第一下点击或按键进入全屏（手机同时锁横屏）。
+// 每次打开网页只自动进一次：玩家自己按 Esc / 返回退出后不再强行拉回，想再全屏去「更多 · 显示」里点。iPhone 的浏览器不支持网页全屏，那一行会隐藏
+const DOC = document.documentElement;
+const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+const FS_OK = !!(DOC.requestFullscreen || DOC.webkitRequestFullscreen);
+function enterFull() {
+  if (!FS_OK || fsEl()) return;
+  const p = DOC.requestFullscreen ? DOC.requestFullscreen({ navigationUI: 'hide' }) : DOC.webkitRequestFullscreen();
+  Promise.resolve(p).then(() => { if (TOUCH && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); }).catch(() => {});
+}
+function exitFull() { if (!fsEl()) return; (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
+let fsAuto = false;
+const autoFull = e => {
+  if (fsAuto) return;
+  if (e.type === 'keydown' && (e.key === 'Escape' || e.key === 'F11')) return;   // 按 Esc / F11 不算：免得刚想退出就被拉进全屏
+  fsAuto = true; if (SET.fs === 'full') enterFull();
+};
+addEventListener('pointerup', autoFull, { capture: true }); addEventListener('keydown', autoFull, { capture: true });
+['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => { refreshMore(); setTimeout(resize, 120); }));
 $('tE').addEventListener('pointerdown', e => { e.preventDefault(); if (S.mode === 'play' && !S.cine) interact(); else if (S.mode === 'intro') skipIntro(); });
 $('tP').addEventListener('pointerdown', e => { e.preventDefault(); if (S.mode === 'play') pause(); });
 $('tM').addEventListener('pointerdown', e => { e.preventDefault(); toggleMap(); });
@@ -831,6 +846,7 @@ function menuAct(act) {
   if (act === 'start') begin(nextLevel());
   else if (act === 'chapters') showView('chap');
   else if (act === 'more') showView('more');
+  // 'home'：前往作者主页，是个链接，浏览器自己打开（手机上会拉起 B 站 App）
 }
 function refreshMore() {
   document.querySelectorAll('#vMore [data-q]').forEach(b => b.setAttribute('aria-checked', b.dataset.q === SET.q));
@@ -839,11 +855,14 @@ function refreshMore() {
   document.querySelector('#vMore .msup').classList.toggle('done', prismOpen);
   document.querySelectorAll('#vMore [data-fps]').forEach(b => b.setAttribute('aria-checked', b.dataset.fps === SET.fps));
   document.querySelectorAll('#vMore [data-cam]').forEach(b => b.setAttribute('aria-checked', b.dataset.cam === SET.cam));
+  $('fsRow').hidden = !FS_OK;
+  document.querySelectorAll('#vMore [data-fs]').forEach(b => b.setAttribute('aria-checked', b.dataset.fs === (fsEl() ? 'full' : 'win')));   // 显示当前真实状态
   syncSound();
 }
 document.querySelectorAll('#vMore [data-snd]').forEach(b => b.addEventListener('click', () => { if ((b.dataset.snd === 'on') !== !!AU.on) AU.toggle(); syncSound(); }));
 document.querySelectorAll('#vMore [data-fps]').forEach((b, i) => b.addEventListener('click', () => { if (SET.fps === b.dataset.fps) return; SET.fps = b.dataset.fps; saveSet(); refreshMore(); AU.hover(i + 2); }));
 document.querySelectorAll('#vMore [data-cam]').forEach((b, i) => b.addEventListener('click', () => { if (SET.cam === b.dataset.cam) return; SET.cam = b.dataset.cam; saveSet(); applyCam(); refreshMore(); AU.hover(i + 3); }));
+document.querySelectorAll('#vMore [data-fs]').forEach((b, i) => b.addEventListener('click', () => { SET.fs = b.dataset.fs; saveSet(); fsAuto = true; if (SET.fs === 'full') enterFull(); else exitFull(); refreshMore(); AU.hover(i + 2); }));
 document.querySelectorAll('#vMore [data-q]').forEach((b, i) => b.addEventListener('click', () => { if (SET.q === b.dataset.q) return; SET.q = b.dataset.q; saveSet(); applyQuality(); refreshMore(); AU.hover(i + 2); }));
 function setSkin(k, i) {
   if (SET.skin === k) return; SET.skin = k; saveSet(); applySkin(); refreshMore(); AU.hover(i + 4);

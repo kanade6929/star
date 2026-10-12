@@ -193,6 +193,8 @@ body.short #supQr{width:min(260px,calc(var(--vh)*70))}
 .redeemed{display:none;font-size:13px;letter-spacing:.2em;color:rgba(246,207,142,.85)}
 .msup.done .redeemed{display:block}
 body.short .mrow.msup{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between}
+body.midh .more{top:50%;gap:clamp(8px,calc(var(--u)*1.7),14px)}
+body.midh .mrow{padding-top:clamp(8px,calc(var(--u)*1.5),12px)}
 body.short .supt{flex-direction:row;align-items:baseline;gap:10px}
 body.short .supt b{font-size:14px}
 body.short .supt small{font-size:10px}
@@ -306,6 +308,7 @@ body.touchdev .foot{display:none}
 #menu.intro #mainNav .vbtn:nth-child(1){animation-delay:1.8s}
 #menu.intro #mainNav .vbtn:nth-child(2){animation-delay:2.05s}
 #menu.intro #mainNav .vbtn:nth-child(3){animation-delay:2.3s}
+.vbtn.vlink{font-size:max(13px,calc(var(--u)*2.7));color:rgba(239,232,220,.45);text-decoration:none} /* 前往作者主页：比三个主按钮轻一点 */
 #menu.intro .foot,#menu.intro .brand .en{animation:fadein 2s ease 2.8s both}
 #menu.intro .wake{animation:fadein 2s ease 2.8s both,breath 3.6s ease-in-out 4.8s infinite}
 @keyframes fadein{from{opacity:0;filter:blur(4px)}to{opacity:1;filter:none}}
@@ -551,6 +554,7 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
         <button class="vbtn" data-act="start"><span class="lbl">踏入夜色</span><small class="sub"></small></button>
         <button class="vbtn" data-act="chapters"><span class="lbl">章节</span></button>
         <button class="vbtn" data-act="more"><span class="lbl">更多</span></button>
+        <a class="vbtn vlink" data-act="home" href="https://b23.tv/QomRCGl" target="_blank" rel="noopener"><span class="lbl">前往作者主页</span></a>
       </nav>
     </div>
     <p class="wake">点击任意处，让琴声响起</p>
@@ -605,6 +609,10 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
       <div class="mrow">
         <div class="mlab">琴声</div>
         <div class="seg" role="radiogroup" aria-label="琴声"><button role="radio" data-snd="on">开</button><button role="radio" data-snd="off">关</button></div>
+      </div>
+      <div class="mrow" id="fsRow">
+        <div class="mlab">显示</div>
+        <div class="seg" role="radiogroup" aria-label="显示"><button role="radio" data-fs="full">全屏</button><button role="radio" data-fs="win">窗口</button></div>
       </div>
       <div class="mrow">
         <div class="mlab">画质</div>
