@@ -836,7 +836,7 @@ export function buildMoon(ctx) {
     const up = smooth(1.6, 5.6, e);
     altar.big.position.y = -5 + up * MOON_UP;
     if (up > 0 && up < 1) { shake(.04, .2); if (Math.random() < dt * 30) fx.emit(altar.x + (Math.random() - .5) * 5, LAKE_Y + .1, MOON_Z + (Math.random() - .5) * .6, { vy: 1 + Math.random(), g: -3, life: 1, c: [.7, .75, 1], a: .8 }); }
-    if (up >= 1 && !S.moonUp) { S.moonUp = true; AU.stone(); shake(.1, .5); }
+    if (up >= 1 && !S.moonUp) { S.moonUp = true; AU.rise(); shake(.1, .5); }
     const full = smooth(5.2, 8, e);
     // 遮月的暗片：一边滑开一边淡掉，月亮慢慢变圆，暗片不会突然消失
     altar.shutter.position.x = altar.shutterX + full * 2.2; altar.shutter.material.opacity = 1 - smooth(.25, 1, full); altar.shutter.visible = full < .999;

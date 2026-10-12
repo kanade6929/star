@@ -323,6 +323,13 @@ export function createAudio(onToggle) {
       if (!rep) { slot('thud', rnd(3), { v: .7, rate: .75 + Math.random() * .1, lp: 1200 }); sub(70, 36, .14, 0, .8); }
       hiss(.04, 0, rep ? .5 : .9, 320, 110, 'lowpass', .6, .05);
     },
+    // 通关演出里月亮、太阳升到位、星冠落定：和弦里的一声软锣加颤音琴，不用石头和闷响（那两样和「不对」的提示音同源，听着像出错）
+    rise() { tune();
+      const r = root(); dip(.2, 2);
+      slot('gong', 0, { v: .2, rate: Math.pow(2, ((chRoot - 2 + 18) % 12 - 6) / 12) * 1.5, lp: 3200, wet: 1.8, att: .15 }) || pad(r - 12, .05, 0, 2.4, .6);
+      [0, 1, 2].forEach(k => inst('vibe', ct(k, r), .12, .05 + k * .09, { dur: 2.6 }) || bell(ct(k, r), .04, .05 + k * .09, 2.2, .6));
+      glint(6, .05, .3, 12, 3);
+    },
     finale() { tune();
       duck(12); const r = root(), g = Math.pow(2, ((chRoot - 2 + 18) % 12 - 6) / 12);
       slot('gong', 0, { v: .38, rate: g, lp: 4000, wet: 1.6 }) || sub(90, 45, .2, 0, 1.6); slot('tam', 0, { v: .22, rate: .7, lp: 1800, att: .8 });

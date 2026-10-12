@@ -1010,7 +1010,7 @@ export function buildStar(ctx) {
     // 星冠沉重地降下、旋转
     const cd = smooth(1.2, 4.6, e);
     altar.crown.position.y = 11 - easeBack(Math.min(1, cd)) * 7.6; altar.crown.rotation.y += dt * (.3 + rise * .9);
-    if (cd > .99 && !S.crownHit) { S.crownHit = true; AU.stone(); shake(.08, .5); }
+    if (cd > .99 && !S.crownHit) { S.crownHit = true; AU.rise(); shake(.08, .5); }
     lines.forEach((l, i) => { l.material.opacity = smooth(2.2 + i * .4, 3.6 + i * .4, e) * (.6 + Math.sin(ctx.T * 4 + i) * .2); });
     if (e > 2 && e < 7 && Math.random() < dt * 30) { const a = Math.random() * 6.28, rr = 1 + Math.random() * 5; fx.emit(altar.x + Math.cos(a) * rr, .2, altar.z + Math.sin(a) * rr, { vy: 1.2 + Math.random(), life: 2, c: [1, .9, .7], tw: 8 }); }
     // 星轨：天穹开始旋转，拖出延时摄影般的弧线

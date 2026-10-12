@@ -1125,7 +1125,7 @@ export function buildSun(ctx) {
     altar.big.position.y = -8 + up * (8 + SUN_Y);
     altar.mist.forEach((m, i) => { m.material.opacity = smooth(1.4 + i * .15, 2.4 + i * .15, e) * .92; });
     if (up > 0 && up < 1) { shake(.05, .2); if (Math.random() < dt * 30) fx.emit(altar.x + (Math.random() - .5) * 6, CLOUD_Y + .2, SUN_Z + (Math.random() - .5), { vy: 1 + Math.random(), g: -2, life: 1.2, c: [1, .72, .3], a: .9 }); }
-    if (up >= 1 && !S.sunUp) { S.sunUp = true; AU.stone(); shake(.12, .6); flash(.35); }
+    if (up >= 1 && !S.sunUp) { S.sunUp = true; AU.rise(); shake(.12, .6); flash(.35); }
     const shine = smooth(6.5, 9.5, e);
     altar.rays.scale.setScalar(.2 + easeBack(shine) * .8); altar.rays.rotation.z = -e * .15;
     altar.faceM.emissiveIntensity = .2 + shine * .9; altar.rayM.emissiveIntensity = .3 + shine; altar.bigHalo.material.opacity = shine * .25;
