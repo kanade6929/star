@@ -455,10 +455,10 @@ const autoFull = e => {
   fsAuto = true; if (SET.fs === 'full') enterFull();
 };
 addEventListener('pointerup', autoFull, { capture: true }); addEventListener('keydown', autoFull, { capture: true });
-// 电脑：全屏时把 Esc 「锁」给游戏（Chrome / Edge 的 Keyboard Lock），单按 Esc 不再退出全屏，照常是暂停 / 返回，并在下方轻轻提示；
-// 0.6 秒内连按两下才退出全屏（长按 Esc 也会退出，这是浏览器自带的保底）。Firefox / Safari 不支持锁 Esc，那里按一下仍会直接退出
+// 电脑：全屏时把 Esc 「锁」给游戏（Chrome / Edge 的 Keyboard Lock）：单按 Esc 照常暂停 / 继续，不退出全屏；长按 Esc 退出全屏（浏览器自带，和浏览器的习惯一样）。
+// 前几次按 Esc 在下方轻轻提示一下。Firefox / Safari 不支持锁 Esc，那里按一下仍会直接退出
 const KB = !TOUCH && navigator.keyboard && navigator.keyboard.lock ? navigator.keyboard : null;
-let escLocked = false, lastEsc = 0, escTips = 0;
+let escLocked = false, escTips = 0;
 ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => {
   refreshMore(); setTimeout(resize, 120);
   if (!KB) return;
@@ -467,10 +467,7 @@ let escLocked = false, lastEsc = 0, escTips = 0;
 }));
 addEventListener('keydown', e => {
   if (e.key !== 'Escape' || !escLocked || !fsEl() || e.repeat) return;
-  const now = performance.now();
-  if (now - lastEsc < 600) { e.stopImmediatePropagation(); e.preventDefault(); lastEsc = 0; exitFull(); return; }   // 第二下：只退出全屏，不再触发暂停 / 返回
-  lastEsc = now;
-  if (escTips < 3) { escTips++; toast('连按两下 Esc 退出全屏', 1.8); }   // 提示只出现前几次，免得每次暂停都弹字
+  if (escTips < 3) { escTips++; toast('长按 Esc 退出全屏', 1.8); }   // 提示只出现前几次，免得每次暂停都弹字
 }, { capture: true });
 $('tE').addEventListener('pointerdown', e => { e.preventDefault(); if (S.mode === 'play' && !S.cine) interact(); else if (S.mode === 'intro') skipIntro(); });
 $('tP').addEventListener('pointerdown', e => { e.preventDefault(); if (S.mode === 'play') pause(); });
