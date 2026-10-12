@@ -26,6 +26,15 @@
 html,body{cursor:var(--cur);margin:0;height:100%;background:var(--night);overflow:hidden;color:var(--bone);font-family:var(--serif);-webkit-user-select:none;user-select:none;touch-action:none}
 a[href],button,label,select{cursor:var(--curp)}
 button:disabled{cursor:var(--cur)}
+html.fcur{--cur:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E") 0 0,default;--curp:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E") 0 0,pointer}
+#cur{position:fixed;left:0;top:0;width:32px;height:32px;pointer-events:none;z-index:2147483647;opacity:0;transition:opacity .25s;will-change:transform}
+#cur.on{opacity:1} #cur.gone{opacity:0;transition-duration:.15s}
+#cur .ci{position:relative;width:32px;height:32px;transform-origin:3px 3px;transition:transform .22s cubic-bezier(.3,.7,.3,1)}
+#cur svg{position:absolute;inset:0;display:block;transition:opacity .22s ease}
+#cur svg+svg{opacity:0}
+#cur.hov svg+svg{opacity:1} #cur.hov .ci{transform:scale(1.08)}
+#cur.down .ci{transform:scale(.86);transition-duration:.08s} #cur.hov.down .ci{transform:scale(.94)}
+.curr{position:fixed;width:44px;height:44px;border:1.2px solid rgba(255,224,150,.95);border-radius:50%;pointer-events:none;z-index:2147483646;box-shadow:0 0 6px rgba(255,217,140,.35),inset 0 0 4px rgba(255,217,140,.2)}
 #c{position:fixed;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated}
 body.playing #c{cursor:none}
 #ptr{position:fixed;left:-5px;top:-5px;width:10px;height:10px;border:1px solid rgba(255,214,140,.5);border-radius:50%;pointer-events:none;z-index:5;opacity:0;transition:opacity .4s}

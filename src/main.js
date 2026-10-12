@@ -9,6 +9,7 @@ import { FX } from './fx.js';
 import { buildStar } from './level1.js';
 import { buildMoon } from './level2.js';
 import { buildSun } from './level3.js';
+import { initCursor } from './cursor.js';
 
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -17,6 +18,7 @@ const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t
 
 /* ================= 渲染器 / 相机 ================= */
 const canvas = $('c');
+initCursor();
 let renderer;
 try { renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' }); }
 catch (e) { $('nogl').hidden = false; $('boot').hidden = true; throw e; }
