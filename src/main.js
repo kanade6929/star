@@ -972,7 +972,7 @@ function endGame() {
   $('end').classList.add('on');
   setTimeout(() => $('again2').focus(), 400);
 }
-const BILI_URL = ''; // kanade 的 B 站主页，之后补上
+const BILI_URL = 'https://b23.tv/QomRCGl'; // kanade 的 B 站主页（短链：手机上会直接拉起 B 站 App，没装就打开网页）
 $('finSup').addEventListener('click', openSup);
 $('finBili').addEventListener('click', e => { if (!BILI_URL) { e.preventDefault(); toast('B 站主页链接马上就来', 2.5); } });
 if (BILI_URL) $('finBili').href = BILI_URL;
