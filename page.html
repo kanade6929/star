@@ -212,9 +212,8 @@ body.short .seg button{font-size:13px;padding:.38em .95em .38em 1.15em}
 body.short .skins{gap:8px}
 body.short .skin{grid-template-columns:auto auto;grid-template-rows:auto auto;justify-items:start;align-items:center;column-gap:8px;row-gap:0;width:auto;padding:5px 12px 5px 8px}
 body.short .skin .sw{grid-row:1/3;width:24px;height:24px}
-/* 五个设置项排成三列：琴声、画质、帧率一行，镜头远近和光点皮肤（占两格）一行，面板不会顶出屏幕 */
-body.short .more{grid-template-columns:repeat(3,minmax(0,1fr));column-gap:20px}
-body.short .mrow.mskin{grid-column:span 2}
+/* 六个设置项排成两行三列：琴声、显示、画质一行，帧率、镜头远近、光点皮肤一行（皮肤那列宽一点），面板高度和以前一样，不会顶出屏幕 */
+body.short .more{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr);column-gap:16px}
 /* 说明小字删掉后：手机上每格的标题和选项居中；两端的「支持作者」一行也居中 */
 body.short .mrow{align-items:center}
 body.short .mlab{justify-content:center}
