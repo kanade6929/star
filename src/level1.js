@@ -502,16 +502,19 @@ export function buildStar(ctx) {
     const pl = new THREE.Mesh(bevelBox(.6, .1, vis, .03), plankM); pl.position.set(A.x + dx / len * vis / 2, -.14, A.z + dz / len * vis / 2); pl.rotation.y = Math.atan2(dx, dz); pl.receiveShadow = pl.castShadow = true; plankG.add(pl);
     return { i, a: A, b: Bn, len, vis, bm, beam, drawn: false, k: 0, from: A };
   });
-  const C = { done: false, finT: 0, desc: 0, rise: 0, fly: 0 };
+  const C = { done: false, finT: 0, desc: 0, rise: 0, fly: 0, reefT: 0 };
   // 礁石：星鱼游不过去，也挡住星光（星鱼看不见礁石后面的光）
   const REEF = [[73.9, 8.25], [74.8, 8.25], [75.7, 8.25], [76.35, 7.45], [76.35, 6.55], [76.35, 5.65],
     [78.5, 9.4], [79.4, 8.9], [80.4, 8.75], [81.4, 8.9], [82.1, 9.4],
     [83.9, 5.65], [83.9, 6.55], [83.9, 7.45], [83.9, 8.35], [83.9, 9.25]].map(([x, z]) => ({ x, z, r: .48 }));
+  // 星鱼集齐后礁石慢慢淡出（在光桥升起之前消失，不和光桥穿模）：礁石用自己的一份半透明材质（建的时候就是 transparent，淡出时不重编着色器）
+  const reefRockM = fadeOf(isleRockM), reefShardM = fadeOf(shardM); reefRockM.opacity = reefShardM.opacity = 1;
+  const reefGs = [];
   REEF.forEach((r, i) => {
-    const g0 = new THREE.Group(); g0.position.set(r.x, 0, r.z); g0.rotation.y = hashv(i, 3) * 6.28; root.add(g0);
-    const top = new THREE.Mesh(new THREE.DodecahedronGeometry(.5, 0), isleRockM); top.scale.set(1, .55, 1); top.position.y = -.6; g0.add(top);
-    const hang = new THREE.Mesh(new THREE.ConeGeometry(.38, 1.3, 5, 1), isleRockM); hang.rotation.x = Math.PI; hang.position.y = -1.3; g0.add(hang);
-    const cr = new THREE.Mesh(new THREE.OctahedronGeometry(.1 + hashv(i, 7) * .06, 0), shardM); cr.position.set((hashv(i, 1) - .5) * .4, -.3, (hashv(i, 2) - .5) * .4); cr.rotation.set(.4, i, .3); g0.add(cr);
+    const g0 = new THREE.Group(); g0.position.set(r.x, 0, r.z); g0.rotation.y = hashv(i, 3) * 6.28; root.add(g0); reefGs.push(g0);
+    const top = new THREE.Mesh(new THREE.DodecahedronGeometry(.5, 0), reefRockM); top.scale.set(1, .55, 1); top.position.y = -.6; g0.add(top);
+    const hang = new THREE.Mesh(new THREE.ConeGeometry(.38, 1.3, 5, 1), reefRockM); hang.rotation.x = Math.PI; hang.position.y = -1.3; g0.add(hang);
+    const cr = new THREE.Mesh(new THREE.OctahedronGeometry(.1 + hashv(i, 7) * .06, 0), reefShardM); cr.position.set((hashv(i, 1) - .5) * .4, -.3, (hashv(i, 2) - .5) * .4); cr.rotation.set(.4, i, .3); g0.add(cr);
     shadowAll(g0);
   });
   // 星鱼：三群，每群三尾
@@ -783,6 +786,11 @@ export function buildStar(ctx) {
         e.bm.opacity = (.85 + Math.sin(T * 5 + i) * .1) * (1 - D * .4);
       }
     });
+    { // 礁石：星鱼集齐后 2.4 秒内淡出，早于光桥开始下降（约 4 秒后）
+      if (C.done) C.reefT += dt;
+      const k = 1 - smooth(0, 2.4, C.reefT), on = k > .002;
+      reefRockM.opacity = reefShardM.opacity = k; reefRockM.depthWrite = k > .98;
+      reefGs.forEach(g => { g.visible = on; }); }
     plankM.emissiveIntensity = .12 + (1 - smooth(.6, 1, D)) * .6 * (C.done ? 1 : 0);
     if (C.done) constLamp.g.position.y = -3 * (1 - easeBack(C.rise));
   }
@@ -854,7 +862,7 @@ export function buildStar(ctx) {
     anchors.forEach(a => Object.assign(a, { isle: null, visited: false, charge: 0 }));
     isles.forEach(il => Object.assign(il, { state: 'free', anchor: null, fly: null, land: undefined, glow: 0, x: il.home[0] - 1.5, z: il.home[1] - 1.5, y: -.55 }));
     dock(isles[0], anchors[0]); isles[0].glow = 1;
-    Object.assign(C, { done: false, finT: 0, desc: 0, rise: 0, fly: 0 });
+    Object.assign(C, { done: false, finT: 0, desc: 0, rise: 0, fly: 0, reefT: 0 });
     edges.forEach(e => { e.drawn = false; e.k = 0; e.beam.visible = false; });
     nodes.forEach(n => { n.wake = 0; });
     fishes.forEach(f => { Object.assign(f, { x: HOMES[f.i][0], z: HOMES[f.i][1], y: FISH_Y, vx: 0, vz: 0, st: 'idle', blind: 0, t: 0, home: HOMES[f.i].slice() }); f.g.visible = true; f.g.rotation.set(0, 0, 0); });

@@ -69,7 +69,8 @@ if (SET.skin === 'prism' && !prismOpen) SET.skin = 'gold';
 function resize() {
   layoutView();
   pipe.quality = SET.q === 'mid' ? 1 : 0;
-  pipe.resize(view.w, view.h, SET.q === 'mid' ? 1 : Math.min(devicePixelRatio || 1, 2));
+  const hiDpr = Math.min(devicePixelRatio || 1, 2);
+  pipe.resize(view.w, view.h, SET.q === 'mid' ? 1 : hiDpr, hiDpr);   // 画质只改清晰度，不改看到的范围
   pipe.setupCamera(cam);
 }
 addEventListener('resize', resize); resize();

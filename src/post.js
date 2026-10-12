@@ -152,12 +152,13 @@ export class PixelPipeline {
   }
   // 镜头拉近：z 按整数倍放大像素（主界面用）；f 是额外的细调倍数（镜头「近」用，像素块可以不是整数倍）
   setZoom(z, f = 1) { if (z === this.zoom && f === this.fine) return; this.zoom = z; this.fine = f; if (this.css) this.resize(...this.css); }
-  resize(cssW, cssH, dpr) {
-    this.css = [cssW, cssH, dpr];
+  resize(cssW, cssH, dpr, refDpr = dpr) {
+    this.css = [cssW, cssH, dpr, refDpr];
     const devW = Math.round(cssW * dpr), devH = Math.round(cssH * dpr);
-    // 按画面面积定像素大小：横屏、竖屏、宽屏看到的范围都差不多
-    this.scale = Math.max(1, Math.round(Math.sqrt(devW * devH) / (576 / this.zoom)));
-    const sc = this.scale * (this.fine || 1);
+    // 按画面面积定像素大小：横屏、竖屏、宽屏看到的范围都差不多。
+    // 像素块大小一律按「参考 dpr（高画质用的那个）」算，再折回当前 dpr：高 / 中等画质切换时，画面看到的范围完全一样，只是清晰度不同
+    this.scale = Math.max(1, Math.round(Math.sqrt(cssW * cssH) * refDpr / (576 / this.zoom)));
+    const sc = Math.max(1, this.scale * dpr / refDpr) * (this.fine || 1);
     this.w = Math.ceil(devW / sc); this.h = Math.ceil(devH / sc);
     const W = this.w + 2, H = this.h + 2;
     this.colorRT.setSize(W, H); this.normalRT.setSize(W, H); this.reflRT.setSize(W, H); this.edgeRT.setSize(W, H);
