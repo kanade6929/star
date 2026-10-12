@@ -32,7 +32,13 @@ node build.js          # 生成 index.html 和 out/
 - `page.html`：页面模板（菜单、HUD、触屏按钮）。
 - `test/`：用 Playwright 跑的自动测试脚本（`play.js` 电脑、`mobile.js` 手机）。
 
+## 版权
+
+© 2026 kanade（Hug 工作室），保留一切权利。代码、关卡、美术、音乐与文字未经作者书面许可不得复制、修改、再发布或商用，详见 [LICENSE](LICENSE)。下面「致谢」中的第三方素材遵循各自的许可。
+
 ## 致谢
+
+渲染引擎：Three.js（MIT License，© three.js authors）。
 
 钢琴采样：Salamander Grand Piano（Alexander Holm，CC BY 3.0）。
 

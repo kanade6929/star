@@ -1,0 +1,15 @@
+Copyright (c) 2026 kanade (Hug). All rights reserved.
+
+《辰星夜》的源代码、关卡设计、美术、角色、音乐、文字与标志均为作者 kanade（Hug 工作室）所有，保留一切权利。
+
+本仓库公开仅供浏览和在线游玩。未经作者书面许可，不得复制、修改、再发布、打包上架、
+用于商业用途，或以本项目的代码与素材为基础制作衍生作品。
+
+The source code, level design, artwork, characters, music, text and logos of
+"Chen Xing Ye" are owned by kanade (Hug studio). This repository is public for
+viewing and playing only. No permission is granted to copy, modify, redistribute,
+republish, sell, or create derivative works without the author's written consent.
+
+Third-party components keep their own licenses (see README, 致谢):
+Three.js (MIT), Salamander Grand Piano (CC BY 3.0), tonejs-instruments (CC BY 3.0),
+University of Iowa MIS samples, Kenney audio packs (CC0).
