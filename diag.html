@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="only dark">
+<title>辰星夜 · 显示检测</title>
+<style>
+html{color-scheme:only dark}
+body{margin:0;padding:16px;background:#05040f;color:#efe8dc;font:14px/1.6 sans-serif}
+.row{display:flex;gap:10px;margin:10px 0}
+.sw{width:64px;height:64px;border-radius:4px}
+pre{white-space:pre-wrap;word-break:break-all;background:#141030;padding:10px;border-radius:4px;font-size:12px}
+</style></head><body>
+<b>辰星夜 显示检测</b>（打开夜间模式后截图这一页发给我）
+<div class="row"><div class="sw" style="background:#e8c98e"></div><div class="sw" style="background:#4058b4"></div><div class="sw" style="background:#fff"></div><canvas id="cv" width="64" height="64" class="sw"></canvas><img id="im" class="sw"></div>
+<pre id="out">检测中…</pre>
+<script>
+const KNOWN = new Set([...document.querySelectorAll('*')]);
+const cv = document.getElementById('cv'), g = cv.getContext('2d');
+g.fillStyle = '#e8c98e'; g.fillRect(0, 0, 32, 64); g.fillStyle = '#4058b4'; g.fillRect(32, 0, 32, 64);
+document.getElementById('im').src = cv.toDataURL();
+function run() {
+  const L = [];
+  L.push('UA: ' + navigator.userAgent);
+  L.push('prefers dark: ' + matchMedia('(prefers-color-scheme: dark)').matches);
+  for (const el of [document.documentElement, document.body, cv]) {
+    const s = getComputedStyle(el);
+    L.push(el.tagName + ' filter=' + s.filter + ' backdrop=' + (s.backdropFilter || s.webkitBackdropFilter) + ' bg=' + s.backgroundColor + ' color=' + s.color + ' opacity=' + s.opacity + ' mix=' + s.mixBlendMode);
+    L.push('  class="' + el.className + '" style="' + (el.getAttribute('style') || '') + '"');
+    for (const a of el.attributes) if (!['class', 'style', 'id', 'width', 'height', 'lang'].includes(a.name)) L.push('  attr ' + a.name + '=' + a.value.slice(0, 80));
+  }
+  const extra = [...document.querySelectorAll('*')].filter(e => !KNOWN.has(e));
+  L.push('注入的元素: ' + extra.length);
+  for (const e of extra.slice(0, 30)) {
+    const s = getComputedStyle(e);
+    L.push('  <' + e.tagName.toLowerCase() + (e.id ? ' #' + e.id : '') + (e.className ? ' .' + String(e.className).slice(0, 60) : '') + '> pos=' + s.position + ' z=' + s.zIndex + ' bg=' + s.backgroundColor + ' pe=' + s.pointerEvents);
+    if (e.tagName === 'STYLE') L.push('    ' + e.textContent.slice(0, 600));
+    if (e.tagName === 'LINK') L.push('    ' + e.href);
+  }
+  L.push('样式表数: ' + document.styleSheets.length);
+  for (const sh of document.styleSheets) { try { L.push('  ' + (sh.href || 'inline') + ' rules=' + sh.cssRules.length); } catch (e) { L.push('  ' + sh.href + ' (跨域)'); } }
+  document.getElementById('out').textContent = L.join('\n');
+}
+setTimeout(run, 300); setTimeout(run, 2500);
+</script>
+</body></html>
