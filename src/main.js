@@ -1058,8 +1058,7 @@ function perfTick(now, ms, sh) {
   P_.fps = P_.n / sec; P_.n = 0; P_.ms = 0; P_.sh = 0; P_.calls = 0; P_.t0 = now;
 }
 loadLevel(1); AU.setMood(0);
-// 开场预载：主界面和下一幕的曲子、音效先整首下完（有进度条），下完直接进耳机提示和标志。
-// 浏览器允许自动出声时音乐立刻响；手机上要等玩家第一次触摸才能出声，那时曲子已在内存里，一碰就响。其余几首之后在后台慢慢下
+// 首屏只等画面准备好。音乐会边下边播，音效采样由音频模块在后台加载。
 const boot = $('boot'); let bootReady = false, booted = false, bootFrames = 0, bootAudio = false;
 function bootCheck() {
   if (bootReady || !bootAudio || bootFrames < 3) return;
@@ -1074,10 +1073,9 @@ function bootGo() {
   boot.classList.add('gone'); setTimeout(() => { boot.hidden = true; }, 900);
   requestAnimationFrame(() => requestAnimationFrame(runSplash));
 }
-AU.preload([0, nextLevel()], p => { if (!bootReady) $('bootFill').style.transform = `scaleX(${(.04 + p * .96).toFixed(3)})`; })
-  .then(() => { bootAudio = true; bootCheck(); AU.prefetch([1, 2, 3]); });
-// 网络太慢时不让玩家一直等：20 秒后照样可以开始，没下完的曲子边下边播
-setTimeout(() => { bootAudio = true; bootCheck(); }, 20000);
+bootAudio = true; bootCheck();
+// 先下载即将使用的音乐，其余曲目顺序缓存，避免首屏同时争抢带宽。
+AU.prefetch([0, nextLevel(), 1, 2, 3]);
 // 进主菜单就试着放背景音乐；浏览器不允许自动播放时，等第一次点击或按键再响
 AU.init(); setTimeout(() => { if (AU.running && !woke) { woke = true; menu.classList.add('awake'); } }, 1500);
 // 开场：先提示戴耳机，再是慢慢亮起的 Hug 工作室标志，然后才进主界面。点一下可以跳过
