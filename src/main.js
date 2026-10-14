@@ -1088,8 +1088,13 @@ AU.prefetch([nextLevel(), 1, 2, 3, 0]);
 AU.init(); setTimeout(() => { if (AU.running && !woke) { woke = true; menu.classList.add('awake'); } }, 1500);
 // 开场：先提示戴耳机，再是雾里浮现的「拥月 hugloom.」标志，然后才进主界面。点一下可以跳过
 const splash = $('splash'), splashT = [];
+// 第一次打开游戏时开场不能跳过，完整看过一次之后才允许点击/按键跳过
+const SPLASH_KEY = 'chenxingye3d_splash';
+let splashSeen = false;
+try { splashSeen = localStorage.getItem(SPLASH_KEY) === '1'; } catch (e) {}
 function endSplash(fast) {
   if (splash.classList.contains('done')) return;
+  splashSeen = true; try { localStorage.setItem(SPLASH_KEY, '1'); } catch (e) {}
   splashT.forEach(clearTimeout);
   if (fast) splash.style.transition = 'opacity .5s ease';
   splash.classList.add('done'); menu.classList.add('intro');
@@ -1098,13 +1103,14 @@ function endSplash(fast) {
 function runSplash() {
   if (splash.classList.contains('done')) return;
   splashT.push(setTimeout(() => $('sp1').classList.add('on'), 150));
-  splashT.push(setTimeout(() => $('sp1').classList.remove('on'), 2900));
-  splashT.push(setTimeout(() => $('sp2').classList.add('on'), 3900));
+  // 总长不变（7s）：耳机提示收得早一点，拥月标志多停一会
+  splashT.push(setTimeout(() => $('sp1').classList.remove('on'), 2300));
+  splashT.push(setTimeout(() => $('sp2').classList.add('on'), 3200));
   splashT.push(setTimeout(() => endSplash(), 7000));
 }
 // 手机上第一下触摸是用来让音乐响起的，不跳过开场；音乐响了之后再点才跳过
-splash.addEventListener('pointerdown', () => { if (AU.running || !TOUCH) endSplash(true); });
-addEventListener('keydown', () => { if (booted) endSplash(true); }, { capture: true });
+splash.addEventListener('pointerdown', () => { if (splashSeen && (AU.running || !TOUCH)) endSplash(true); });
+addEventListener('keydown', () => { if (booted && splashSeen) endSplash(true); }, { capture: true });
 resetLevel(); refreshMenu(); syncSound(); S.mode = 'menu'; S.fadeTo = 0;
 toDream(); stickHome();
 requestAnimationFrame(frame);
