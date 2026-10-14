@@ -1,0 +1,9 @@
+// Cloudflare Workers 静态站配置：仓库根目录就是网站，不需要构建（index.html 已打包好提交）
+// 不上传的文件写在 .assetsignore；缓存规则写在 _headers
+{
+  "name": "star",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "."
+  }
+}

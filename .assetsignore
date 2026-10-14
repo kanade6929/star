@@ -1,0 +1,22 @@
+# 这些是源码和工具，不放到网站上
+.git
+.gitignore
+.gitattributes
+.assetsignore
+.nojekyll
+.wrangler
+wrangler.jsonc
+node_modules
+out
+shots
+src
+test
+tools
+vendor
+fonts/src
+package.json
+package-lock.json
+build.js
+page.html
+README.md
+CNAME
