@@ -1,0 +1,8 @@
+# Cloudflare Pages 的缓存设置（GitHub Pages 会忽略这个文件）
+# 网页本身每次都检查更新；音乐、字体、图片在浏览器里缓存 1 天，过期后先用旧的、后台悄悄更新
+/audio/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=2592000
+/fonts/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=2592000
+/img/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=2592000

@@ -1075,7 +1075,8 @@ function bootGo() {
 }
 bootAudio = true; bootCheck();
 // 先下载即将使用的音乐，其余曲目顺序缓存，避免首屏同时争抢带宽。
-AU.prefetch([0, nextLevel(), 1, 2, 3]);
+// 主界面的曲子此时正边下边播，放到最后再整首缓存，免得同一首同时下两份
+AU.prefetch([nextLevel(), 1, 2, 3, 0]);
 // 进主菜单就试着放背景音乐；浏览器不允许自动播放时，等第一次点击或按键再响
 AU.init(); setTimeout(() => { if (AU.running && !woke) { woke = true; menu.classList.add('awake'); } }, 1500);
 // 开场：先提示戴耳机，再是慢慢亮起的 Hug 工作室标志，然后才进主界面。点一下可以跳过

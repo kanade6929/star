@@ -1,0 +1,12 @@
+# 文本文件统一用 LF 换行，避免 Windows 上的工具把整份文件改成 CRLF、让每次合并都冲突
+*.js   text eol=lf
+*.html text eol=lf
+*.css  text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.py   text eol=lf
+*.txt  text eol=lf
+*.mp3   binary
+*.png   binary
+*.jpg   binary
+*.woff2 binary
