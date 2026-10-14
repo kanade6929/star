@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <link rel="preload" as="script" href="assets/piano.28e66a35a2a45ea6.js">
-<link rel="preload" as="script" href="assets/game.cb346a9badd17a37.js">
+<link rel="preload" as="script" href="assets/game.f1826e4c89554d0f.js">
 <title>辰星夜</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="description" content="辰星夜：用星光解谜的像素光影小游戏。">
@@ -17,10 +17,10 @@
 <meta name="apple-mobile-web-app-title" content="辰星夜">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%2305040f'/%3E%3Cpath d='M50 12 L56 44 L88 50 L56 56 L50 88 L44 56 L12 50 L44 44 Z' fill='%23e8c98e'/%3E%3C/svg%3E">
 <style>
-@font-face{font-family:"Noto Serif SC";src:url("assets/noto-serif-sc-300.94c0e31d26c84bd3.woff2") format("woff2");font-style:normal;font-weight:300;font-display:swap}
-@font-face{font-family:"Noto Serif SC";src:url("assets/noto-serif-sc-500.bb72dd111c3887ad.woff2") format("woff2");font-style:normal;font-weight:500;font-display:swap}
-@font-face{font-family:"Noto Serif SC";src:url("assets/noto-serif-sc-700.bc1a7b74cf56a2ad.woff2") format("woff2");font-style:normal;font-weight:700;font-display:swap}
-@font-face{font-family:"ZCOOL XiaoWei";src:url("assets/zcool-xiaowei.c844ae34611d1252.woff2") format("woff2");font-style:normal;font-weight:400;font-display:swap}
+@font-face{font-family:"Noto Serif SC";src:url("assets/noto-serif-sc-300.d39b11d8833bbe43.woff2") format("woff2");font-style:normal;font-weight:300;font-display:swap}
+@font-face{font-family:"Noto Serif SC";src:url("assets/noto-serif-sc-500.52e741ccc5b6fc18.woff2") format("woff2");font-style:normal;font-weight:500;font-display:swap}
+@font-face{font-family:"Noto Serif SC";src:url("assets/noto-serif-sc-700.b1119ca4d7b7085d.woff2") format("woff2");font-style:normal;font-weight:700;font-display:swap}
+@font-face{font-family:"ZCOOL XiaoWei";src:url("assets/zcool-xiaowei.a505011e63c1ddef.woff2") format("woff2");font-style:normal;font-weight:400;font-display:swap}
 /* 布局：全屏 3D 像素场景，文字与卡牌以竖排书法式浮在其上 */
 :root{
   --vw:1vw; --vh:1vh;
@@ -278,7 +278,7 @@ body.touchdev #pause{background:radial-gradient(60% 70% at 50% 50%,rgba(5,4,15,.
 #sp1 p{margin:0;font-size:16px;letter-spacing:.42em;padding-left:.42em;color:var(--bone)}
 #sp1 small{font-size:10px;letter-spacing:.38em;padding-left:.38em;color:rgba(232,201,142,.55)}
 /* 开场个人标志 hugloom.（与视频结尾同一版），雾里慢慢浮现 */
-.yylogo{display:block;height:calc(var(--vh,1vh)*27.5);width:auto;opacity:0;filter:blur(8px);transform:scale(.96)}
+.yylogo{display:block;height:calc(var(--vh,1vh)*36);margin-top:calc(var(--vh,1vh)*-7);width:auto;opacity:0;filter:blur(8px);transform:scale(.96)}
 #sp2.on .yylogo{animation:yyIn 2.4s .1s cubic-bezier(.3,.1,.3,1) forwards}
 @keyframes spDraw{to{stroke-dashoffset:0}}
 @keyframes yyIn{0%{opacity:0;filter:blur(8px);transform:scale(.96)}60%{opacity:1}100%{opacity:1;filter:blur(0);transform:none}}
@@ -658,7 +658,7 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
   </nav>
 </div></div>
 <script src="assets/piano.28e66a35a2a45ea6.js"></script>
-<script src="assets/game.cb346a9badd17a37.js"></script>
+<script src="assets/game.f1826e4c89554d0f.js"></script>
 
 </body>
 </html>
