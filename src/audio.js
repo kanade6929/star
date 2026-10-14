@@ -291,7 +291,7 @@ export function createAudio(onToggle) {
       if (ac.resume) ac.resume().then(go, go); else go();
     }
   }
-  return {
+  return safe({
     init, note, setHidden, prefetch, preload,
     get running() { return !!ac && ac.state === 'running' && pool.some(v => v.url && !v.el.paused); }, _dbg: () => ({ ac: ac && ac.state, hidden, blobs: Object.keys(blobUrl), vs: pool.map(v => [v.url, (v.el.getAttribute('src') || '').slice(0, 5), v.el.readyState, +v.el.currentTime.toFixed(1), v.el.paused ? 1 : 0, v.g ? +v.g.gain.value.toFixed(2) : '-', v.ending ? 1 : 0]), playing: pool.filter(v => !v.el.paused).map(v => v.url), samples: Object.keys(smp), chord: chordNow(), t: (pool.find(v => v.url === BGM[mood] && !v.ending) || { el: {} }).el.currentTime }), _nodes: () => ({ ac, master, bgm }),
     setMood(m) { if (m === mood) return; mood = m; barN = 0; if (ac) bgmTick(); },
@@ -353,5 +353,14 @@ export function createAudio(onToggle) {
       slot('tam', 0, { v: .14, rate: .6, lp: 1200, att: .6, dur: 3.5 }) || pad(59 - 12, .05, 0, 1.6, .5); inst('vibe', pent(5, 59), .16, .7) || bell(pent(5, 59), .05, .7, 2);
     },
     wrong() { tune(); dip(.45, .9); piano(pent(0, 38), .45, 0, .6); piano(pent(1, 38), .36, .06, .6); slot('thud', 0, { v: .3, rate: 1.3, lp: 700 }) || hiss(.03, 0, .25, 500, 200); inst('vibe', pent(1, 50), .12, .02, { dur: .5, lp: 1800 }) || bell(pent(1, 50), .08, 0, .7, .25); }
-  };
+  });
+}
+// 音效出错（个别手机的音频实现不认某个参数）只少一声，不打断游戏；错误记下来，网址加 ?debug 时显示
+function safe(api) {
+  for (const [k, d] of Object.entries(Object.getOwnPropertyDescriptors(api))) {
+    if (typeof d.value !== 'function' || k[0] === '_') continue;
+    const fn = d.value;
+    api[k] = function () { try { return fn.apply(this, arguments); } catch (e) { if (window.__oops) window.__oops(e, 'audio.' + k, true); } };
+  }
+  return api;
 }

@@ -533,7 +533,7 @@ function interact() {
   const n = nearest(); if (!n) return;
   if (n.type === 'finale') { S.ev = 0; S.mode = 'cut'; P.vx = P.vz = 0; P.moving = false; P.run = false;   // 插牌时立刻站定，不再保持走路动作
     AU.finale(); setBars(true); LV.finaleStart(); updateHud(); return; }
-  LV.interact(n);
+  try { LV.interact(n); } catch (e) { if (window.__oops) window.__oops(e, 'interact ' + n.type); }
   // 抬手触碰机关：转向目标
   P.reachT = 0; P.reachYaw = (Math.abs(n.x - P.x) + Math.abs(n.z - P.z) > .15) ? Math.atan2(n.x - P.x, n.z - P.z) : null;
 }
@@ -1032,8 +1032,12 @@ function fpsCap() {
   return SET.fps === 'max' ? 1000 : 60; // 无上限：跟着屏幕刷新率走
 }
 let last = performance.now(), lastDraw = 0;
+// 每帧的逻辑与绘制出错时：报出真实的错误和位置（浏览器有时只给一句 "Script error."），下一帧照常继续
 function frame(now) {
   requestAnimationFrame(frame);
+  try { frameBody(now); } catch (e) { if (window.__oops) window.__oops(e, 'frame'); }
+}
+function frameBody(now) {
   const minDt = 1000 / fpsCap(), el = now - lastDraw;
   if (el < minDt - 1.5 && !needWarm) return;
   lastDraw = el < minDt * 2 ? now - (el % minDt) : now;

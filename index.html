@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <link rel="preload" as="script" href="assets/piano.28e66a35a2a45ea6.js">
-<link rel="preload" as="script" href="assets/game.fc43e50e2f961b13.js">
+<link rel="preload" as="script" href="assets/game.4575992487f13c4d.js">
 <title>辰星夜</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="description" content="辰星夜：用星光解谜的像素光影小游戏。">
@@ -493,7 +493,32 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
 <div id="boot" aria-live="polite"><svg class="bstar" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 8 L57 43 L92 50 L57 57 L50 92 L43 57 L8 50 L43 43 Z"/></svg><div class="bbar"><i id="bootFill"></i></div><div class="bmsg" id="bootMsg">星光聚拢中</div><div class="bnote"><span>初次到来　星光会聚得慢一些　请静静等候</span></div></div>
 <div id="ptr" aria-hidden="true"></div>
 <div id="oops" hidden style="position:fixed;left:16px;right:16px;bottom:16px;z-index:99;padding:10px 14px;border:1px solid #6a5a3a;border-radius:4px;background:#0b0a18;color:#e8dcc0;font:12px/1.6 monospace;white-space:pre-wrap"></div>
-<script>addEventListener('error',function(e){var o=document.getElementById('oops');if(!o)return;o.hidden=false;o.textContent='出错了，请把这段文字发给我：\n'+(e.message||e)+(e.filename?'\n'+e.lineno+':'+e.colno:'');});</script>
+<script>
+// 报错面板：显示真实的报错和调用位置，方便把截图发来排查；点一下收起
+(function () {
+  var seen = {}, dbg = /[?&]debug/.test(location.search), o = document.getElementById('oops');
+  window.__errs = [];
+  o.addEventListener('click', function () { o.hidden = true; });
+  function show(t, quiet) {
+    window.__errs.push(t); if (window.console) console.warn(t);
+    if ((quiet && !dbg) || seen[t]) return; seen[t] = 1;
+    o.hidden = false; o.textContent = '出错了，请把这段文字发给我（点一下收起）：\n' + t + '\n' + navigator.userAgent;
+  }
+  // 游戏代码自己接住的错误（带完整调用栈）；quiet 的只记录，?debug 时才显示
+  window.__oops = function (err, where, quiet) {
+    var s = String(err && err.stack || err), m = err && err.message;
+    if (m && s.indexOf(m) < 0) s = m + '\n' + s;
+    show((where ? '[' + where + '] ' : '') + s.split('\n').slice(0, 5).join('\n'), quiet);
+  };
+  addEventListener('error', function (e) {
+    if (e.error) return window.__oops(e.error);
+    var m = e.message || String(e);
+    // "Script error." 没有文件名：来自浏览器自己注入的脚本（夸克、UC、各家内置浏览器常见），与游戏无关，只记录
+    show(m + (e.filename ? '\n' + e.filename.split('/').pop() + ' ' + e.lineno + ':' + e.colno : ''), !e.filename && /^script error\.?$/i.test(m));
+  });
+  addEventListener('unhandledrejection', function (e) { var r = e.reason; if (r instanceof Error) window.__oops(r, 'promise', true); });
+})();
+</script>
 <div id="nogl" hidden>这个浏览器没有开启 WebGL，游戏画面无法显示。<br>请换用新版 Chrome、Edge、Safari 或 Firefox 打开。</div>
 <div id="fadeTop"></div>
 <div id="loader" aria-hidden="true"><div class="lwrap"><div class="sig">
@@ -659,7 +684,7 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
   </nav>
 </div></div>
 <script src="assets/piano.28e66a35a2a45ea6.js"></script>
-<script src="assets/game.fc43e50e2f961b13.js"></script>
+<script src="assets/game.4575992487f13c4d.js"></script>
 
 </body>
 </html>
