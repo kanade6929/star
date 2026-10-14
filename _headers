@@ -1,5 +1,8 @@
-# Cloudflare Pages 的缓存设置（GitHub Pages 会忽略这个文件）
-# 网页本身每次都检查更新；音乐、字体、图片在浏览器里缓存 1 天，过期后先用旧的、后台悄悄更新
+# Cloudflare Workers / Pages 的缓存设置（GitHub Pages 会忽略这个文件）。
+# 指纹资源内容改变就换 URL，可安全缓存一年；入口页面继续每次检查更新。
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+# 原路径保留给旧页面和兼容入口。
 /audio/*
   Cache-Control: public, max-age=86400, stale-while-revalidate=2592000
 /fonts/*

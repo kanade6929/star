@@ -1,4 +1,4 @@
-// Cloudflare Workers 静态站配置：仓库根目录就是网站，不需要构建（index.html 已打包好提交）
+// Cloudflare Workers 静态站：npm run build 生成入口与带内容指纹的 assets/。
 // 不上传的文件写在 .assetsignore；缓存规则写在 _headers
 {
   "name": "star",

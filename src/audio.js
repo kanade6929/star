@@ -1,3 +1,4 @@
+import { assetURL } from './asset-url.js';
 // 钢琴采样音频（沿用前代《辰星夜》的生成式琴声）
 export function createAudio(onToggle) {
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -67,12 +68,12 @@ export function createAudio(onToggle) {
   function pump() {
     if (busy) return; const u = pq.shift(); if (!u) return; if (blobUrl[u] || inflight[u]) { pump(); return; }
     busy = true;
-    fetch(u).then(r => r.ok ? r.blob() : Promise.reject(r.status)).then(b => { blobUrl[u] = URL.createObjectURL(b); }).catch(() => {}).then(() => { busy = false; pump(); });
+    fetch(assetURL(u)).then(r => r.ok ? r.blob() : Promise.reject(r.status)).then(b => { blobUrl[u] = URL.createObjectURL(b); }).catch(() => {}).then(() => { busy = false; pump(); });
   }
   // 开场预载：主界面和下一幕的曲子、所有音效采样，带进度（0~1）回调。下完才进耳机提示，保证一开场就有音乐
   const inflight = {}, sfxRaw = {};
   function grab(u, onBytes, asBuf) {
-    return fetch(u).then(r => {
+    return fetch(assetURL(u)).then(r => {
       if (!r.ok) return Promise.reject(r.status);
       const len = +r.headers.get('content-length') || 0;
       if (!r.body || !r.body.getReader) return (asBuf ? r.arrayBuffer() : r.blob()).then(x => { onBytes(len, len); return x; });
@@ -111,7 +112,7 @@ export function createAudio(onToggle) {
     if (!v.g) { try { const n = ac.createMediaElementSource(v.el); v.g = ac.createGain(); n.connect(v.g); v.g.connect(bgm); } catch (e) { return null; } }
     v.g.gain.cancelScheduledValues(ac.currentTime); v.g.gain.setValueAtTime(0, ac.currentTime);
     v.url = url; v.ending = 0; v.next = false;
-    const src = blobUrl[url] || url;
+    const src = blobUrl[url] || assetURL(url);
     if (v.el.getAttribute('src') !== src) v.el.src = src; else v.el.currentTime = 0;
     v.el.onerror = () => { if (v.url === url) { failed[url] = true; v.url = null; } };
     const p = v.el.play(); if (p && p.catch) p.catch(() => {});
@@ -250,7 +251,7 @@ export function createAudio(onToggle) {
   function loadSamples() {
     Object.keys(SMP).forEach(k => {
       if (k === 'lead') return;
-      (sfxRaw[k] ? Promise.resolve(sfxRaw[k].slice(0)) : fetch(`audio/sfx/${k}.mp3`).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)))
+      (sfxRaw[k] ? Promise.resolve(sfxRaw[k].slice(0)) : fetch(assetURL(`audio/sfx/${k}.mp3`)).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)))
         .then(a => new Promise((ok, no) => { const q = ac.decodeAudioData(a, ok, no); if (q && q.catch) q.catch(no); })).then(b => { smp[k] = b; }).catch(() => {});
     });
   }

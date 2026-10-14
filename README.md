@@ -19,17 +19,22 @@
 
 ## 在线游玩
 
-仓库开启 GitHub Pages（Settings → Pages → Deploy from a branch → `main` / `root`）后，打开 `https://<用户名>.github.io/<仓库名>/` 即可。`index.html` 是打包好的单文件游戏，不需要构建服务器。
+在线地址：[star.hugloom.art](https://star.hugloom.art/)。Cloudflare Workers Builds 已连接本仓库的 `main` 分支，构建命令为 `npm run build`，部署命令为 `npx wrangler deploy`。
+
+GitHub Pages 仍可从 `main` / `root` 发布。`index.html` 与 `assets/` 是已生成的发布文件，需要一起提交。
 
 ## 修改与打包
 
 ```bash
 npm install
-node build.js          # 生成 index.html 和 out/
+node build.js          # 生成 index.html、assets/ 和 out/
 ```
 
 - `src/`：游戏源码（Three.js）。`main.js` 主循环与操作，`level1.js` 星之章，`level2.js` 月之章，`post.js` 像素渲染管线。
 - `page.html`：页面模板（菜单、HUD、触屏按钮）。
+- `assets/`：内容指纹命名的发布资源。音频、字体和图片由原文件直接复制，未重新编码；游戏脚本和钢琴采样按原顺序加载。Cloudflare 将这些资源缓存一年，文件改变时 URL 自动改变。入口 HTML 每次检查更新。
+- `out/chenxingye.html`、`out/local.html`：保留内联脚本的本地预览。用 HTTP 服务从仓库根目录访问，以便加载原路径的音乐和字体。
+- 历史指纹文件保留，避免尚未刷新页面的玩家在更新后请求不到资源。部署时不应只上传 `index.html`。
 - `test/`：用 Playwright 跑的自动测试脚本（`play.js` 电脑、`mobile.js` 手机）。
 
 ## 版权
