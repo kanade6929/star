@@ -853,11 +853,16 @@ function showView(v) {
   if (v === 'more') { refreshMore(); setTimeout(() => document.querySelector('#vMore .seg [aria-checked="true"]').focus({ preventScroll: true }), 300); return; }
   const deck = $('deck');
   clearTimeout(dealReady); deck.classList.remove('ready');
-  if (v === 'chap') { deck.classList.remove('dealt', 'picking'); deck.classList.add('dealing'); AU.deal();
-    // 三张牌展开约 1.4s（从真正开始展开算起）：到位之后才响应悬停/点击，也才把焦点交给第一张可进入的牌
+  // 牌还摊着＝刚离开不到一秒（章节页还没完全淡出）又回来了：直接接着用，不硬收牌
+  if (v === 'chap' && deck.classList.contains('dealt')) dealReady = setTimeout(() => { deck.classList.remove('dealing'); deck.classList.add('ready'); }, 300);
+  else if (v === 'chap') {
+    // 每次进来都重新发一遍牌：牌在离开章节页、完全淡出后已经收拢成一叠（见下），这里再展开
+    deck.classList.remove('picking'); deck.classList.add('dealing'); AU.deal();
+    // 牌展开到一大半（约 0.75s）就可以悬停/点击了，不必等最后一张完全落定
     requestAnimationFrame(() => requestAnimationFrame(() => { deck.classList.add('dealt');
-      dealReady = setTimeout(() => { deck.classList.remove('dealing'); deck.classList.add('ready'); deck.querySelector('.tcard:not(.locked)').focus({ preventScroll: true }); }, 1500); })); }
-  else setTimeout(() => document.querySelector('#mainNav .vbtn').focus({ preventScroll: true }), 50);
+      dealReady = setTimeout(() => { deck.classList.remove('dealing'); deck.classList.add('ready'); deck.querySelector('.tcard:not(.locked)').focus({ preventScroll: true }); }, 750); })); }
+  else if (deck.classList.contains('dealt')) dealReady = setTimeout(() => { deck.classList.add('snap'); deck.classList.remove('dealt', 'dealing', 'picking'); void deck.offsetWidth; deck.classList.remove('snap'); }, 950);   // 章节页淡出之后再把牌收起，下次进来能重新展开
+  if (v !== 'chap') setTimeout(() => document.querySelector('#mainNav .vbtn').focus({ preventScroll: true }), 50);
 }
 function menuAct(act) {
   if (act === 'start') begin(nextLevel());

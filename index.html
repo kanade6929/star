@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <link rel="preload" as="script" href="assets/piano.28e66a35a2a45ea6.js">
-<link rel="preload" as="script" href="assets/game.f03397fa436c4921.js">
+<link rel="preload" as="script" href="assets/game.3f77efc19bf07798.js">
 <title>辰星夜</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="description" content="辰星夜：用星光解谜的像素光影小游戏。">
@@ -17,10 +17,10 @@
 <meta name="apple-mobile-web-app-title" content="辰星夜">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%2305040f'/%3E%3Cpath d='M50 12 L56 44 L88 50 L56 56 L50 88 L44 56 L12 50 L44 44 Z' fill='%23e8c98e'/%3E%3C/svg%3E">
 <style>
-@font-face{font-family:"Noto Serif SC";src:url("assets/noto-serif-sc-300.6f2daa2a1822fd85.woff2") format("woff2");font-style:normal;font-weight:300;font-display:swap}
-@font-face{font-family:"Noto Serif SC";src:url("assets/noto-serif-sc-500.99b8aa2a716039f4.woff2") format("woff2");font-style:normal;font-weight:500;font-display:swap}
-@font-face{font-family:"Noto Serif SC";src:url("assets/noto-serif-sc-700.aa600341108394c1.woff2") format("woff2");font-style:normal;font-weight:700;font-display:swap}
-@font-face{font-family:"ZCOOL XiaoWei";src:url("assets/zcool-xiaowei.01d84c6e5c2e276d.woff2") format("woff2");font-style:normal;font-weight:400;font-display:swap}
+@font-face{font-family:"Noto Serif SC";src:url("assets/noto-serif-sc-300.5663d7ca5ebcf937.woff2") format("woff2");font-style:normal;font-weight:300;font-display:swap}
+@font-face{font-family:"Noto Serif SC";src:url("assets/noto-serif-sc-500.c2d2a9479dd6ea71.woff2") format("woff2");font-style:normal;font-weight:500;font-display:swap}
+@font-face{font-family:"Noto Serif SC";src:url("assets/noto-serif-sc-700.cf2835f494be2ec6.woff2") format("woff2");font-style:normal;font-weight:700;font-display:swap}
+@font-face{font-family:"ZCOOL XiaoWei";src:url("assets/zcool-xiaowei.d03b3777b9d4c4ae.woff2") format("woff2");font-style:normal;font-weight:400;font-display:swap}
 /* 布局：全屏 3D 像素场景，文字与卡牌以竖排书法式浮在其上 */
 :root{
   --vw:1vw; --vh:1vh;
@@ -257,6 +257,9 @@ body.touchdev #pause{background:radial-gradient(60% 70% at 50% 50%,rgba(5,4,15,.
 #boot.ready .bbar{opacity:0;transition:opacity 1s ease .3s}
 #boot.ready .bmsg{color:var(--bone);animation:bootBreath 2.6s ease-in-out infinite}
 #boot.gone{opacity:0;pointer-events:none}
+#boot .bnote{font-family:var(--title);font-size:12px;letter-spacing:.24em;padding-left:.24em;color:rgba(239,232,220,.32);text-align:center;margin-top:-10px;transition:opacity .8s ease}
+#boot .bnote span{display:inline-block;animation:fadein 1.6s ease .6s both}
+#boot.ready .bnote{opacity:0}
 #boot .bstar{width:min(30px,7vh);height:auto;fill:var(--gold);filter:drop-shadow(0 0 6px rgba(232,201,142,.55));animation:bootSpin 6s linear infinite,bootBreath 2.4s ease-in-out infinite}
 #boot .bbar{position:relative;width:min(200px,46vw);height:1px;background:rgba(232,201,142,.16)}
 #boot .bbar i{position:absolute;inset:0;background:linear-gradient(90deg,rgba(232,201,142,.35),var(--gold));transform-origin:0 50%;transform:scaleX(.04);transition:transform .35s ease-out;box-shadow:0 0 6px rgba(232,201,142,.6)}
@@ -345,6 +348,7 @@ body.touchdev .foot{display:none}
 .tcard{--x:0px;--y:calc(var(--u)*6);--r:0deg;position:absolute;left:50%;top:46%;height:calc(var(--u)*56);aspect-ratio:7/12;padding:0;border:0;background:none;
   font:inherit;color:inherit;cursor:var(--curp);opacity:0;transform:translate(-50%,-50%) translate(var(--x),var(--y)) rotate(var(--r));
   transition:transform .7s cubic-bezier(.2,.75,.25,1),opacity .7s ease;-webkit-tap-highlight-color:transparent}
+.deck.snap .tcard{transition:none!important}
 .deck.dealing .tcard{transition:transform 1.1s cubic-bezier(.2,.75,.25,1) calc(var(--k)*.14s),opacity .9s ease calc(var(--k)*.14s)}
 .deck.dealt .tcard{--x:calc(var(--i)*var(--u)*36);--y:calc(var(--a)*var(--u)*2.4);--r:calc(var(--i)*6deg);opacity:1}
 .deck.ready .tcard:hover,.deck.ready .tcard:focus-visible{--y:calc(var(--a)*var(--u)*2.4 - var(--u)*3.6);--r:calc(var(--i)*2deg);outline:none;z-index:2}
@@ -494,7 +498,7 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
   lay(); addEventListener('resize', lay);
 })();
 </script>
-<div id="boot" aria-live="polite"><svg class="bstar" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 8 L57 43 L92 50 L57 57 L50 92 L43 57 L8 50 L43 43 Z"/></svg><div class="bbar"><i id="bootFill"></i></div><div class="bmsg" id="bootMsg">星光聚拢中</div></div>
+<div id="boot" aria-live="polite"><svg class="bstar" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 8 L57 43 L92 50 L57 57 L50 92 L43 57 L8 50 L43 43 Z"/></svg><div class="bbar"><i id="bootFill"></i></div><div class="bmsg" id="bootMsg">星光聚拢中</div><div class="bnote"><span>初次到来　星光会聚得慢一些　请静静等候</span></div></div>
 <div id="ptr" aria-hidden="true"></div>
 <div id="oops" hidden style="position:fixed;left:16px;right:16px;bottom:16px;z-index:99;padding:10px 14px;border:1px solid #6a5a3a;border-radius:4px;background:#0b0a18;color:#e8dcc0;font:12px/1.6 monospace;white-space:pre-wrap"></div>
 <script>addEventListener('error',function(e){var o=document.getElementById('oops');if(!o)return;o.hidden=false;o.textContent='出错了，请把这段文字发给我：\n'+(e.message||e)+(e.filename?'\n'+e.lineno+':'+e.colno:'');});</script>
@@ -675,7 +679,7 @@ body:has(#end.on) #toast,body:has(#end.on) #prompt{opacity:0!important}
   </nav>
 </div></div>
 <script src="assets/piano.28e66a35a2a45ea6.js"></script>
-<script src="assets/game.f03397fa436c4921.js"></script>
+<script src="assets/game.3f77efc19bf07798.js"></script>
 
 </body>
 </html>

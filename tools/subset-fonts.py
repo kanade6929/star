@@ -8,6 +8,9 @@ from fontTools.ttLib import TTFont
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 html = open(os.path.join(root, 'index.html'), encoding='utf8').read()
 html = html.replace(open(os.path.join(root, 'vendor/piano-samples.js'), encoding='utf8').read(), '')
+# 游戏脚本已拆成 assets/game.<指纹>.js，文字大多在里面，一起算上（钢琴采样脚本不算）
+for js in re.findall(r'assets/game\.[0-9a-f]+\.js', html):
+    html += open(os.path.join(root, js), encoding='utf8').read()
 chars = set(html)
 for m in re.finditer(r'\\u\{([0-9a-fA-F]+)\}|\\u([0-9a-fA-F]{4})', html):
     chars.add(chr(int(m.group(1) or m.group(2), 16)))
