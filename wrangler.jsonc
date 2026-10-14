@@ -5,10 +5,5 @@
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "."
-  },
-  // 部署时自动把这两个域名绑到这个 Worker（走 Cloudflare 代理）
-  "routes": [
-    { "pattern": "hugloom.art", "custom_domain": true },
-    { "pattern": "www.hugloom.art", "custom_domain": true }
-  ]
+  }
 }
