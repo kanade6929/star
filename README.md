@@ -25,6 +25,14 @@ GitHub Pages 仍可从 `main` / `root` 发布。`index.html` 与 `assets/` 是�
 
 ## 修改与打包
 
+### EdgeOne Pages
+
+导入本 Git 仓库的 `main` 分支，框架选择 Other。`edgeone.json` 已指定安装命令 `npm ci --no-audit --no-fund`、构建命令 `npm run build:edgeone`、输出目录 `out/edgeone` 和静态资源缓存头。
+
+未备案域名使用「全球可用区（不含中国大陆）」，并绑定自定义域名。该区域由 EdgeOne 调度境外节点，不代表固定香港节点。网站音画资源和游戏行为保持原版；输出目录包含新版、旧版 2D 以及旧资源路径。
+
+现有 Cloudflare 构建命令仍为 `npm run build`，两种发布方式共用同一份游戏源码。
+
 ```bash
 npm install
 node build.js          # 生成 index.html、assets/ 和 out/

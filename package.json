@@ -3,7 +3,8 @@
   "private": true,
   "description": "辰星夜：用星光解谜的像素光影小游戏",
   "scripts": {
-    "build": "node build.js"
+    "build": "node build.js",
+    "build:edgeone": "node build.js && node tools/publish-edgeone.cjs"
   },
   "dependencies": {
     "esbuild": "^0.28.2",

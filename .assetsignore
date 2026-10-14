@@ -6,6 +6,7 @@
 .nojekyll
 .wrangler
 wrangler.jsonc
+edgeone.json
 node_modules
 out
 shots
