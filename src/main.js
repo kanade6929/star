@@ -56,10 +56,12 @@ function layoutView() {
 }
 // 屏幕坐标 → 游戏画面坐标（竖屏旋转时换算）
 function toView(cx, cy) { return view.rot ? [cy, innerWidth - cx] : [cx, cy]; }
-// 设置：画质（高 / 中等）与光点皮肤。手机默认中等：画布不按高分屏放大，倒影和月光阴影隔帧更新
+// 设置：画质（高 / 中等）与光点皮肤。默认都是高；中等 = 画布不按高分屏放大，倒影和月光阴影隔帧更新
 const SET_KEY = 'chenxingye3d_set';
-const SET = { q: TOUCH ? 'mid' : 'high', skin: 'gold', fps: TOUCH ? '60' : 'max', cam: 'near', fs: 'full' }; // 帧率默认：电脑无上限，手机 60；镜头默认近
+const SET = { q: 'high', skin: 'gold', fps: TOUCH ? '60' : 'max', cam: 'near', fs: 'full' }; // 帧率默认：电脑无上限，手机 60；镜头默认近
 try { Object.assign(SET, JSON.parse(localStorage.getItem(SET_KEY)) || {}); } catch (e) {}
+// 旧存档里手机的「中等」多半只是当时的默认值（改别的设置时一起存下的），升一次到高
+if (!SET.qv) { if (TOUCH && SET.q === 'mid') SET.q = 'high'; SET.qv = 2; saveSet(); }
 if (!['max', '60', '30'].includes(SET.fps)) SET.fps = TOUCH ? '60' : 'max'; // 旧存档里的「自动」按设备默认
 if (!ELEV_OF[SET.cam]) SET.cam = 'near';
 ELEV0 = ELEV_OF[SET.cam]; aimCamQuat();
