@@ -48,3 +48,6 @@ fs.writeFileSync('out/chenxingye.html', local);
 fs.writeFileSync('out/local.html', '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"></head><body>' + local + '</body></html>');
 fs.writeFileSync('out/asset-manifest.json', JSON.stringify(urls, null, 2) + '\n');
 console.log('HTML', fs.statSync('index.html').size, 'bytes; cached scripts', pianoUrl, gameUrl);
+
+// 英文版 Starli（en/index.html），见 tools/build-en.cjs
+require('./tools/build-en.cjs')({ asset, urls, pianoUrl, template, document });

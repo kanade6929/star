@@ -21,3 +21,5 @@ build.js
 page.html
 README.md
 CNAME
+worker.js
+i18n

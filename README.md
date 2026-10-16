@@ -23,6 +23,15 @@
 
 GitHub Pages 仍可从 `main` / `root` 发布。`index.html` 与 `assets/` 是已生成的发布文件，需要一起提交。
 
+## 英文版 Starli
+
+`node build.js` 同时生成英文版 `en/index.html`（构建脚本见 `tools/build-en.cjs`）。英文版和中文版共用 `src/` 源码，构建时按 `i18n/en/js.txt`、`i18n/en/html.txt` 的译文替换文字，`i18n/en/style.css` 改成横排英文排版。英文版没有支持作者（微信二维码），星之彩棱直接开放；作者主页链接填在 `i18n/en/links.json` 的 `x`，留空时不显示。
+
+改了游戏里的中文文字后，构建会报出没用上的译文和英文版里剩下的中文，按提示补译文即可。
+
+- en.hugloom.art：Cloudflare Worker `star`（`worker.js` 把这个域名的首页换成 `en/index.html`），需要在 Worker 的 Domains & Routes 里加上自定义域名。
+- hugloom.art/en/：EdgeOne 输出目录里也带着英文版。
+
 ## 修改与打包
 
 ### EdgeOne Pages

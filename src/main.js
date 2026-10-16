@@ -874,7 +874,7 @@ function refreshMore() {
   document.querySelectorAll('#vMore [data-q]').forEach(b => b.setAttribute('aria-checked', b.dataset.q === SET.q));
   document.querySelectorAll('#vMore [data-skin]').forEach(b => b.setAttribute('aria-checked', b.dataset.skin === SET.skin));
   const pb = document.querySelector('#vMore [data-skin="prism"]'); pb.classList.toggle('locked', !prismOpen); 
-  document.querySelector('#vMore .msup').classList.toggle('done', prismOpen);
+  document.querySelector('#vMore .msup')?.classList.toggle('done', prismOpen);
   document.querySelectorAll('#vMore [data-fps]').forEach(b => b.setAttribute('aria-checked', b.dataset.fps === SET.fps));
   document.querySelectorAll('#vMore [data-cam]').forEach(b => b.setAttribute('aria-checked', b.dataset.cam === SET.cam));
   $('fsRow').hidden = !FS_OK;
@@ -890,7 +890,8 @@ function setSkin(k, i) {
   if (SET.skin === k) return; SET.skin = k; saveSet(); applySkin(); refreshMore(); AU.hover(i + 4);
   fx.bloom(orb.x, orb.y, orb.z, 24, SET.skin === 'prism' ? [1, .88, .7] : [1, .85, .55], { w: 2, vr: 1.2, up: .3 });
 }
-const supBox = $('supBox'), supOn = () => !supBox.classList.contains('off');
+// 英文版没有支持作者弹窗（页面里整段删掉了），这里的元素都可能不存在
+const supBox = $('supBox'), supOn = () => !!supBox && !supBox.classList.contains('off');
 function openSup() { supBox.classList.remove('off'); AU.hover(6); setTimeout(() => $('supDone').focus({ preventScroll: true }), 250); }
 function closeSup() {
   if (!supOn()) return; supBox.classList.add('off'); AU.back();
@@ -900,9 +901,9 @@ function closeSup() {
   if ($('fin').classList.contains('on')) setTimeout(() => $('finSup').focus({ preventScroll: true }), 50);
   else setTimeout(() => $('supBtn').focus({ preventScroll: true }), 50);
 }
-$('supBtn').addEventListener('click', openSup);
-$('supDone').addEventListener('click', closeSup);
-supBox.addEventListener('click', e => { if (e.target === supBox) closeSup(); });
+$('supBtn')?.addEventListener('click', openSup);
+$('supDone')?.addEventListener('click', closeSup);
+supBox?.addEventListener('click', e => { if (e.target === supBox) closeSup(); });
 addEventListener('keydown', e => { if (supOn() && e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); closeSup(); } }, { capture: true });
 document.querySelectorAll('#vMore [data-skin]').forEach((b, i) => b.addEventListener('click', () => {
   if (b.dataset.skin === 'prism' && !prismOpen) { b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake'); return; }
@@ -1010,14 +1011,14 @@ function endGame() {
   $('again2').textContent = n === 1 ? '前往月之章' : n === 2 ? '前往太阳之章' : '再走太阳之章';
   S.mode = 'end'; refreshMenu(); setBars(false);
   // 太阳之章通关、三章都完成：换成 demo 全通的恭喜页
-  if (n === 3 && [1, 2, 3].every(k => prog.done.includes(k))) { $('fin').classList.add('on'); $('fin').setAttribute('aria-hidden', 'false'); setTimeout(() => $('finSup').focus({ preventScroll: true }), 600); return; }
+  if (n === 3 && [1, 2, 3].every(k => prog.done.includes(k))) { $('fin').classList.add('on'); $('fin').setAttribute('aria-hidden', 'false'); setTimeout(() => ($('finSup') || $('finMenu')).focus({ preventScroll: true }), 600); return; }
   $('end').classList.add('on');
   setTimeout(() => $('again2').focus(), 400);
 }
 const BILI_URL = 'https://b23.tv/QomRCGl'; // kanade 的 B 站主页（短链：手机上会直接拉起 B 站 App，没装就打开网页）
-$('finSup').addEventListener('click', openSup);
-$('finBili').addEventListener('click', e => { if (!BILI_URL) { e.preventDefault(); toast('B 站主页链接马上就来', 2.5); } });
-if (BILI_URL) $('finBili').href = BILI_URL;
+$('finSup')?.addEventListener('click', openSup);
+$('finBili')?.addEventListener('click', e => { if (!BILI_URL) { e.preventDefault(); toast('B 站主页链接马上就来', 2.5); } });
+if (BILI_URL && $('finBili')) $('finBili').href = BILI_URL;
 $('finMenu').addEventListener('click', () => { $('fin').classList.remove('on'); $('fin').setAttribute('aria-hidden', 'true'); toMenu(); });
 $('again').addEventListener('click', toMenu);
 $('again2').addEventListener('click', () => { $('end').classList.remove('on'); begin(S.level === 1 ? 2 : S.level === 2 ? 3 : 3); });

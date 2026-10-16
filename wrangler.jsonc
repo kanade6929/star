@@ -1,9 +1,13 @@
 // Cloudflare Workers 静态站：npm run build 生成入口与带内容指纹的 assets/。
 // 不上传的文件写在 .assetsignore；缓存规则写在 _headers
+// worker.js 只处理首页：en.hugloom.art 打开英文版 Starli（en/index.html）
 {
   "name": "star",
   "compatibility_date": "2026-10-01",
+  "main": "worker.js",
   "assets": {
-    "directory": "."
+    "directory": ".",
+    "binding": "ASSETS",
+    "run_worker_first": ["/", "/index.html"]
   }
 }

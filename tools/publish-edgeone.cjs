@@ -18,6 +18,6 @@ function copy(name) {
   fs.copyFileSync(file, dest);
   count++; bytes += stat.size;
 }
-['index.html', 'diag.html', 'assets', 'audio', 'fonts', 'img', '2d'].forEach(copy);
+['index.html', 'diag.html', 'assets', 'audio', 'fonts', 'img', '2d', 'en'].forEach(copy);
 if (count > 20000) throw new Error('EdgeOne 文件数量超限');
 console.log(`EdgeOne: ${count} files, ${bytes} bytes -> out/edgeone`);

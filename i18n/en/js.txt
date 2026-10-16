@@ -1,0 +1,264 @@
+# Starli（辰星夜英文版）游戏脚本译文
+# 每条两行："- " 后面是 src/*.js 里原样的一段中文代码，"+ " 后面是英文版里替换成的内容。
+# 构建英文版时按长度从长到短替换；没用上的条目、打包后还剩下的中文都会报出来。
+
+# ---------- level1.js 星 ----------
+- toast('北斗七星连成了。斗口的两颗星，指向北方', 3.6)
++ toast('The Big Dipper is whole. The two stars at its lip point north', 3.6)
+- toast('女神的水瓶空了。瓶里的九尾星鱼，散落在星海里', 4)
++ toast('The goddess’s jar is empty. Its nine star-fish have scattered across the sea of stars', 4)
+- toast('九尾星鱼都回来了。女神倾倒双瓶', 3.6)
++ toast('All nine star-fish are home. The goddess pours out both her jars', 3.6)
+- toast('它们在夜空里排成了宝瓶座', 3.2)
++ toast('In the night sky, they become Aquarius', 3.2)
+- const lampLine = S.lampsLit === 5 ? '五盏星灯俱明' : l === polarisLamp ? '北斗指向北极星' : l === constLamp ? '宝瓶座的中心，升起一盏星灯' : i === 0 ? '虚空下，巨大的星仪转动了一环' : ''; toast(lampLine ? `${lampLine}　${S.lampsLit} / 5` : `星灯　${S.lampsLit} / 5`, lampLine ? 3.6 : 2.4);
++ const lampLine = S.lampsLit === 5 ? 'All five star lamps are burning' : l === polarisLamp ? 'The Dipper points to the Pole Star' : l === constLamp ? 'At the heart of Aquarius, a star lamp rises' : i === 0 ? 'Beneath the void, the great orrery turns one ring' : ''; toast(lampLine ? `${lampLine}  ·  ${S.lampsLit} / 5` : `Star lamp  ·  ${S.lampsLit} / 5`, lampLine ? 3.6 : 2.4);
+- toast('影子落在星纹上。石门沉了下去', 3.6)
++ toast('The shadow falls across the star sigil. The stone door sinks away', 3.6)
+- toast('夜色很深。移动鼠标，星光会跟着你', 4.5)
++ toast('The night is deep. Move the mouse, and the starlight will follow you', 4.5)
+- toast('把星光引到灯碗上，走近按 E 点燃', 4)
++ toast('Guide the starlight into the lamp’s bowl, then walk close and press E to light it', 4)
+- toast('暗厅。黑暗里，有东西在等光', 3.8)
++ toast('The Dark Hall. Something in the darkness is waiting for light', 3.8)
+- toast('七星浮岛。七座岛，在星海上慢慢漂', 3.8)
++ toast('The Seven-Star Isles. Islands drift slowly on a sea of stars', 3.8)
+- toast('星之泉。泉水记得每一颗星', 3.8)
++ toast('The Star Spring. Its water remembers every star', 3.8)
+- label: '点燃星灯'
++ label: 'Light the star lamp'
+- label: '拾起塔罗牌'
++ label: 'Pick up the tarot card'
+- label: '放入　XVII 星'
++ label: 'Place XVII · The Star'
+- label: '查看祭坛'
++ label: 'Examine the altar'
+- toast('灯碗里还没有星光', 2.6)
++ toast('There is no starlight in the bowl yet', 2.6)
+- toast('拾得　XVII 星', 3)
++ toast('Found  ·  XVII The Star', 3)
+- toast('祭坛上空着一个牌槽。牌，也许藏在暗处', 3.2)
++ toast('An empty card slot waits on the altar. Perhaps the card is hidden somewhere dark', 3.2)
+- toast(`牌槽微微发亮，可还缺 ${5 - S.lampsLit} 盏星灯`, 3.2)
++ toast(`The card slot glimmers, but ${5 - S.lampsLit === 1 ? 'one star lamp is' : `${5 - S.lampsLit} star lamps are`} still dark`, 3.2)
+- toast('星辰归位', 4)
++ toast('The stars return to their places', 4)
+- return ['灯碗在等星光', '左上方的小广场，有一盏暗着的星灯'];
++ return ['The lamp’s bowl is waiting for starlight', 'In the little square to the upper left, a star lamp sits dark'];
+- return ['虚空上的路，只在星光里显现', '让星光走在你前面。掉下去也没关系'];
++ return ['The path over the void appears only in starlight', 'Let the starlight walk ahead of you. It’s all right to fall'];
+- return ['地上的星纹，在等一片影子', '星光、石碑、星纹'];
++ return ['The star sigil on the ground is waiting for a shadow', 'Starlight, stone tablet, sigil'];
+- return ['日晷庭的角落里，还有一盏星灯', '去左上角看看'];
++ return ['A corner of the Sundial Court hides another star lamp', 'Look to the upper left'];
+- return ['石门已经打开了', '往东走'];
++ return ['The stone door is open', 'Head east'];
+- return ['暗厅里也有一盏灯', '用星光去找它'];
++ return ['There is a lamp in the Dark Hall too', 'Search for it with your starlight'];
+- return ['暗处好像落着什么', '暗厅的角落，还没被星光照过'];
++ return ['Something seems to lie in the dark', 'One corner of the Dark Hall has not yet seen starlight'];
+- return ['浮岛追着星光。站着人的那座，不会动', '前方空着的锚星，在等一座浮岛'];
++ return ['The isles chase the starlight. The one you stand on stays put', 'The empty anchor star ahead is waiting for an isle'];
+- return ['北斗还没连全', '回头看看，哪颗星还暗着'];
++ return ['The Dipper is not yet whole', 'Look back. Which star is still dark?'];
+- return ['北斗指向了北极星', '往东，去宝瓶星海'];
++ return ['The Dipper points to the Pole Star', 'Go east, to the Aquarius Sea'];
+- return ['慢一点，别让礁石挡在星鱼和光之间', '女神像前的池口，在等它们'];
++ return ['Slowly. Don’t let the reefs come between the fish and the light', 'The pool before the goddess is waiting for them'];
+- return [`还有 ${9 - S.fishHome} 尾星鱼没回池`, '西边、南边、东边的礁石里，都还有星鱼'];
++ return [`${9 - S.fishHome === 1 ? 'One star-fish has' : `${9 - S.fishHome} star-fish have`} not yet come home`, 'Star-fish still linger among the reefs to the west, south and east'];
+- return ['牌还落在暗厅里', '暗厅的角落，还没被星光照过'];
++ return ['The card still lies in the Dark Hall', 'One corner of the Dark Hall has not yet seen starlight'];
+- return ['光桥已经铺好了', '走过星海，去东边'];
++ return ['The bridge of light is laid', 'Cross the sea of stars to the east'];
+- return ['五盏星灯与牌都齐了', '星之泉的祭坛，在等你'];
++ return ['All five lamps are lit and the card is yours', 'The altar of the Star Spring is waiting for you'];
+- name: '星', motto: '在无光之处，星辰等待被唤醒'
++ name: 'The Star', motto: 'Where no light falls, the stars wait to be woken'
+- endCard: { title: '星光归位', line: '第一幕　星　完<br>下一幕　月　已在水边等你' }
++ endCard: { title: 'Starlight Restored', line: 'Act I · The Star · complete<br>Act II · The Moon waits for you by the water' }
+- label: '星灯', dots: lamps.map(l => l.lit), have: S.gotCard, line: S.done ? '牌已归位' : S.gotCard ? '持有　XVII 星' : '遗失的牌　未寻得'
++ label: 'Star Lamps', dots: lamps.map(l => l.lit), have: S.gotCard, line: S.done ? 'The card is home' : S.gotCard ? 'Holding  ·  XVII The Star' : 'Lost card  ·  not yet found'
+
+# ---------- level2.js 月 ----------
+- toast(`上弦。月洞门开了　${S.phases} / 5`, 3.6)
++ toast(`First Quarter. The moon gate opens  ·  ${S.phases} / 5`, 3.6)
+- const qA = addPhase(6, 3, '蛾眉'), qC = addPhase(41 + OC, 1, '凸月'), qD = addPhase(53, 3, '盈月'), qE = addPhase(80, 2, '待宵');
++ const qA = addPhase(6, 3, 'Crescent'), qC = addPhase(41 + OC, 1, 'Gibbous'), qD = addPhase(53, 3, 'Waxing Moon'), qE = addPhase(80, 2, 'Moon’s Eve');
+- name: '上弦', on: false
++ name: 'First Quarter', on: false
+- toast('幻墙回廊。有些墙，只是月光做的梦', 3.8)
++ toast('The Cloister of Illusions. Some walls are only dreams of moonlight', 3.8)
+- toast('镜湖。湖里，也有一轮月', 3.8)
++ toast('The Mirror Lake. There is a moon in the lake, too', 3.8)
+- toast('月池。月亮在这里睡着', 3.8)
++ toast('The Moon Pool. Here the moon lies sleeping', 3.8)
+- label: '唤醒月相石'
++ label: 'Wake the moon-phase stone'
+- label: '转动月镜'
++ label: 'Turn the moon mirror'
+- label: '从水里拾起牌'
++ label: 'Lift the card from the water'
+- label: '放入　XVIII 月'
++ label: 'Place XVIII · The Moon'
+- label: '查看月池'
++ label: 'Examine the Moon Pool'
+- toast(`${n.q.name}　${S.phases} / 5`, 2.6)
++ toast(`${n.q.name}  ·  ${S.phases} / 5`, 2.6)
+- toast('从水底拾起　XVIII 月', 3)
++ toast('Raised from the water  ·  XVIII The Moon', 3)
+- if (S.phases < 5) miss.push(`${5 - S.phases} 枚月相`); if (!S.gotCard) miss.push('那张牌');
++ if (S.phases < 5) miss.push(5 - S.phases === 1 ? 'one moon phase' : `${5 - S.phases} moon phases`); if (!S.gotCard) miss.push('the card');
+- toast(`池水映着残月。还缺${miss.join('和')}`, 3.4)
++ toast(`The pool holds only a waning moon. Still missing: ${miss.join(' and ')}`, 3.4)
+- toast('月满', 4)
++ toast('The moon is full', 4)
+- return ['月相石不喜欢太亮', '它醒来的时候，会先泛起一点紫光'];
++ return ['Moon-phase stones dislike bright light', 'As one wakes, it first glows a faint violet'];
+- return ['湖上那条路，只在暗处才是真的', '石碑的影子，能伸得很长'];
++ return ['The path across the lake is only real in the dark', 'A stone tablet’s shadow can stretch a long way'];
+- return ['身后的影子，够不到前面了', '对岸也立着一块石碑'];
++ return ['The shadow behind you can reach no further', 'Another tablet stands on the far shore'];
+- return ['犬望着光，狼藏于影', '两尊玻璃像，要一起亮起来'];
++ return ['The dog gazes into the light; the wolf hides in shadow', 'Both glass statues must shine at once'];
+- return ['脚下要影子，前面要光', '湖里的石柱，也许能两全'];
++ return ['Shadow beneath your feet, light up ahead', 'The pillars in the lake might give you both'];
+- return ['回廊里还藏着一枚月相', '有一面幻墙后面，还有路'];
++ return ['A moon phase still hides in the cloister', 'Behind one of the illusion walls, the path goes on'];
+- return ['月钩空空地转着，在等什么', '月柱周围有一圈淡淡的光环'];
++ return ['The moon hook turns, empty, waiting for something', 'A faint ring of light circles the moon pillar'];
+- return ['影子绕着湖心转。别急', '北边和南边的小岛上，都还有东西'];
++ return ['The shadows circle the heart of the lake. There’s no hurry', 'Something still waits on the islets to the north and south'];
+- return ['星光往北，湖里的月就往南', '湖里那轮月，能照到星光照不到的地方'];
++ return ['When the starlight moves north, the moon in the lake moves south', 'The moon in the lake can reach places starlight cannot'];
+- return ['待宵只认湖里那轮月', '月镜能转。真的星光，也要有东西替它挡住'];
++ return ['The Moon’s Eve stone answers only to the moon in the lake', 'The mirror can turn. And the real starlight needs something to block it'];
+- return ['往东的石路，也要湖里的月来照', '月镜还能再转回去'];
++ return ['The stone path east needs the lake’s moon as well', 'The moon mirror can turn back again'];
+- return ['五相与牌都齐了', '月池在最东边'];
++ return ['All five phases are awake and the card is yours', 'The Moon Pool lies in the far east'];
+- name: '月', motto: '光与影，交替托住你'
++ name: 'The Moon', motto: 'Light and shadow take turns holding you up'
+- endCard: { title: '满月照影', line: '第二幕　月　完<br>下一幕　太阳' }
++ endCard: { title: 'The Full Moon Mirrored', line: 'Act II · The Moon · complete<br>Next comes Act III · The Sun' }
+- label: '月相', dots: [qA.on, qB.on, qD.on, qC.on, qE.on], have: S.gotCard, line: S.done ? '牌已归位' : S.gotCard ? '持有　XVIII 月' : '水底之牌　未寻得'
++ label: 'Moon Phases', dots: [qA.on, qB.on, qD.on, qC.on, qE.on], have: S.gotCard, line: S.done ? 'The card is home' : S.gotCard ? 'Holding  ·  XVIII The Moon' : 'The drowned card  ·  not yet found'
+
+# ---------- level3.js 太阳 ----------
+- toast('第一道日光', 3.2)
++ toast('The first ray of sunlight', 3.2)
+- toast('云对岸，庭院的门打开了', 3.4)
++ toast('Across the clouds, the courtyard gate swings open', 3.4)
+- toast('第三道日光。日轮放下了吊桥', 3.8)
++ toast('The third ray. The sun wheel lowers the drawbridge', 3.8)
+- toast('第四道日光', 3.2)
++ toast('The fourth ray of sunlight', 3.2)
+- toast('城门打开了', 3.2)
++ toast('The city gate opens', 3.2)
+- toast('向日葵花海。花比人还高，都朝着光', 3.8)
++ toast('The Sunflower Sea. Taller than you, every flower turns toward the light', 3.8)
+- toast('日轮岛。整座岛，像一枚停住的日轮', 3.8)
++ toast('Sun Wheel Isle. The whole isle is a sun wheel stopped mid-turn', 3.8)
+- toast('清透水园。水清得像不存在', 3.8)
++ toast('The Clear Water Garden. The water is so clear it hardly seems there', 3.8)
+- label: '转动日轮'
++ label: 'Turn the sun wheel'
+- label: '收回光桥'
++ label: 'Take back the light bridge'
+- label: '转动镜子'
++ label: 'Turn the mirror'
+- label: '拾起牌'
++ label: 'Pick up the card'
+- label: '放入　XIX 太阳'
++ label: 'Place XIX · The Sun'
+- label: '查看日台'
++ label: 'Examine the sun dais'
+- toast('拾得　XIX 太阳', 3)
++ toast('Found  ·  XIX The Sun', 3)
+- if (S.rays < 5) miss.push(`${5 - S.rays} 道日光`); if (!S.gotCard) miss.push('那张牌');
++ if (S.rays < 5) miss.push(5 - S.rays === 1 ? 'one ray of sunlight' : `${5 - S.rays} rays of sunlight`); if (!S.gotCard) miss.push('the card');
+- toast(`日台上的太阳还在沉睡。还缺${miss.join('和')}`, 3.4)
++ toast(`The sun on the dais is still asleep. Still missing: ${miss.join(' and ')}`, 3.4)
+- toast('日出', 4)
++ toast('Sunrise', 4)
+- return ['透镜在等光', '向日葵只看它面朝的那一边'];
++ return ['The lens is waiting for light', 'A sunflower only sees the side it faces'];
+- return ['断岸上也有一块透镜', '云海对面的小岛上，有一面铜镜'];
++ return ['There is a lens on the broken shore too', 'On the islet across the clouds stands a bronze mirror'];
+- return ['北岛的向日葵朝着南边', '南岛的铜镜还能转'];
++ return ['The sunflower on the north isle faces south', 'The bronze mirror on the south isle can still turn'];
+- return ['庭院的门还关着', '北岛的向日葵还没开'];
++ return ['The courtyard gate is still shut', 'The sunflower on the north isle has not yet bloomed'];
+- return ['南岛这面镜子，已经被光桥锁住了', '收回的光，还能送去别处'];
++ return ['This mirror on the south isle is held fast by a light bridge', 'Light you take back can be sent somewhere else'];
+- return ['深谷对面有一块棱镜', '庭院里有两面镜子'];
++ return ['A prism waits across the gorge', 'The courtyard has two mirrors'];
+- return ['双生的花，要一起被照到', '光可以不止一次穿过棱镜'];
++ return ['The twin flowers must be lit together', 'Light can pass through a prism more than once'];
+- return ['篱笆围起来的小花园里，好像还藏着什么', '向日葵跟着光转'];
++ return ['Something seems hidden in the little hedged garden', 'Sunflowers turn to follow the light'];
+- return ['花海入口有一块透镜', '光凝住的地方，花会让开'];
++ return ['A lens stands at the entrance to the flower sea', 'Where light holds still, the flowers part'];
+- return ['方尖碑挡住了直路', '绕一绕'];
++ return ['The obelisk blocks the straight path', 'Find a way around it'];
+- return ['花海的北沿还空着', '光走到尽头，也可以拐弯'];
++ return ['The north edge of the flower sea is still empty', 'At the end of its road, light can turn a corner'];
+- return ['花海尽头那朵向日葵，还在等光', '它面朝着西边'];
++ return ['The sunflower at the far end of the sea is still waiting for light', 'It faces west'];
+- return ['北岸的花朝着南边', '岛门转到哪里，光就能从哪里进出'];
++ return ['The flower on the north shore faces south', 'Wherever the isle’s gates turn, light can pass through'];
+- return ['东岸的花朝着西边', '南岸也有一块透镜'];
++ return ['The flower on the east shore faces west', 'There is a lens on the south shore too'];
+- return ['五道日光与牌都齐了', '日台在水园中央'];
++ return ['All five rays are shining and the card is yours', 'The sun dais stands at the heart of the water garden'];
+- name: '太阳', motto: '把光，送到最远的地方'
++ name: 'The Sun', motto: 'Carry the light to the farthest place'
+- endCard: { title: '正午', line: '第三幕　太阳　完<br>星、月、日，都已归位' }
++ endCard: { title: 'High Noon', line: 'Act III · The Sun · complete<br>Star, Moon and Sun have all come home' }
+- label: '日光', dots: [R1.on, R2.on, S.twins, R4.on, S.wheel], have: S.gotCard, line: S.done ? '牌已归位' : S.gotCard ? '持有　XIX 太阳' : '太阳之牌　未寻得'
++ label: 'Sunlight', dots: [R1.on, R2.on, S.twins, R4.on, S.wheel], have: S.gotCard, line: S.done ? 'The card is home' : S.gotCard ? 'Holding  ·  XIX The Sun' : 'The Sun card  ·  not yet found'
+
+# ---------- main.js ----------
+- toast(on ? '琴声已开启' : '琴声已关闭', 1.4)
++ toast(on ? 'Music on' : 'Music off', 1.4)
+- const touchText = m => !TOUCH ? m : m.replace('移动鼠标', '推动右摇杆').replace('用鼠标', '用右摇杆').replace('晃动鼠标', '把右摇杆推到底').replace(/鼠标/g, '右摇杆')
++ const touchText = m => !TOUCH ? m : m.replace(/Move the mouse/g, 'Push the right stick').replace(/move the mouse/g, 'push the right stick').replace(/the mouse/g, 'the right stick').replace(/\bmouse\b/gi, 'right stick')
+- .replace(/按 ?E/g, '点「互动」').replace(/按 ?(Tab|Esc|M|Shift|空格)/g, '点按钮');
++ .replace(/\bpress E\b/g, 'tap Interact').replace(/\bPress E\b/g, 'Tap Interact').replace(/\b[Pp]ress (Tab|Esc|M|Shift|Space)\b/g, 'tap the button');
+- tElab.textContent = '互动';
++ tElab.textContent = 'Interact';
+- toast('长按 Esc 退出全屏', 1.8)
++ toast('Hold Esc to leave fullscreen', 1.8)
+- const LAMP_LEFT = { 星灯: '星灯未亮', 月相: '月相石未醒', 日光: '日光未起' };
++ const LAMP_LEFT = { 'Star Lamps': 'a star lamp still unlit', 'Moon Phases': 'a moon-phase stone still asleep', 'Sunlight': 'a ray of sunlight not yet risen' };
+- const lamp1 = LAMP_LEFT[lab] || `${lab}未亮`;
++ const lamp1 = LAMP_LEFT[lab] || `${lab} still unlit`;
+- const msg = card && lamp ? `身后还有${lamp1}，还落着一张牌` : card ? "身后还落着一张牌" : `身后还有${lamp1}`;
++ const msg = card && lamp ? `Left behind you: ${lamp1}, and a fallen card` : card ? 'Left behind you: a fallen card' : `Left behind you: ${lamp1}`;
+- document.querySelector('#pause .proman').textContent = `${LV.roman}　${LV.name}`;
++ document.querySelector('#pause .proman').textContent = `${LV.roman} · ${LV.name}`;
+- textContent = prog.done.includes(n) ? '已完成' : '可进入';
++ textContent = prog.done.includes(n) ? 'Complete' : 'Enter';
+- (nl === 2 ? '第二幕 月' : nl === 3 ? '第三幕 太阳' : '再走一次')
++ (nl === 2 ? 'Act II · The Moon' : nl === 3 ? 'Act III · The Sun' : 'Walk it again')
+- toast('感谢支持，我会继续努力创作', 3.5)
++ toast('Thank you', 3.5)
+- name: '星', line: '星辰正在苏醒'
++ name: 'The Star', line: 'The stars are waking'
+- name: '月', line: '月影正在升起'
++ name: 'The Moon', line: 'The moon is rising'
+- name: '太阳', line: '日轮正在燃起'
++ name: 'The Sun', line: 'The sun wheel is kindling'
+- $('again2').textContent = n === 1 ? '前往月之章' : n === 2 ? '前往太阳之章' : '再走太阳之章';
++ $('again2').textContent = n === 1 ? 'On to The Moon' : n === 2 ? 'On to The Sun' : 'Walk The Sun again';
+- toast('B 站主页链接马上就来', 2.5)
++ toast('Coming soon', 2.5)
+- fps (上限 ${fpsCap() > 100 ? '无' : fpsCap()})
++ fps (cap ${fpsCap() > 100 ? 'none' : fpsCap()})
+- \n绘制 ${(P_.calls / P_.n).toFixed(0)}/帧  三角 ${(R_.triangles / 1000).toFixed(0)}k\n灯 ${poolStat.p}/${POOL_P}+${poolStat.s}/${POOL_S}  阴影重画 ${(100 * P_.sh / P_.n).toFixed(0)}%  画布 ${pipe.devW}×${pipe.devH}  像素 ${pipe.w}×${pipe.h}
++ \ndraws ${(P_.calls / P_.n).toFixed(0)}/frame  tris ${(R_.triangles / 1000).toFixed(0)}k\nlights ${poolStat.p}/${POOL_P}+${poolStat.s}/${POOL_S}  shadow redraw ${(100 * P_.sh / P_.n).toFixed(0)}%  canvas ${pipe.devW}×${pipe.devH}  pixels ${pipe.w}×${pipe.h}
+- $('bootMsg').textContent = '轻触开始';
++ $('bootMsg').textContent = 'Tap to begin';
+# 英文版没有支持作者：星之彩棱直接开放
+- let prismOpen = false;
++ let prismOpen = true;

@@ -1,0 +1,121 @@
+# Starli（辰星夜英文版）页面译文：page.html 里原样的一段 → 英文版的内容
+# 支持作者（微信二维码）、B 站链接整段删除写在 build.js 里（REMOVE_EN）
+
+- <title>辰星夜</title>
++ <title>Starli</title>
+- <meta name="description" content="辰星夜：用星光解谜的像素光影小游戏。">
++ <meta name="description" content="Starli: a small pixel-art puzzle game of light and shadow. Guide the starlight through a tarot dream of the Star, the Moon and the Sun.">
+- <meta name="apple-mobile-web-app-title" content="辰星夜">
++ <meta name="apple-mobile-web-app-title" content="Starli">
+- aria-label="辰星夜 游戏画面"
++ aria-label="Starli game view"
+- <div class="bmsg" id="bootMsg">星光聚拢中</div><div class="bnote"><span>初次到来　星光会聚得慢一些　请静静等候</span></div>
++ <div class="bmsg" id="bootMsg">Gathering starlight</div><div class="bnote"><span>On a first visit the stars gather slowly. Please wait a moment.</span></div>
+- '出错了，请把这段文字发给我（点一下收起）：\n'
++ 'Something went wrong. Please send this text to the developer (tap to close):\n'
+- <div id="nogl" hidden>这个浏览器没有开启 WebGL，游戏画面无法显示。<br>请换用新版 Chrome、Edge、Safari 或 Firefox 打开。</div>
++ <div id="nogl" hidden>WebGL is turned off in this browser, so the game cannot be shown.<br>Please open it in a recent Chrome, Edge, Safari or Firefox.</div>
+- <div class="lname" id="ldName">星</div><div class="lline"><span id="ldLine">星辰正在苏醒</span>
++ <div class="lname" id="ldName">The Star</div><div class="lline"><span id="ldLine">The stars are waking</span>
+- <span id="hudlabel">星灯</span>
++ <span id="hudlabel">Star Lamps</span>
+- <div id="cardline" class="dim">遗失的牌　未寻得</div>
++ <div id="cardline" class="dim">Lost card  ·  not yet found</div>
+- <span class="key">D</span> 移动　<span class="key">Shift</span> 奔跑　<span class="key">E</span> 互动</div><div>鼠标 引导星光　<span class="key">M</span> 琴声　<span class="key">Esc</span> 暂停</div>
++ <span class="key">D</span> Move   <span class="key">Shift</span> Run   <span class="key">E</span> Interact</div><div>Mouse  Guide the starlight   <span class="key">M</span> Music   <span class="key">Esc</span> Pause</div>
+- aria-label="地图（Tab）"
++ aria-label="Map (Tab)"
+- aria-label="关闭地图"
++ aria-label="Close map"
+- <div class="mtitle" id="mapTitle">星</div>
++ <div class="mtitle" id="mapTitle">The Star</div>
+- <b id="mapLamp">星灯</b></span><span><i class="lg pcard"></i>牌</span><span><i class="lg goal"></i>终点</span><span><i class="lg me"></i>你</span><span class="dim kb"><span class="key">Tab</span> 关闭</span>
++ <b id="mapLamp">Star Lamps</b></span><span><i class="lg pcard"></i>Card</span><span><i class="lg goal"></i>Goal</span><span><i class="lg me"></i>You</span><span class="dim kb"><span class="key">Tab</span> Close</span>
+- <span class="key">E</span> </span>跳过<svg
++ <span class="key">E</span> </span>Skip<svg
+- <div class="name">星</div><div class="line">在无光之处，星辰等待被唤醒</div>
++ <div class="name">The Star</div><div class="line">Where no light falls, the stars wait to be woken</div>
+- <span>星光</span></div><button id="tE" aria-label="互动">
++ <span>Light</span></div><button id="tE" aria-label="Interact">
+- <span class="lab" id="tElab">互动</span></button><button id="tP" aria-label="暂停">
++ <span class="lab" id="tElab">Interact</span></button><button id="tP" aria-label="Pause">
+- <button id="tM" aria-label="地图">
++ <button id="tM" aria-label="Map">
+- <div id="touchTip"><i>左边摇杆行走</i>　<i>右边摇杆移动星光</i></div>
++ <div id="touchTip"><i>Left stick to walk</i>   <i>Right stick to move the starlight</i></div>
+- <h2 id="endTitle">星光归位</h2>
++ <h2 id="endTitle">Starlight Restored</h2>
+- <p id="endLine">第一幕　星　完<br>下一幕　月　已在水边等你</p>
++ <p id="endLine">Act I · The Star · complete<br>Act II · The Moon waits for you by the water</p>
+- <button id="again2">前往月之章</button><button id="again">回到主界面</button>
++ <button id="again2">On to The Moon</button><button id="again">Main Menu</button>
+- <h2>恭喜通关</h2>
++ <h2>The End of the Dream</h2>
+- <p>到这已经通关 demo 全部内容了<br>感谢你玩我的游戏 ☺️<br>让我们在下一个深蓝色的梦里再见<svg class="fmoon" viewBox="0 0 24 24" aria-label="月亮">
++ <p>You have finished everything in this demo.<br>Thank you for playing my game ☺️<br>Let’s meet again in the next deep-blue dream<svg class="fmoon" viewBox="0 0 24 24" aria-label="Moon">
+- <button class="fb ghost" id="finMenu">回到主菜单</button>
++ <button class="fb main" id="finMenu">Back to the Main Menu</button>
+- <p>佩戴耳机，体验更佳</p><small>HEADPHONES RECOMMENDED</small>
++ <p>Put on your headphones</p><small>FOR THE BEST EXPERIENCE</small>
+- <h1 aria-label="辰星夜"><span>辰</span><span>星</span><span>夜</span></h1>
++ <h1 aria-label="Starli" class="enlogo"><span>Starli</span></h1>
+- <span class="lbl">踏入夜色</span>
++ <span class="lbl">Enter the Night</span>
+- <span class="lbl">章节</span>
++ <span class="lbl">Chapters</span>
+- <p class="wake">点击任意处，让琴声响起</p>
++ <p class="wake">Click anywhere to let the music begin</p>
+- <span class="nm">星</span>
++ <span class="nm">The Star</span>
+- <span class="ln"><i>光之桥　影之晷</i><i>在无光之处</i><i>星辰等待被唤醒</i></span>
++ <span class="ln"><i>Bridges of light · dials of shadow</i><i>Where no light falls,</i><i>the stars wait to wake</i></span>
+- <span class="nm">月</span>
++ <span class="nm">The Moon</span>
+- <span class="ln"><i>影中之路　水底之月</i><i>光与影</i><i>交替托住你</i></span>
++ <span class="ln"><i>Paths in shadow · a drowned moon</i><i>Light and shadow</i><i>take turns to hold you</i></span>
+- <span class="nm">太阳</span>
++ <span class="nm">The Sun</span>
+- <span class="ln"><i>折光之镜　向日之花</i><i>把光</i><i>送到最远的地方</i></span>
++ <span class="ln"><i>Turning mirrors · sunflowers</i><i>Carry the light</i><i>to the farthest place</i></span>
+- <span class="st">可进入</span>
++ <span class="st">Enter</span>
+- <span class="key">Esc</span>　</span>返回</button>
++ <span class="key">Esc</span> </span>Back</button>
+- <div class="mhead"><span class="mrn">· 设置 ·</span><h2>更多</h2></div>
++ <div class="mhead"><span class="mrn">· Options ·</span><h2>Settings</h2></div>
+- <div class="mlab">琴声</div>
++ <div class="mlab">Music</div>
+- aria-label="琴声"><button role="radio" data-snd="on">开</button><button role="radio" data-snd="off">关</button>
++ aria-label="Music"><button role="radio" data-snd="on">On</button><button role="radio" data-snd="off">Off</button>
+- <div class="mlab">显示</div>
++ <div class="mlab">Display</div>
+- aria-label="显示"><button role="radio" data-fs="full">全屏</button><button role="radio" data-fs="win">窗口</button>
++ aria-label="Display"><button role="radio" data-fs="full">Fullscreen</button><button role="radio" data-fs="win">Window</button>
+- <div class="mlab">画质</div>
++ <div class="mlab">Quality</div>
+- aria-label="画质"><button role="radio" data-q="high">高</button><button role="radio" data-q="mid">中等</button>
++ aria-label="Quality"><button role="radio" data-q="high">High</button><button role="radio" data-q="mid">Medium</button>
+- <div class="mlab">帧率</div>
++ <div class="mlab">Frame rate</div>
+- aria-label="帧率"><button role="radio" data-fps="max">无上限</button>
++ aria-label="Frame rate"><button role="radio" data-fps="max">Max</button>
+- <div class="mlab">镜头远近</div>
++ <div class="mlab">Camera</div>
+- aria-label="镜头远近"><button role="radio" data-cam="near">近</button><button role="radio" data-cam="far">远</button>
++ aria-label="Camera"><button role="radio" data-cam="near">Near</button><button role="radio" data-cam="far">Far</button>
+- <div class="mlab">光点皮肤</div>
++ <div class="mlab">Starlight</div>
+- aria-label="光点皮肤">
++ aria-label="Starlight">
+- <b>金色星光</b><small>初始</small>
++ <b>Golden Star</b><small>Classic</small>
+- <b>星之彩棱</b><small id="prismSub">支持者礼物</small>
++ <b>Star Prism</b><small id="prismSub">Refracted</small>
+- <div class="proman">XVII　星</div>
++ <div class="proman">XVII · The Star</div>
+- <span class="lbl">继续</span>
++ <span class="lbl">Resume</span>
+- <span class="lbl"><span class="hui">回</span>到主界面</span>
++ <span class="lbl">Main Menu</span>
+- <span class="lbl">更多</span>
++ <span class="lbl">Settings</span>
