@@ -19,6 +19,12 @@ export const PROPS = [
   { c: 'T', name: '树', col: '#5bb39a' }, { c: 'C', name: '柱', col: '#c3c4e6' }, { c: 'c', name: '断柱', col: '#9a9fcc' },
   { c: 'L', name: '星灯', col: '#f4cf6a' }, { c: 'O', name: '石碑', col: '#b8b0e0' }
 ];
+// 第四章《审判》的机关格子（只在 builder 为 judgement 的底图里起作用，见 level4.js）
+export const MECH = [
+  { c: 'E', name: '回声石', col: '#cfdcff' }, { c: 'S', name: '影子', col: '#4c5578' }, { c: 'B', name: '钟', col: '#c99a52' },
+  { c: '~', name: '声之石', col: '#8d98b8' }, { c: 'G', name: '石门', col: '#b4bdd2' }, { c: 'K', name: '塔罗牌', col: '#f2d8a0' },
+  { c: 'A', name: '祭坛', col: '#e8c0b8' }, { c: 'H', name: '号角', col: '#f4cf6a' }
+];
 const SOLID = new Set(['#', '=', 'W', 'T', 'C', 'c', 'L', 'O']);
 const WALL_H = 1.7, LOW_H = .45;
 
@@ -64,7 +70,7 @@ export function defaultMap() {
 export function normalizeMap(d) {
   const w = Math.max(8, Math.min(200, d.w | 0)), h = Math.max(6, Math.min(60, d.h | 0));
   const rows = Array.from({ length: h }, (_, z) => ((d.rows && d.rows[z]) || '').padEnd(w, ' ').slice(0, w));
-  return { ...d, w, h, rows, theme: THEMES[d.theme] ? d.theme : 'star', spawn: d.spawn || [2.5, h / 2] };
+  return { ...d, w, h, rows, theme: THEMES[d.theme] || d.builder ? (d.theme || 'star') : 'star', spawn: d.spawn || [2.5, h / 2] };
 }
 
 export function buildMapLevel(ctx, data) {

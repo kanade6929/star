@@ -9,7 +9,9 @@ import { FX } from './fx.js';
 import { buildStar } from './level1.js';
 import { buildMoon } from './level2.js';
 import { buildSun } from './level3.js';
-import { buildMapLevel, defaultMap } from './levelmap.js';
+import { buildMapLevel } from './levelmap.js';
+import { buildJudgement } from './level4.js';
+import CH4 from './maps/ch4.js';
 import { initCursor } from './cursor.js';
 import { TUNE } from './studio/tune.js';
 import { initStudio } from './studio/studio.js';
@@ -289,7 +291,7 @@ function cine(steps) { S.cine = { steps, i: 0, t: 0, started: false }; setBars(t
 /* ================= 关卡装载 ================= */
 let LV = null, root = null;
 const ctx = { THREE, camQuat, P, orb, orbNear, S, fx, AU, toast, holdToast, cine, shake, flash, hemi, moon, renderer, pipe, get T() { return T; }, get visK() { return VIS_K; }, updateHud };
-const BUILDERS = { 1: buildStar, 2: buildMoon, 3: buildSun, 4: c => buildMapLevel(c, studio ? studio.mapData() : defaultMap()) }; // 4：编辑器里画的章节
+const BUILDERS = { 1: buildStar, 2: buildMoon, 3: buildSun, 4: c => { const d = studio ? studio.mapData() : CH4; return d.builder === 'judgement' ? buildJudgement(c, d) : buildMapLevel(c, d); } }; // 4：审判（底图可以在编辑器里改）
 function loadLevel(n, keepMood) {
   if (root) disposeGroup(root);
   virt = null;
@@ -806,7 +808,7 @@ function update(dt) {
 // 快走进下一个场景小节点时，身后还有牌没捡、灯没亮：温柔地提一句（每个节点只说一次）
 // 节点位置按关卡的区段分界（关卡可以用 LV.nodes 覆盖）
 const NODE_X = { 1: [23.5, 36.5, 49.5, 67, 88], 2: [18, 25, 40.5, 48.5, 55, 84], 3: [18, 35, 51, 64.6, 82] };
-const LAMP_LEFT = { 星灯: '星灯未亮', 月相: '月相石未醒', 日光: '日光未起' };
+const LAMP_LEFT = { 星灯: '星灯未亮', 月相: '月相石未醒', 日光: '日光未起', 影子: '没醒的影子' };
 function nodeHints() {
   if (S.mode !== 'play' || S.cine || P.vx < .3 || !LV.mapMarks) return;
   const xs = LV.nodes || NODE_X[S.level] || [];
@@ -937,7 +939,7 @@ const LOAD_INFO = {
   1: { num: 'XVII', name: '星', line: '星辰正在苏醒', c: '#cfe3ff', g: 'M0-34L7.5-11.5 24-24 11.5-7.5 34 0 11.5 7.5 24 24 7.5 11.5 0 34-7.5 11.5-24 24-11.5 7.5-34 0-11.5-7.5-24-24-7.5-11.5Z M0-7A7 7 0 1 1 0 7A7 7 0 1 1 0-7' },
   2: { num: 'XVIII', name: '月', line: '月影正在升起', c: '#cdb8ff', g: 'M8-31A32 32 0 1 0 8 31A25 25 0 1 1 8-31Z M22-8L24-2 30 0 24 2 22 8 20 2 14 0 20-2Z' },
   3: { num: 'XIX', name: '太阳', line: '日轮正在燃起', c: '#ffcf7a', g: 'M0-15A15 15 0 1 1 0 15A15 15 0 1 1 0-15 M0-23V-33 M0 23V33 M-23 0H-33 M23 0H33 M16.3-16.3L23.3-23.3 M-16.3 16.3L-23.3 23.3 M16.3 16.3L23.3 23.3 M-16.3-16.3L-23.3-23.3' },
-  4: { num: 'XX', name: '编辑中', line: '新的章节正在成形', c: '#f4cf6a', g: 'M0-30L6-6 30 0 6 6 0 30-6 6-30 0-6-6Z' }
+  4: { num: 'XX', name: '审判', line: '号角正在响起', c: '#f2d8a0', g: 'M0-30L6-6 30 0 6 6 0 30-6 6-30 0-6-6Z' }
 };
 let loadDone = null;
 function showLoader(n) {
@@ -955,7 +957,7 @@ function hideLoader() {
   S.loading = false; S.fadeTo = 0; loadDone = null;
 }
 function begin(n = 1) {
-  const mood0 = n <= 3 ? n : 1; // 编辑中的章节先借用第一幕的曲子，进关后按画风换
+  const mood0 = n <= 3 ? n : 2; // 第四章先借用月之章的曲子
   AU.prefetch([mood0]);
   AU.init(); if (!booted) { booted = true; boot.hidden = true; } endSplash(true);
   if (S.loading) return;
@@ -1016,7 +1018,7 @@ function endGame() {
   if (!prog.done.includes(n)) prog.done.push(n); saveProg();
   const E = LV.endCard;
   $('endRoman').textContent = LV.roman; $('endTitle').textContent = E.title; $('endLine').innerHTML = E.line;
-  $('again2').textContent = n === 1 ? '前往月之章' : n === 2 ? '前往太阳之章' : '再走太阳之章';
+  $('again2').textContent = n === 1 ? '前往月之章' : n === 2 ? '前往太阳之章' : n === 4 ? '再走审判之章' : '再走太阳之章';
   S.mode = 'end'; refreshMenu(); setBars(false);
   // 太阳之章通关、三章都完成：换成 demo 全通的恭喜页
   if (n === 3 && [1, 2, 3].every(k => prog.done.includes(k))) { $('fin').classList.add('on'); $('fin').setAttribute('aria-hidden', 'false'); setTimeout(() => $('finSup').focus({ preventScroll: true }), 600); return; }
@@ -1029,7 +1031,7 @@ $('finBili').addEventListener('click', e => { if (!BILI_URL) { e.preventDefault(
 if (BILI_URL) $('finBili').href = BILI_URL;
 $('finMenu').addEventListener('click', () => { $('fin').classList.remove('on'); $('fin').setAttribute('aria-hidden', 'true'); toMenu(); });
 $('again').addEventListener('click', toMenu);
-$('again2').addEventListener('click', () => { $('end').classList.remove('on'); begin(S.level === 1 ? 2 : S.level === 2 ? 3 : 3); });
+$('again2').addEventListener('click', () => { $('end').classList.remove('on'); begin(S.level === 1 ? 2 : S.level === 2 ? 3 : S.level === 4 ? 4 : 3); });
 
 /* ================= 主循环 ================= */
 let moonPending = true;
@@ -1134,7 +1136,7 @@ setTimeout(() => document.querySelector('#mainNav .vbtn').focus({ preventScroll:
 // 调试/测试钩子
 window.__G = { scene, AU, fx,
   sim(sec) { if (loadDone) loadDone(); for (let t = 0; t < sec; t += 1 / 30) update(1 / 30); return [S.mode, LV.progress(), P.x.toFixed(1), P.z.toFixed(1), P.falling]; },
-  S, P, orb, PERF, SET, applyCam, poolLights, poolStat, nodeHints, get LV() { return LV; }, get mouse() { return mouse; }, set mouse(v) { mouse.seen = false; },
+  S, P, orb, PERF, SET, applyCam, poolLights, poolStat, nodeHints, get LV() { return LV; }, get visK() { return VIS_K; }, get mouse() { return mouse; }, set mouse(v) { mouse.seen = false; },
   begin, toMenu, endGame, interact, setMouse, mouseWorld, keys, update, pipe, cam, loadLevel, skipIntro, nearest, warmup, render() { pipe.render(scene, cam, { time: T, fade: S.fade, focus: focusUV, dofK, flash: S.flash, vig }); }
 };
 if (STUDIO_ON) studio = initStudio({ scene, cam, pipe, P, orb, S, hemi, moon, orbLight, view, canvas, PERF, NODE_X, ORB_Y, toScreen, begin, skipIntro,

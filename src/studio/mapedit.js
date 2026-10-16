@@ -1,25 +1,29 @@
 // Hug Studio · 底图编辑器（第四章用）
 // 直接在游戏画面上涂格子：松开鼠标后整关按新底图重建，看到的就是游戏里的样子。
 // 底图自动存在浏览器里；也可以复制成文字交给 Claude，或者存成文件。
-import { TILES, PROPS, THEMES, defaultMap, normalizeMap } from '../levelmap.js';
+import { TILES, PROPS, MECH, THEMES, normalizeMap } from '../levelmap.js';
+import CH4 from '../maps/ch4.js';
 
-const ALL = [...TILES, ...PROPS];
+const ALL = [...TILES, ...PROPS, ...MECH];
+const defaultMap = () => JSON.parse(JSON.stringify(CH4));
 const nameOf = c => (ALL.find(t => t.c === c) || { name: c }).name;
 
 export function initMapEditor(api, ui) {
   const { el, st, save, say, pickGround, scr, g } = ui;
   const { S, P } = api;
   const $ = id => el.querySelector('#' + id);
-  let map = normalizeMap(st.map || defaultMap());
+  let map = normalizeMap(st.map4 || defaultMap());   // 第四章《审判》的底图（旧的空白草图存在 st.map，不再使用）
   const undo = [], redo = [];
   let tool = 'brush', brush = '.', size = 1;
 
   el.querySelector('[data-pane=map]').innerHTML = `
-    <div id="hmOff"><div class="tip">底图编辑器用来画第四章。先打开它：</div>
-      <div class="btns"><button class="b gold" id="hmOpen">打开第四章（编辑中）</button></div></div>
+    <div id="hmOff"><div class="tip">第四章《审判》的底图在这里改，改完马上能玩：</div>
+      <div class="btns"><button class="b gold" id="hmOpen">打开第四章　审判</button></div></div>
     <div id="hmOn" style="display:flex;flex-direction:column;gap:9px">
       <h4>地面</h4><div class="btns" id="hmTiles"></div>
       <h4>摆件</h4><div class="btns" id="hmProps"></div>
+      <div id="hmMechBox"><h4>机关</h4><div class="btns" id="hmMech"></div>
+        <div class="tip">影子按从西到东的顺序醒来；第 n 组石门在第 n 个影子醒来时打开。</div></div>
       <h4>工具</h4><div class="btns" id="hmTools"></div>
       <div class="row"><span>笔刷大小</span><span style="flex:1"></span><div class="btns" id="hmSize"></div></div>
       <div class="btns"><button class="b" id="hmUndo" title="Ctrl+Z">撤销</button><button class="b" id="hmRedo" title="Ctrl+Y">重做</button></div>
@@ -27,7 +31,7 @@ export function initMapEditor(api, ui) {
       <div class="lab"><span>视野远近</span><span class="v" id="hmZoomV"></span></div>
       <div class="row"><input type="range" id="hmZoom" min=".45" max="1.22" step=".01"></div>
       <h4>这一章</h4>
-      <div class="row"><span style="width:52px">画风</span><select id="hmTheme" style="flex:1"></select></div>
+      <div class="row" id="hmThemeRow"><span style="width:52px">画风</span><select id="hmTheme" style="flex:1"></select></div>
       <div class="row"><span style="width:52px">名字</span><input type="text" id="hmName" style="flex:1;min-width:0"></div>
       <div class="row"><span style="width:52px">一句话</span><input type="text" id="hmMotto" style="flex:1;min-width:0"></div>
       <div class="row"><span style="width:52px">大小</span><input type="number" id="hmW" min="8" max="200" style="width:64px"> × <input type="number" id="hmH" min="6" max="60" style="width:56px">
@@ -37,11 +41,12 @@ export function initMapEditor(api, ui) {
       <div class="btns"><button class="b" id="hmCopy">复制底图文字</button><button class="b" id="hmPaste">粘贴底图</button><button class="b" id="hmFile">存成文件</button><button class="b" id="hmOpenFile">打开文件</button></div>
       <textarea id="hmText" hidden placeholder="把底图文字粘贴到这里，然后点「载入」"></textarea>
       <div class="btns" id="hmLoadRow" hidden><button class="b gold" id="hmLoad">载入</button><button class="b" id="hmLoadNo">取消</button></div>
-      <div class="btns"><button class="b" id="hmReset">恢复起始底图</button></div>
+      <div class="btns"><button class="b" id="hmReset">恢复 Claude 的底图</button></div>
     </div>`;
   const sw = t => `<button class="b" data-t="${t.c === ' ' ? 'void' : t.c}" title="${t.name}"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px;background:${t.col};border:1px solid rgba(255,255,255,.25)"></i>${t.name}</button>`;
   $('hmTiles').innerHTML = TILES.map(sw).join('');
   $('hmProps').innerHTML = PROPS.map(sw).join('');
+  $('hmMech').innerHTML = MECH.map(sw).join('');
   const TOOLS = [['brush', '画笔'], ['rect', '矩形'], ['fill', '填充'], ['spawn', '出生点'], ['look', '只看不画']];
   $('hmTools').innerHTML = TOOLS.map(([k, n]) => `<button class="b" data-tool="${k}">${n}</button>`).join('');
   $('hmSize').innerHTML = [1, 2, 3].map(n => `<button class="b" data-sz="${n}">${n}</button>`).join('');
@@ -50,6 +55,7 @@ export function initMapEditor(api, ui) {
     el.querySelectorAll('[data-t]').forEach(b => b.classList.toggle('on', (b.dataset.t === 'void' ? ' ' : b.dataset.t) === brush && tool !== 'spawn' && tool !== 'look'));
     el.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === tool));
     el.querySelectorAll('[data-sz]').forEach(b => b.classList.toggle('on', +b.dataset.sz === size));
+    const mech = map.builder === 'judgement'; $('hmMechBox').hidden = !mech; $('hmThemeRow').style.display = mech ? 'none' : '';
     $('hmTheme').value = map.theme; $('hmName').value = map.name || ''; $('hmMotto').value = map.motto || '';
     $('hmW').value = map.w; $('hmH').value = map.h;
     $('hmUndo').disabled = !undo.length; $('hmRedo').disabled = !redo.length;
@@ -60,10 +66,7 @@ export function initMapEditor(api, ui) {
   el.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => { tool = b.dataset.tool; sync(); });
   el.querySelectorAll('[data-sz]').forEach(b => b.onclick = () => { size = +b.dataset.sz; sync(); });
   $('hmOpen').onclick = () => {
-    // 第一次打开：视野拉远一些、开自由移动，方便边走边画
-    if (st.mapZoom == null) { st.mapZoom = .75; $('hmZoom').value = .75; $('hmZoomV').textContent = '0.75'; }
-    if (st.tune.free === undefined && !api.TUNE.free) { api.TUNE.free = true; st.tune.free = true; }
-    save(); api.begin(4);
+    api.begin(4);   // 想边走边画时，可以把视野拉远、打开自由移动
   };
   $('hmFree').onchange = e => { api.TUNE.free = e.target.checked; st.tune.free = e.target.checked || undefined; save(); };
   const zoom0 = 1.22;
@@ -74,13 +77,13 @@ export function initMapEditor(api, ui) {
   let rebuildT = 0;
   function commit(next, msg) {
     undo.push(JSON.stringify(map)); if (undo.length > 120) undo.shift(); redo.length = 0;
-    map = normalizeMap(next); st.map = map; save(); sync();
+    map = normalizeMap(next); st.map4 = map; save(); sync();
     clearTimeout(rebuildT); rebuildT = setTimeout(() => { if (S.level === 4) api.reload(); }, 30);
     if (msg) say(msg);
   }
   function step(from, to) {
     if (!from.length) return; to.push(JSON.stringify(map));
-    map = normalizeMap(JSON.parse(from.pop())); st.map = map; save(); sync(); if (S.level === 4) api.reload();
+    map = normalizeMap(JSON.parse(from.pop())); st.map4 = map; save(); sync(); if (S.level === 4) api.reload();
   }
   $('hmUndo').onclick = () => step(undo, redo);
   $('hmRedo').onclick = () => step(redo, undo);
@@ -101,7 +104,7 @@ export function initMapEditor(api, ui) {
     const w = +$('hmW').value | 0, h = +$('hmH').value | 0;
     commit({ ...map, w, h }, `大小改成 ${w}×${h}（右边和下边增减）`);
   };
-  $('hmReset').onclick = () => commit(defaultMap(), '已恢复起始底图，可以撤销');
+  $('hmReset').onclick = () => commit(defaultMap(), '已恢复 Claude 画的底图，可以撤销');
 
   /* ---------- 存取 ---------- */
   const text = () => JSON.stringify({ ...map, rows: undefined }).replace(/}$/, ',"rows":[\n' + map.rows.map(r => JSON.stringify(r)).join(',\n') + '\n]}');

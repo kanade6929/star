@@ -10,7 +10,7 @@ import { TUNE, TUNE_DEFAULT } from './tune.js';
 import { initMapEditor } from './mapedit.js';
 
 const KEY = 'hugstudio1';
-const CH = { 1: '星', 2: '月', 3: '太阳', 4: '审判（编辑中）' };
+const CH = { 1: '星', 2: '月', 3: '太阳', 4: '审判' };
 const SLIDERS = [
   ['amb', '环境光', 0, 2.5, .01, '×'], ['moon', '月光', 0, 2.5, .01, '×'],
   ['orb', '星光亮度', 0, 2, .01, '×'], ['orbR', '星光照射距离', .3, 2, .01, '×'],
@@ -283,7 +283,7 @@ body.hsPick #c{cursor:crosshair!important}
       if (e.length) lines.push(`第 ${lv} 章颜色：` + e.join('，'));
     });
     const notes = st.notes;
-    if (st.map) lines.push('第四章底图：\n' + mui.mapText());
+    if (st.map4) lines.push('第四章底图：\n' + mui.mapText());
     if (notes.length) { lines.push('批注：'); notes.forEach((n, i) => lines.push(`${i + 1}. 第 ${n.level} 章 (${n.x}, ${n.z})：${n.text}`)); }
     lines.push(`主角位置：(${P.x.toFixed(1)}, ${P.z.toFixed(1)})，进度 ${L ? JSON.stringify(L.progress()) : '-'}`);
     lines.push('数据：' + JSON.stringify({ tune: st.tune, colors: st.colors, notes }));
@@ -356,6 +356,7 @@ body.hsPick #c{cursor:crosshair!important}
       (_.L && _.L.hedge || []).forEach((f, i) => ring(f.x, api.ORB_Y, f.z, 2.6, 'rgba(168,236,138,.45)', i ? '' : '树篱：光靠近会让开' + num(2.6)));
       ['R1', 'R2', 'R3a', 'R3b'].forEach(n => { const r = _[n]; if (r && !r.on) { dot(r.cx, 0, r.cz, ORBC); text('受光花', r.cx, 0, r.cz, ORBC); } });
     }
+    (L.zones ? L.zones() : []).forEach(z => z.kind === 'orb' ? orbRing(z.x, z.z, z.y || 0, z.r, z.label) : ring(z.x, 0, z.z, z.r, 'rgba(242,216,160,.28)', z.label + num(z.r)));
     (L.sockets || []).forEach(s => { if (s.active()) ring(s.x, api.ORB_Y, s.z - (s.y || 0) * k + api.ORB_Y * k, s.r || .5, ORBC, '光的挂点' + num(s.r || .5), ORBF); });
   }
 
