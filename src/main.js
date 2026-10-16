@@ -10,6 +10,8 @@ import { buildStar } from './level1.js';
 import { buildMoon } from './level2.js';
 import { buildSun } from './level3.js';
 import { initCursor } from './cursor.js';
+import { TUNE } from './studio/tune.js';
+import { initStudio } from './studio/studio.js';
 
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -42,6 +44,9 @@ aimCamQuat();
 
 // 手机竖着拿时，把整个游戏转 90° 横过来显示（全程横屏）
 const TOUCH = matchMedia('(pointer: coarse)').matches;
+// Hug Studio 调试模式：网址加 ?edit（只给电脑用）
+const STUDIO_ON = (/[?&]edit\b/.test(location.search) || window.__HS_EDIT) && !TOUCH;   // __HS_EDIT：编辑器预览页直接打开
+let studio = null;
 const view = { rot: false, w: innerWidth, h: innerHeight };
 function layoutView() {
   view.rot = TOUCH && innerHeight > innerWidth;
@@ -452,7 +457,7 @@ function enterFull() {
   Promise.resolve(p).then(() => { if (TOUCH && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); }).catch(() => {});
 }
 function exitFull() { if (!fsEl()) return; (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
-let fsAuto = false;
+let fsAuto = STUDIO_ON;   // 调试模式不自动全屏
 const autoFull = e => {
   if (fsAuto) return;
   if (e.type === 'keydown' && (e.key === 'Escape' || e.key === 'F11')) return;   // 按 Esc / F11 不算：免得刚想退出就被拉进全屏
@@ -725,6 +730,7 @@ function update(dt) {
     orbLight.intensity *= clamp(lum(_goldC.set(LV.light.orb)) / Math.max(lum(prismCol), .05), 1, 1.3) * 1.04;
     orbStar.setColor(prismAt(T * .5 + 1.2, glowCol, .22));
   }
+  orbLight.intensity *= TUNE.orb;
   orbGlow = fin * (intro ? .5 : S.mode === 'menu' ? .35 : 1 - near * .55);
   // 光尘拖尾：划得越快留下越多，沿路径均匀撒开
   const ov = Math.hypot(orb.x - orb.px, orb.z - orb.pz), mc = LV.light.mote;
@@ -739,7 +745,7 @@ function update(dt) {
   if (play) updatePlayer(dt, !S.cine);
   if (play && !S.cine) { LV.logic(dt); idleHints(dt); nodeHints(); }
   if (S.mode === 'cut') { S.ev += dt; if (LV.finale(dt, S.ev) && !S.endShown) { S.endShown = true; endGame(); } }
-  else { const amb = S.mode === 'menu' ? LV.light.hemi : LV.ambient(P); hemi.intensity = lerp(hemi.intensity, amb, 1 - Math.exp(-dt * 2)); moon.intensity = hemi.intensity * LV.light.moonK; }
+  else { const amb = S.mode === 'menu' ? LV.light.hemi : LV.ambient(P); hemi.intensity = lerp(hemi.intensity, amb * TUNE.amb, 1 - Math.exp(-dt * 2)); moon.intensity = hemi.intensity / Math.max(TUNE.amb, .001) * LV.light.moonK * TUNE.moon; }
 
   // 角色帧
   if (P.waveT != null) { P.waveT += dt; if (P.waveT > WAVE || !play || P.moving || P.falling || P.lie || P.reachT != null) P.waveT = null; }
@@ -1041,7 +1047,7 @@ function frameBody(now) {
   const minDt = 1000 / fpsCap(), el = now - lastDraw;
   if (el < minDt - 1.5 && !needWarm) return;
   lastDraw = el < minDt * 2 ? now - (el % minDt) : now;
-  const dt = clamp((now - last) / 1000, .001, .05); last = now;
+  const dt = clamp((now - last) / 1000, .001, .05) * TUNE.speed; last = now;
   const w0 = performance.now();
   if (S.mode !== 'paused') update(dt);
   poolLights();
@@ -1052,8 +1058,9 @@ function frameBody(now) {
   moon.shadow.needsUpdate = moonNow; if (moonNow) moonPending = false;
   pipe.shadowDirty = dirty || moonNow;
   if (needWarm && pipe.w) { warmup(); needWarm--; } // 连续两帧：第一帧时有些阴影贴图才刚创建
+  if (studio) studio.frame(dt);
   renderer.info.reset();
-  pipe.render(scene, cam, { time: T, fade: S.fade, grade: 0, focus: focusUV, dofK, flash: S.flash, vig });
+  pipe.render(scene, cam, { time: T, fade: S.fade, grade: 0, focus: focusUV, dofK: dofK * TUNE.dof, flash: S.flash, vig: vig * TUNE.vig, bloomK: TUNE.bloom });
   perfTick(now, performance.now() - w0, pipe.shadowDirty);
 }
 // 帧率统计；网址加 ?perf 显示性能面板
@@ -1127,3 +1134,5 @@ window.__G = { scene, AU, fx,
   S, P, orb, PERF, SET, applyCam, poolLights, poolStat, nodeHints, get LV() { return LV; }, get mouse() { return mouse; }, set mouse(v) { mouse.seen = false; },
   begin, toMenu, endGame, interact, setMouse, mouseWorld, keys, update, pipe, cam, loadLevel, skipIntro, nearest, warmup, render() { pipe.render(scene, cam, { time: T, fade: S.fade, focus: focusUV, dofK, flash: S.flash, vig }); }
 };
+if (STUDIO_ON) studio = initStudio({ scene, cam, pipe, P, orb, S, hemi, moon, orbLight, view, canvas, PERF, NODE_X, ORB_Y, toScreen, begin, skipIntro,
+  snapCam() { camFocus.set(P.x, 0, P.z); camVel.set(0, 0, 0); }, get LV() { return LV; }, get visK() { return VIS_K; } });
