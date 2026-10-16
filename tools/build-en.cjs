@@ -48,6 +48,9 @@ module.exports = function buildEn({ asset, urls, pianoUrl, template, document })
   for (const f of fs.readdirSync(path.join(DIR, 'fonts')).sort()) if (f.endsWith('.woff2')) {
     const name = `i18n/en/fonts/${f}`; own[name] = asset(f, fs.readFileSync(path.join(root, name)));
   }
+  for (const f of fs.readdirSync(path.join(DIR, 'img')).sort()) if (f.endsWith('.png')) {
+    const name = `i18n/en/img/${f}`; own[name] = asset(f, fs.readFileSync(path.join(root, name)));
+  }
   const abs = {};
   for (const [k, v] of Object.entries({ ...urls, ...own })) abs[k] = '/' + v;
   // 译好的源码放到 out/en-src（同步打包不能用插件），再从那里打包

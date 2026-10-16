@@ -8,11 +8,12 @@
 /* 主界面：标志在上，三个按钮横排在下 */
 .scroll{flex-direction:column;align-items:center}
 .brand{gap:calc(var(--u)*1.6)}
-.brand .sigil{width:calc(var(--u)*6.5)}
-.brand h1.enlogo{writing-mode:horizontal-tb;font-family:var(--title);font-style:italic;font-weight:500;font-size:calc(var(--u)*12.5);letter-spacing:.01em;line-height:1;padding:0 .12em}
-.rule{width:calc(var(--u)*30);height:1px;align-self:center;margin:calc(var(--u)*2.6) 0 calc(var(--u)*.6);background:linear-gradient(90deg,transparent,var(--gold-dim) 18%,var(--gold-dim) 82%,transparent)}
-#menu.intro .rule{animation:drawx 2.2s ease 1.2s both}
-@keyframes drawx{from{transform:scaleX(0);opacity:0}to{transform:scaleX(1);opacity:1}}
+.brand .sigil{display:none}
+.brand h1.enlogo{writing-mode:horizontal-tb;line-height:0;font-size:0}
+.brand h1.enlogo img{height:calc(var(--u)*19);width:auto;display:block;margin-right:calc(var(--u)*-1.5)}
+
+
+
 .vmenu{flex-direction:column;align-items:center;gap:calc(var(--u)*1.1);padding-top:calc(var(--u)*.6)}
 .vbtn{writing-mode:horizontal-tb;display:flex;flex-direction:column;align-items:center;font-size:max(17px,calc(var(--u)*3.1));letter-spacing:.04em;font-weight:500;padding:calc(var(--u)*.7) calc(var(--u)*3);white-space:nowrap}
 .vbtn::before{top:50%;left:calc(var(--u)*.6);transform:translate(-50%,-50%) rotate(45deg) scale(.3)}
@@ -78,3 +79,4 @@ body.short #endRoman,body.short #end h2,body.short #end p,body.short #end .btns{
 
 /* 开场 */
 #sp1 p{letter-spacing:.06em}
+.rule{display:none}

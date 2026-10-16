@@ -58,7 +58,7 @@
 - <p>佩戴耳机，体验更佳</p><small>HEADPHONES RECOMMENDED</small>
 + <p>Put on your headphones</p><small>FOR THE BEST EXPERIENCE</small>
 - <h1 aria-label="辰星夜"><span>辰</span><span>星</span><span>夜</span></h1>
-+ <h1 aria-label="Starli" class="enlogo"><span>Starli</span></h1>
++ <h1 aria-label="Starli" class="enlogo"><span><img src="i18n/en/img/starli-logo.png" alt="Starli" draggable="false"></span></h1>
 - <span class="lbl">踏入夜色</span>
 + <span class="lbl">Enter the Night</span>
 - <span class="lbl">章节</span>
