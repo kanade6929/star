@@ -9,6 +9,7 @@ import { FX } from './fx.js';
 import { buildStar } from './level1.js';
 import { buildMoon } from './level2.js';
 import { buildSun } from './level3.js';
+import { buildMapLevel, defaultMap } from './levelmap.js';
 import { initCursor } from './cursor.js';
 import { TUNE } from './studio/tune.js';
 import { initStudio } from './studio/studio.js';
@@ -288,7 +289,7 @@ function cine(steps) { S.cine = { steps, i: 0, t: 0, started: false }; setBars(t
 /* ================= 关卡装载 ================= */
 let LV = null, root = null;
 const ctx = { THREE, camQuat, P, orb, orbNear, S, fx, AU, toast, holdToast, cine, shake, flash, hemi, moon, renderer, pipe, get T() { return T; }, get visK() { return VIS_K; }, updateHud };
-const BUILDERS = { 1: buildStar, 2: buildMoon, 3: buildSun };
+const BUILDERS = { 1: buildStar, 2: buildMoon, 3: buildSun, 4: c => buildMapLevel(c, studio ? studio.mapData() : defaultMap()) }; // 4：编辑器里画的章节
 function loadLevel(n, keepMood) {
   if (root) disposeGroup(root);
   virt = null;
@@ -936,6 +937,7 @@ const LOAD_INFO = {
   1: { num: 'XVII', name: '星', line: '星辰正在苏醒', c: '#cfe3ff', g: 'M0-34L7.5-11.5 24-24 11.5-7.5 34 0 11.5 7.5 24 24 7.5 11.5 0 34-7.5 11.5-24 24-11.5 7.5-34 0-11.5-7.5-24-24-7.5-11.5Z M0-7A7 7 0 1 1 0 7A7 7 0 1 1 0-7' },
   2: { num: 'XVIII', name: '月', line: '月影正在升起', c: '#cdb8ff', g: 'M8-31A32 32 0 1 0 8 31A25 25 0 1 1 8-31Z M22-8L24-2 30 0 24 2 22 8 20 2 14 0 20-2Z' },
   3: { num: 'XIX', name: '太阳', line: '日轮正在燃起', c: '#ffcf7a', g: 'M0-15A15 15 0 1 1 0 15A15 15 0 1 1 0-15 M0-23V-33 M0 23V33 M-23 0H-33 M23 0H33 M16.3-16.3L23.3-23.3 M-16.3 16.3L-23.3 23.3 M16.3 16.3L23.3 23.3 M-16.3-16.3L-23.3-23.3' },
+  4: { num: 'XX', name: '编辑中', line: '新的章节正在成形', c: '#f4cf6a', g: 'M0-30L6-6 30 0 6 6 0 30-6 6-30 0-6-6Z' }
 };
 let loadDone = null;
 function showLoader(n) {
@@ -953,11 +955,12 @@ function hideLoader() {
   S.loading = false; S.fadeTo = 0; loadDone = null;
 }
 function begin(n = 1) {
-  AU.prefetch([n]);
+  const mood0 = n <= 3 ? n : 1; // 编辑中的章节先借用第一幕的曲子，进关后按画风换
+  AU.prefetch([mood0]);
   AU.init(); if (!booted) { booted = true; boot.hidden = true; } endSplash(true);
   if (S.loading) return;
   // 这一幕的曲子在黑屏加载时就淡入，场景还没建好音乐已经在了
-  AU.setMood(n);
+  AU.setMood(mood0);
   S.loading = true; S.fadeTo = 1; showLoader(n);
   const t0 = performance.now();
   setTimeout(() => {
@@ -1135,4 +1138,6 @@ window.__G = { scene, AU, fx,
   begin, toMenu, endGame, interact, setMouse, mouseWorld, keys, update, pipe, cam, loadLevel, skipIntro, nearest, warmup, render() { pipe.render(scene, cam, { time: T, fade: S.fade, focus: focusUV, dofK, flash: S.flash, vig }); }
 };
 if (STUDIO_ON) studio = initStudio({ scene, cam, pipe, P, orb, S, hemi, moon, orbLight, view, canvas, PERF, NODE_X, ORB_Y, toScreen, begin, skipIntro,
+  reload() { const p = [P.x, P.z]; loadLevel(S.level, true); LV.reset(); Object.assign(P, { x: p[0], z: p[1] }); needWarm = 2; shadowForce = 2; },
+  setView(f) { pipe.setZoom(1, f); pipe.setupCamera(cam); },
   snapCam() { camFocus.set(P.x, 0, P.z); camVel.set(0, 0, 0); }, get LV() { return LV; }, get visK() { return VIS_K; } });

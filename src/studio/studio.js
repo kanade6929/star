@@ -7,9 +7,10 @@
 // 所有标记画在单独的 2D 图层上，不进游戏渲染，也不新建任何材质。
 import * as THREE from 'three';
 import { TUNE, TUNE_DEFAULT } from './tune.js';
+import { initMapEditor } from './mapedit.js';
 
 const KEY = 'hugstudio1';
-const CH = { 1: '星', 2: '月', 3: '太阳' };
+const CH = { 1: '星', 2: '月', 3: '太阳', 4: '审判（编辑中）' };
 const SLIDERS = [
   ['amb', '环境光', 0, 2.5, .01, '×'], ['moon', '月光', 0, 2.5, .01, '×'],
   ['orb', '星光亮度', 0, 2, .01, '×'], ['orbR', '星光照射距离', .3, 2, .01, '×'],
@@ -67,6 +68,8 @@ export function initStudio(api) {
 #hs .row input[type=range]{flex:1;accent-color:#f4cf6a;min-width:0}
 #hs .row .v{width:46px;text-align:right;font-variant-numeric:tabular-nums;color:#f4cf6a}
 #hs .row .v.ch{color:#ffb38a}
+#hs select,#hs input[type=text],#hs input[type=number]{background:rgba(0,0,0,.3);color:#efe8dc;border:1px solid rgba(232,201,142,.3);border-radius:5px;padding:3px 6px;font:inherit}
+#hs .b:disabled{opacity:.4;cursor:default}
 #hs .lab{display:flex;justify-content:space-between;color:#d6d0ea}
 #hs .btns{display:flex;flex-wrap:wrap;gap:6px}
 #hs .b{padding:5px 10px;border:1px solid rgba(232,201,142,.35);border-radius:5px;background:rgba(232,201,142,.06);color:#efe8dc;font:inherit}
@@ -93,9 +96,10 @@ body.hsPick #c{cursor:crosshair!important}
   el.innerHTML = `
 <div class="hsHead"><b>Hug Studio</b><span id="hsCh">调试模式</span><button class="b" id="hsMin" title="收起 / 展开（键盘 \` 键）">收起</button></div>
 <div class="hsTabs">
-  <button data-tab="zone">判定</button><button data-tab="look">画面</button><button data-tab="play">试玩</button><button data-tab="pin">批注</button>
+  <button data-tab="map">地图</button><button data-tab="zone">判定</button><button data-tab="look">画面</button><button data-tab="play">试玩</button><button data-tab="pin">批注</button>
 </div>
 <div class="hsBody">
+  <div class="hsPane" data-pane="map"></div>
   <div class="hsPane" data-pane="zone">
     <div id="hsLayers"></div>
     <div class="tip">光的触发点画在光点的高度上：光点进到圈里就算碰到。走近互动的范围画在地上：人站进圈里才能按 E。</div>
@@ -126,6 +130,7 @@ body.hsPick #c{cursor:crosshair!important}
   <button class="b gold" id="hsCopy">复制给 Claude</button>
   <div class="tip">把调过的参数、颜色和批注整理成一段文字，贴到线程里我就照着改进游戏。</div>
   <textarea id="hsOut" hidden readonly></textarea>
+  <div class="tip" id="hsStat"></div>
   <div class="toast" id="hsToast"></div>
 </div>`;
   document.body.appendChild(el);
@@ -187,7 +192,7 @@ body.hsPick #c{cursor:crosshair!important}
   };
 
   // 试玩
-  $('hsChap').innerHTML = [1, 2, 3].map(n => `<button class="b" data-ch="${n}">${n} ${CH[n]}</button>`).join('');
+  $('hsChap').innerHTML = [1, 2, 3, 4].map(n => `<button class="b" data-ch="${n}">${n} ${CH[n]}</button>`).join('');
   $('hsChap').querySelectorAll('button').forEach(b => b.onclick = () => api.begin(+b.dataset.ch));
   $('hsSkip').onclick = () => api.skipIntro();
   $('hsFree').checked = TUNE.free;
@@ -278,6 +283,7 @@ body.hsPick #c{cursor:crosshair!important}
       if (e.length) lines.push(`第 ${lv} 章颜色：` + e.join('，'));
     });
     const notes = st.notes;
+    if (st.map) lines.push('第四章底图：\n' + mui.mapText());
     if (notes.length) { lines.push('批注：'); notes.forEach((n, i) => lines.push(`${i + 1}. 第 ${n.level} 章 (${n.x}, ${n.z})：${n.text}`)); }
     lines.push(`主角位置：(${P.x.toFixed(1)}, ${P.z.toFixed(1)})，进度 ${L ? JSON.stringify(L.progress()) : '-'}`);
     lines.push('数据：' + JSON.stringify({ tune: st.tune, colors: st.colors, notes }));
@@ -286,6 +292,12 @@ body.hsPick #c{cursor:crosshair!important}
     const fallback = () => { out.focus(); out.select(); say('已选中全部文字，按 Ctrl+C 复制'); };
     try { navigator.clipboard.writeText(text).then(() => say('已复制，去线程里粘贴给我'), fallback); } catch (e) { fallback(); }
   };
+
+  // 底图编辑器
+  api.TUNE = TUNE;
+  const mui = { el, st, save, say, pickGround, scr, g, tab: () => st.tab, status: t => { $('hsStat').textContent = t; } };
+  initMapEditor(api, mui);
+  api.mapData = () => mui.mapData();
 
   /* ---------- 每帧：画标记、套用倍率 ---------- */
   let infoT = 0;
@@ -357,7 +369,7 @@ body.hsPick #c{cursor:crosshair!important}
       api.LV.hole = function (x, z) { return !TUNE.free && ho.call(this, x, z); };
       api.LV.__hs = true;
     }
-    gridC = null; applyColors(); buildColors(); buildNodes(); buildPins();
+    gridC = null; mui.onLevelMap(); if (n === 4 && st.mapZoom) api.setView(st.mapZoom); applyColors(); buildColors(); buildNodes(); buildPins();
     $('hsCh').textContent = `调试模式 · 第 ${n} 章 ${CH[n]}`;
   };
 
@@ -372,11 +384,12 @@ body.hsPick #c{cursor:crosshair!important}
     g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, view.w, view.h); g.lineWidth = 1.5;
     const inGame = S.mode === 'play' || S.mode === 'intro' || S.mode === 'paused' || S.mode === 'cut';
     if (inGame && pipe.w) {
-      if (st.show.grid) drawGrid();
+      if (st.show.grid && !(st.tab === 'map' && S.level === 4)) drawGrid();
       if (st.show.node) (L.nodes || api.NODE_X[S.level] || []).forEach((x, i) => { line([x, 0, -1], [x, 0, L.MH + 1], 'rgba(207,227,255,.45)'); text(`区段 ${i + 1}`, x, 0, 0, 'rgba(207,227,255,.8)'); });
       if (st.show.act) L.nearest().forEach(o => ring(o.x, 0, o.z, o.r || 1.5, 'rgba(168,236,138,.85)', o.label + num(o.r || 1.5), 'rgba(168,236,138,.07)'));
       if (st.show.orb) { levelZones(); dot(orb.x, orb.y, orb.z, '#fff6dc', 3); line([orb.x, orb.y, orb.z], [orb.x, 0, orb.z], 'rgba(255,246,220,.5)'); }
       if (st.show.safe) { dot(P.safe[0], 0, P.safe[1], '#ff9ad0', 5); text('复活点', P.safe[0], 0, P.safe[1], '#ff9ad0'); }
+      if (mui.draw) mui.draw();
       if (st.show.pins) st.notes.forEach((n, i) => { if (n.level !== S.level) return; dot(n.x, 0, n.z, '#f4cf6a', 6); text('✎ ' + (st.notes.filter(m => m.level === S.level).indexOf(n) + 1) + ' ' + n.text.slice(0, 14), n.x, 0, n.z, '#f4cf6a'); });
     }
     if ((infoT -= dt) <= 0) {
